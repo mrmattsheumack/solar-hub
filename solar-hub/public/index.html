@@ -7,6 +7,7 @@
   <link rel="manifest" href="/manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <style>
     :root {
       --sun: #f5a623;
@@ -14,455 +15,136 @@
       --export: #00e5a0;
       --import: #ff4d6d;
       --battery: #4db8ff;
-      --home: #c084fc;
+      --home: #6e8efb;
       --bg: #0a0e1a;
       --bg2: #0f1525;
       --bg3: #151c30;
       --border: rgba(255,255,255,0.07);
       --text: #e8eaf0;
       --muted: #5a6478;
-      --card-glow: rgba(245, 166, 35, 0.06);
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'DM Mono', monospace;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-
-    /* Animated sky background */
+    body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; min-height: 100vh; overflow-x: hidden; }
     body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background:
-        radial-gradient(ellipse 80% 40% at 60% -10%, rgba(245,166,35,0.12) 0%, transparent 60%),
-        radial-gradient(ellipse 40% 30% at 90% 20%, rgba(255,107,0,0.07) 0%, transparent 50%);
-      pointer-events: none;
-      z-index: 0;
+      content: ''; position: fixed; inset: 0;
+      background: radial-gradient(ellipse 80% 40% at 60% -10%, rgba(245,166,35,0.10) 0%, transparent 60%),
+                  radial-gradient(ellipse 40% 30% at 90% 20%, rgba(255,107,0,0.06) 0%, transparent 50%);
+      pointer-events: none; z-index: 0;
     }
+    .app { position: relative; z-index: 1; max-width: 1280px; margin: 0 auto; padding: 20px 20px 60px; }
 
-    .app { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 24px 20px 60px; }
-
-    /* Header */
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 32px;
-      padding-bottom: 20px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .logo-icon {
-      width: 40px; height: 40px;
-      background: linear-gradient(135deg, var(--sun), var(--sun-glow));
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 20px;
-      box-shadow: 0 0 24px rgba(245,166,35,0.4);
-    }
-
-    .logo-text { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.3rem; letter-spacing: -0.02em; }
-    .logo-sub { font-size: 0.65rem; color: var(--muted); letter-spacing: 0.15em; text-transform: uppercase; margin-top: 1px; }
-
-    .header-right { display: flex; align-items: center; gap: 12px; }
-
-    .status-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: var(--muted);
-      transition: background 0.3s;
-    }
+    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon { width: 38px; height: 38px; background: linear-gradient(135deg, var(--sun), var(--sun-glow)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 0 20px rgba(245,166,35,0.35); }
+    .logo-text { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.2rem; letter-spacing: -0.02em; }
+    .logo-sub { font-size: 0.62rem; color: var(--muted); letter-spacing: 0.15em; text-transform: uppercase; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); transition: background 0.3s; }
     .status-dot.live { background: var(--export); box-shadow: 0 0 8px var(--export); animation: pulse 2s infinite; }
     .status-dot.error { background: var(--import); }
-
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-
-    .status-text { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; }
-
-    .btn {
-      padding: 7px 14px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--bg3);
-      color: var(--text);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.72rem;
-      cursor: pointer;
-      transition: all 0.2s;
-      letter-spacing: 0.05em;
-    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .status-text { font-size: 0.68rem; color: var(--muted); letter-spacing: 0.08em; }
+    .btn { padding: 6px 13px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg3); color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.7rem; cursor: pointer; transition: all 0.2s; }
     .btn:hover { border-color: var(--sun); color: var(--sun); }
-    .btn.active { background: rgba(245,166,35,0.15); border-color: var(--sun); color: var(--sun); }
 
-    /* Alert banner */
-    #alert-banner {
-      display: none;
-      margin-bottom: 20px;
-      padding: 14px 18px;
-      border-radius: 10px;
-      border-left: 3px solid;
-      font-size: 0.8rem;
-      line-height: 1.5;
-      animation: slideIn 0.3s ease;
-    }
-    #alert-banner.export-alert {
-      background: rgba(0,229,160,0.08);
-      border-color: var(--export);
-      color: var(--export);
-    }
-    #alert-banner.import-alert {
-      background: rgba(255,77,109,0.08);
-      border-color: var(--import);
-      color: var(--import);
-    }
-    @keyframes slideIn { from{transform:translateY(-10px);opacity:0} to{transform:translateY(0);opacity:1} }
+    #alert-banner { display: none; margin-bottom: 16px; padding: 12px 16px; border-radius: 10px; border-left: 3px solid; font-size: 0.78rem; line-height: 1.5; }
+    #alert-banner.export-alert { background: rgba(0,229,160,0.08); border-color: var(--export); color: var(--export); }
+    #alert-banner.import-alert { background: rgba(255,77,109,0.08); border-color: var(--import); color: var(--import); }
 
-    /* Power flow hero */
-    .power-hero {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 28px;
-      margin-bottom: 20px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .power-hero::before {
-      content: '';
-      position: absolute;
-      top: -40px; right: -40px;
-      width: 200px; height: 200px;
-      background: radial-gradient(circle, rgba(245,166,35,0.08), transparent 70%);
-      pointer-events: none;
-    }
-
-    .hero-title {
-      font-family: 'Syne', sans-serif;
-      font-size: 0.7rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 20px;
-    }
-
-    .power-flows {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-
-    @media (max-width: 700px) {
-      .power-flows { grid-template-columns: repeat(2, 1fr); }
-    }
-
-    .flow-item {
-      text-align: center;
-      padding: 16px 12px;
-      border-radius: 12px;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      transition: border-color 0.3s;
-    }
-
-    .flow-item:hover { border-color: rgba(255,255,255,0.15); }
-
-    .flow-icon { font-size: 1.4rem; margin-bottom: 8px; }
-    .flow-label { font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
-    .flow-value {
-      font-family: 'Syne', sans-serif;
-      font-size: 1.6rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      transition: color 0.3s;
-    }
-    .flow-unit { font-size: 0.65rem; color: var(--muted); margin-left: 2px; }
-
-    .flow-item.solar .flow-value { color: var(--sun); }
-    .flow-item.export .flow-value { color: var(--export); }
-    .flow-item.import .flow-value { color: var(--import); }
-    .flow-item.home .flow-value { color: var(--home); }
-    .flow-item.battery .flow-value { color: var(--battery); }
-
-    /* Energy flow diagram */
-    .flow-diagram {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0;
-      margin: 8px 0 20px;
-      position: relative;
-    }
-
-    .flow-node {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-      z-index: 1;
-    }
-
-    .node-circle {
-      width: 56px; height: 56px;
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.4rem;
-      border: 2px solid;
-      position: relative;
-    }
-
-    .node-circle.solar { border-color: var(--sun); background: rgba(245,166,35,0.1); box-shadow: 0 0 20px rgba(245,166,35,0.2); }
-    .node-circle.home { border-color: var(--home); background: rgba(192,132,252,0.1); }
-    .node-circle.grid-export { border-color: var(--export); background: rgba(0,229,160,0.1); }
-    .node-circle.grid-import { border-color: var(--import); background: rgba(255,77,109,0.1); }
-    .node-circle.battery { border-color: var(--battery); background: rgba(77,184,255,0.1); }
-
-    .node-label { font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
-
-    .flow-arrow {
-      flex: 1;
-      height: 2px;
-      max-width: 60px;
-      position: relative;
-      display: flex; align-items: center;
-    }
-
-    .flow-arrow-line {
-      width: 100%;
-      height: 2px;
-      background: var(--border);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .flow-arrow-line.active::after {
-      content: '';
-      position: absolute;
-      top: 0; left: -100%;
-      width: 60%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, currentColor, transparent);
-      animation: flowAnim 1.5s linear infinite;
-    }
-
-    .flow-arrow-line.export-flow { color: var(--export); background: rgba(0,229,160,0.3); }
-    .flow-arrow-line.import-flow { color: var(--import); background: rgba(255,77,109,0.3); }
-    .flow-arrow-line.solar-flow { color: var(--sun); background: rgba(245,166,35,0.3); }
-
-    @keyframes flowAnim { to { left: 200%; } }
-
-    /* Daily totals bar */
-    .daily-bar {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      padding-top: 20px;
-      border-top: 1px solid var(--border);
-    }
-
-    @media (max-width: 600px) { .daily-bar { grid-template-columns: repeat(2,1fr); } }
-
-    .daily-item { text-align: center; }
-    .daily-label { font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
-    .daily-value { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 600; }
-
-    /* Grid of cards */
-    .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
-    @media (max-width: 700px) { .cards { grid-template-columns: 1fr; } }
-
-    .card {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 22px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .card-title {
-      font-family: 'Syne', sans-serif;
-      font-size: 0.68rem;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 16px;
-    }
-
-    /* Weather card */
-    .weather-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    .weather-item { }
-    .weather-label { font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
-    .weather-value { font-size: 1.1rem; font-family: 'Syne', sans-serif; font-weight: 600; }
-
-    /* Irradiance bar */
-    .irr-bar-wrap { margin-top: 14px; }
-    .irr-bar-label { font-size: 0.6rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; display: flex; justify-content: space-between; }
-    .irr-bar-track { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
-    .irr-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--sun-glow), var(--sun)); transition: width 1s ease; }
-
-    /* Forecast card — full width */
-    .card.full { grid-column: 1 / -1; }
-
-    .forecast-scroll { overflow-x: auto; padding-bottom: 8px; }
-    .forecast-row {
-      display: flex;
-      gap: 10px;
-      min-width: max-content;
-    }
-
-    .forecast-hour {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 5px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      min-width: 68px;
-      transition: border-color 0.2s;
-    }
-
-    .forecast-hour:hover { border-color: rgba(255,255,255,0.15); }
-    .forecast-hour.highlight { border-color: var(--sun); background: rgba(245,166,35,0.06); }
-
-    .fh-time { font-size: 0.65rem; color: var(--muted); }
-    .fh-icon { font-size: 1.1rem; }
-    .fh-ghi {
-      font-family: 'Syne', sans-serif;
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: var(--sun);
-    }
-    .fh-cloud { font-size: 0.6rem; color: var(--muted); }
-    .fh-temp { font-size: 0.65rem; color: var(--text); }
-
-    /* GHI mini-chart */
-    .ghi-chart { width: 100%; height: 60px; margin: 12px 0 6px; }
-
-    /* Alert config card */
-    .alert-config { display: flex; flex-direction: column; gap: 12px; }
-    .alert-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .alert-desc { font-size: 0.72rem; color: var(--muted); line-height: 1.5; flex: 1; }
-
-    .toggle {
-      position: relative;
-      width: 40px; height: 22px;
-      cursor: pointer;
-      flex-shrink: 0;
-    }
-    .toggle input { opacity: 0; width: 0; height: 0; }
-    .toggle-slider {
-      position: absolute;
-      inset: 0;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 11px;
-      transition: 0.3s;
-    }
-    .toggle-slider::before {
-      content: '';
-      position: absolute;
-      width: 16px; height: 16px;
-      left: 2px; top: 2px;
-      background: var(--muted);
-      border-radius: 50%;
-      transition: 0.3s;
-    }
-    .toggle input:checked + .toggle-slider { background: rgba(0,229,160,0.2); border-color: var(--export); }
-    .toggle input:checked + .toggle-slider::before { transform: translateX(18px); background: var(--export); }
-
-    /* Notification permission btn */
-    #notif-btn {
-      width: 100%;
-      padding: 10px;
-      margin-top: 4px;
-      border-radius: 8px;
-      background: rgba(245,166,35,0.1);
-      border: 1px solid rgba(245,166,35,0.3);
-      color: var(--sun);
-      font-family: 'DM Mono', monospace;
-      font-size: 0.75rem;
-      cursor: pointer;
-      transition: all 0.2s;
-      letter-spacing: 0.05em;
-    }
-    #notif-btn:hover { background: rgba(245,166,35,0.2); }
-    #notif-btn:disabled { opacity: 0.5; cursor: default; }
-
-    /* 7-day daily forecast */
-    .daily-forecast { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 16px; }
-    @media (max-width: 700px) { .daily-forecast { grid-template-columns: repeat(4, 1fr); } }
-
-    .daily-fc-item {
-      text-align: center;
-      padding: 10px 6px;
-      border-radius: 10px;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-    }
-
-    .dfi-day { font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
-    .dfi-icon { font-size: 1.2rem; margin-bottom: 4px; }
-    .dfi-uv { font-size: 0.65rem; color: var(--sun); }
-    .dfi-rain { font-size: 0.6rem; color: var(--battery); margin-top: 2px; }
-
-    /* Update ticker */
-    .update-ticker {
-      text-align: center;
-      font-size: 0.62rem;
-      color: var(--muted);
-      margin-top: 20px;
-      letter-spacing: 0.08em;
-    }
-
-    /* Loading state */
-    .skeleton {
-      background: linear-gradient(90deg, var(--bg3) 25%, var(--bg2) 50%, var(--bg3) 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.5s infinite;
-      border-radius: 4px;
-      display: inline-block;
-    }
-    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-
-    /* Battery SOC ring */
-    .soc-wrap { display: flex; align-items: center; gap: 14px; margin-top: 8px; }
-    .soc-ring { position: relative; width: 64px; height: 64px; flex-shrink: 0; }
-    .soc-ring svg { transform: rotate(-90deg); }
-    .soc-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-size: 0.9rem; font-weight: 700; color: var(--battery); }
-    .soc-info { }
-    .soc-info .flow-label { margin-bottom: 4px; }
-    .soc-power { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 600; color: var(--battery); }
-    .soc-direction { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
-
-    /* Error state */
-    .error-msg { color: var(--import); font-size: 0.75rem; padding: 8px; }
-
-    /* Tabs */
-    .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
-    .tab { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; }
+    .tabs { display: flex; gap: 6px; margin-bottom: 18px; }
+    .tab { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.7rem; cursor: pointer; transition: all 0.2s; }
     .tab.active { background: var(--bg2); border-color: rgba(245,166,35,0.4); color: var(--sun); }
-
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
+
+    .stat-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 14px; }
+    @media(max-width:700px){ .stat-row { grid-template-columns: repeat(2,1fr); } }
+    .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; position: relative; overflow: hidden; }
+    .stat-card::after { content:''; position:absolute; top:-24px; right:-24px; width:90px; height:90px; border-radius:50%; opacity:0.07; }
+    .stat-card.solar::after { background: var(--sun); }
+    .stat-card.export::after { background: var(--export); }
+    .stat-card.import-card::after { background: var(--import); }
+    .stat-card.home::after { background: var(--home); }
+    .stat-icon { font-size: 1.1rem; margin-bottom: 8px; }
+    .stat-label { font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+    .stat-value { font-family: 'Syne', sans-serif; font-size: 1.7rem; font-weight: 700; letter-spacing: -0.02em; }
+    .stat-unit { font-size: 0.68rem; color: var(--muted); margin-left: 2px; font-family:'DM Mono',monospace; font-weight:400; }
+    .stat-card.solar .stat-value { color: var(--sun); }
+    .stat-card.export .stat-value { color: var(--export); }
+    .stat-card.import-card .stat-value { color: var(--import); }
+    .stat-card.home .stat-value { color: var(--home); }
+
+    .daily-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 14px; }
+    @media(max-width:700px){ .daily-row { grid-template-columns: repeat(2,1fr); } }
+    .daily-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+    .daily-label { font-size: 0.58rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+    .daily-value { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 600; }
+
+    .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 14px; }
+    .card-title { font-family: 'Syne', sans-serif; font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    @media(max-width:700px){ .two-col { grid-template-columns: 1fr; } }
+
+    .chart-wrap { position: relative; width: 100%; }
+
+    .legend { display: flex; gap: 14px; margin-bottom: 10px; flex-wrap: wrap; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.61rem; color: var(--muted); }
+    .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+    .weather-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .w-label { font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+    .w-val { font-family: 'Syne', sans-serif; font-size: 1.05rem; font-weight: 600; }
+    .irr-wrap { margin-top: 12px; }
+    .irr-label { font-size: 0.58rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 5px; display:flex; justify-content:space-between; }
+    .irr-track { height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+    .irr-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg,var(--sun-glow),var(--sun)); transition: width 1s ease; }
+
+    .soc-wrap { display: flex; align-items: center; gap: 14px; }
+    .soc-ring { position: relative; width: 60px; height: 60px; flex-shrink: 0; }
+    .soc-ring svg { transform: rotate(-90deg); }
+    .soc-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'Syne',sans-serif; font-size: 0.85rem; font-weight: 700; color: var(--battery); }
+    .soc-power { font-family: 'Syne',sans-serif; font-size: 1.05rem; font-weight: 600; color: var(--battery); }
+    .soc-dir { font-size: 0.62rem; color: var(--muted); margin-top: 2px; }
+
+    .forecast-scroll { overflow-x: auto; padding-bottom: 6px; margin-top: 12px; }
+    .forecast-row { display: flex; gap: 8px; min-width: max-content; }
+    .fh { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px; border-radius: 10px; background: var(--bg3); border: 1px solid var(--border); min-width: 62px; }
+    .fh.now { border-color: var(--sun); background: rgba(245,166,35,0.07); }
+    .fh.night { opacity: 0.45; }
+    .fh-time { font-size: 0.62rem; color: var(--muted); }
+    .fh-icon { font-size: 1.05rem; }
+    .fh-ghi { font-family: 'Syne',sans-serif; font-size: 0.8rem; font-weight: 700; color: var(--sun); }
+    .fh-cloud { font-size: 0.58rem; color: var(--muted); }
+    .fh-temp { font-size: 0.62rem; }
+
+    .daily-fc { display: grid; grid-template-columns: repeat(7,1fr); gap: 8px; margin-top: 14px; }
+    @media(max-width:700px){ .daily-fc { grid-template-columns: repeat(4,1fr); } }
+    .dfi { text-align: center; padding: 12px 6px; border-radius: 10px; background: var(--bg3); border: 1px solid var(--border); cursor: pointer; transition: all 0.2s; }
+    .dfi:hover,.dfi.selected { border-color: var(--sun); background: rgba(245,166,35,0.07); }
+    .dfi-day { font-size: 0.58rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+    .dfi-icon { font-size: 1.15rem; margin-bottom: 3px; }
+    .dfi-uv { font-size: 0.62rem; color: var(--sun); }
+    .dfi-solar { font-size: 0.6rem; color: var(--export); margin-top: 2px; }
+    .dfi-rain { font-size: 0.58rem; color: var(--battery); margin-top: 1px; }
+
+    #day-detail { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+    #day-detail-title { font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+
+    .alert-config { display: flex; flex-direction: column; gap: 14px; }
+    .alert-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .alert-desc { font-size: 0.72rem; color: var(--muted); line-height: 1.5; flex: 1; }
+    .toggle { position: relative; width: 38px; height: 21px; cursor: pointer; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; inset: 0; background: var(--bg3); border: 1px solid var(--border); border-radius: 11px; transition: 0.3s; }
+    .toggle-slider::before { content:''; position:absolute; width:15px; height:15px; left:2px; top:2px; background:var(--muted); border-radius:50%; transition:0.3s; }
+    .toggle input:checked + .toggle-slider { background: rgba(0,229,160,0.15); border-color: var(--export); }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(17px); background: var(--export); }
+    #notif-btn { width:100%; padding:9px; margin-top:4px; border-radius:8px; background:rgba(245,166,35,0.08); border:1px solid rgba(245,166,35,0.25); color:var(--sun); font-family:'DM Mono',monospace; font-size:0.72rem; cursor:pointer; transition:all 0.2s; }
+    #notif-btn:hover { background: rgba(245,166,35,0.15); }
+    #notif-btn:disabled { opacity:0.5; cursor:default; }
+    .log-entry { padding:8px 0; border-bottom:1px solid var(--border); display:flex; gap:10px; align-items:flex-start; }
+
+    .update-ticker { text-align:center; font-size:0.6rem; color:var(--muted); margin-top:20px; letter-spacing:0.08em; }
   </style>
 </head>
 <body>
@@ -479,607 +161,543 @@
     <div class="header-right">
       <div class="status-dot" id="status-dot"></div>
       <span class="status-text" id="status-text">Connecting…</span>
-      <button class="btn" id="refresh-btn" onclick="refreshAll()">↻ Refresh</button>
+      <button class="btn" onclick="refreshAll()">↻ Refresh</button>
     </div>
   </header>
 
   <div id="alert-banner"></div>
 
-  <!-- Tabs -->
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('live')">⚡ Live</button>
-    <button class="tab" onclick="switchTab('forecast')">☁️ Forecast</button>
-    <button class="tab" onclick="switchTab('alerts')">🔔 Alerts</button>
+    <button class="tab active" onclick="switchTab('live',this)">⚡ Live</button>
+    <button class="tab" onclick="switchTab('forecast',this)">☁️ Forecast</button>
+    <button class="tab" onclick="switchTab('alerts',this)">🔔 Alerts</button>
   </div>
 
-  <!-- LIVE TAB -->
+  <!-- ═══ LIVE ═══ -->
   <div class="tab-panel active" id="tab-live">
 
-    <!-- Power flow hero -->
-    <div class="power-hero">
-      <div class="hero-title">Real-time power flows</div>
-
-      <div class="power-flows">
-        <div class="flow-item solar">
-          <div class="flow-icon">☀️</div>
-          <div class="flow-label">Generating</div>
-          <div class="flow-value" id="pv-power">—<span class="flow-unit">W</span></div>
-        </div>
-        <div class="flow-item export">
-          <div class="flow-icon">⬆️</div>
-          <div class="flow-label">Exporting</div>
-          <div class="flow-value" id="export-power">—<span class="flow-unit">W</span></div>
-        </div>
-        <div class="flow-item import">
-          <div class="flow-icon">⬇️</div>
-          <div class="flow-label">Importing</div>
-          <div class="flow-value" id="import-power">—<span class="flow-unit">W</span></div>
-        </div>
-        <div class="flow-item home">
-          <div class="flow-icon">🏠</div>
-          <div class="flow-label">Consuming</div>
-          <div class="flow-value" id="home-power">—<span class="flow-unit">W</span></div>
-        </div>
+    <div class="stat-row">
+      <div class="stat-card solar">
+        <div class="stat-icon">☀️</div>
+        <div class="stat-label">Generating</div>
+        <div class="stat-value" id="pv-power">0<span class="stat-unit">W</span></div>
       </div>
-
-      <!-- Daily totals -->
-      <div class="daily-bar">
-        <div class="daily-item">
-          <div class="daily-label">Generated today</div>
-          <div class="daily-value" id="daily-gen" style="color:var(--sun)">— kWh</div>
-        </div>
-        <div class="daily-item">
-          <div class="daily-label">Exported today</div>
-          <div class="daily-value" id="daily-export" style="color:var(--export)">— kWh</div>
-        </div>
-        <div class="daily-item">
-          <div class="daily-label">Imported today</div>
-          <div class="daily-value" id="daily-import" style="color:var(--import)">— kWh</div>
-        </div>
-        <div class="daily-item">
-          <div class="daily-label">Consumed today</div>
-          <div class="daily-value" id="daily-home" style="color:var(--home)">— kWh</div>
-        </div>
+      <div class="stat-card export">
+        <div class="stat-icon">⬆️</div>
+        <div class="stat-label">Exporting</div>
+        <div class="stat-value" id="export-power">0<span class="stat-unit">W</span></div>
+      </div>
+      <div class="stat-card import-card">
+        <div class="stat-icon">⬇️</div>
+        <div class="stat-label">Importing</div>
+        <div class="stat-value" id="import-power">0<span class="stat-unit">W</span></div>
+      </div>
+      <div class="stat-card home">
+        <div class="stat-icon">🏠</div>
+        <div class="stat-label">Consuming</div>
+        <div class="stat-value" id="home-power">0<span class="stat-unit">W</span></div>
       </div>
     </div>
 
-    <!-- Weather + Battery row -->
-    <div class="cards">
-      <div class="card">
+    <div class="daily-row">
+      <div class="daily-card">
+        <div class="daily-label">Generated today</div>
+        <div class="daily-value" id="daily-gen" style="color:var(--sun)">— kWh</div>
+      </div>
+      <div class="daily-card">
+        <div class="daily-label">Exported today</div>
+        <div class="daily-value" id="daily-export" style="color:var(--export)">— kWh</div>
+      </div>
+      <div class="daily-card">
+        <div class="daily-label">Imported today</div>
+        <div class="daily-value" id="daily-import" style="color:var(--import)">— kWh</div>
+      </div>
+      <div class="daily-card">
+        <div class="daily-label">Consumed today</div>
+        <div class="daily-value" id="daily-home" style="color:var(--home)">— kWh</div>
+      </div>
+    </div>
+
+    <!-- Hourly bar chart -->
+    <div class="card">
+      <div class="card-title">Hourly energy — today</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--home)"></div>Total usage</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--import)"></div>Purchased from grid</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--export)"></div>Exported to grid</div>
+      </div>
+      <div class="chart-wrap" style="height:200px"><canvas id="hourly-bar-chart"></canvas></div>
+    </div>
+
+    <!-- Day line chart -->
+    <div class="card">
+      <div class="card-title">Power throughout the day</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--home)"></div>Consumption</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--import)"></div>Grid import</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--export)"></div>Grid export</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--sun);opacity:0.6"></div>Forecast solar</div>
+      </div>
+      <div class="chart-wrap" style="height:220px"><canvas id="day-line-chart"></canvas></div>
+    </div>
+
+    <!-- Weather + Battery -->
+    <div class="two-col">
+      <div class="card" style="margin-bottom:0">
         <div class="card-title">Weather Station</div>
         <div class="weather-grid">
-          <div class="weather-item">
-            <div class="weather-label">Temperature</div>
-            <div class="weather-value" id="w-temp">—</div>
-          </div>
-          <div class="weather-item">
-            <div class="weather-label">Humidity</div>
-            <div class="weather-value" id="w-humid">—</div>
-          </div>
-          <div class="weather-item">
-            <div class="weather-label">Wind</div>
-            <div class="weather-value" id="w-wind">—</div>
-          </div>
-          <div class="weather-item">
-            <div class="weather-label">Rain today</div>
-            <div class="weather-value" id="w-rain">—</div>
-          </div>
+          <div><div class="w-label">Temperature</div><div class="w-val" id="w-temp">—</div></div>
+          <div><div class="w-label">Humidity</div><div class="w-val" id="w-humid">—</div></div>
+          <div><div class="w-label">Wind</div><div class="w-val" id="w-wind">—</div></div>
+          <div><div class="w-label">Rain today</div><div class="w-val" id="w-rain">—</div></div>
         </div>
-        <div class="irr-bar-wrap">
-          <div class="irr-bar-label">
-            <span>Solar Irradiance</span>
-            <span id="w-irr-val">— W/m²</span>
-          </div>
-          <div class="irr-bar-track">
-            <div class="irr-bar-fill" id="w-irr-bar" style="width:0%"></div>
-          </div>
+        <div class="irr-wrap">
+          <div class="irr-label"><span>Solar Irradiance</span><span id="w-irr-val">— W/m²</span></div>
+          <div class="irr-track"><div class="irr-fill" id="w-irr-bar" style="width:0%"></div></div>
         </div>
       </div>
-
-      <div class="card">
+      <div class="card" style="margin-bottom:0">
         <div class="card-title">Battery</div>
         <div class="soc-wrap" id="battery-section">
           <div class="soc-ring">
-            <svg width="64" height="64" viewBox="0 0 64 64">
-              <circle cx="32" cy="32" r="26" fill="none" stroke="var(--bg3)" stroke-width="6"/>
-              <circle cx="32" cy="32" r="26" fill="none" stroke="var(--battery)" stroke-width="6"
-                stroke-dasharray="163.4" stroke-dashoffset="163.4"
-                id="soc-circle" stroke-linecap="round"
-                style="transition: stroke-dashoffset 1s ease;"/>
+            <svg width="60" height="60" viewBox="0 0 60 60">
+              <circle cx="30" cy="30" r="24" fill="none" stroke="var(--bg3)" stroke-width="5"/>
+              <circle cx="30" cy="30" r="24" fill="none" stroke="var(--battery)" stroke-width="5"
+                stroke-dasharray="150.8" stroke-dashoffset="150.8" id="soc-circle" stroke-linecap="round"
+                style="transition:stroke-dashoffset 1s ease;"/>
             </svg>
             <div class="soc-text" id="soc-pct">—</div>
           </div>
-          <div class="soc-info">
-            <div class="flow-label">State of Charge</div>
+          <div>
+            <div class="w-label">State of Charge</div>
             <div class="soc-power" id="bat-power">— W</div>
-            <div class="soc-direction" id="bat-direction">—</div>
+            <div class="soc-dir" id="bat-dir">—</div>
           </div>
         </div>
-        <div id="no-battery" style="display:none; color:var(--muted); font-size:0.75rem; margin-top:8px;">
-          No battery detected on this inverter
-        </div>
+        <div id="no-battery" style="display:none;color:var(--muted);font-size:0.73rem;margin-top:8px;">No battery detected on this inverter</div>
       </div>
     </div>
 
-  </div><!-- /tab-live -->
+  </div><!-- /live -->
 
-  <!-- FORECAST TAB -->
+  <!-- ═══ FORECAST ═══ -->
   <div class="tab-panel" id="tab-forecast">
-    <div class="card full" style="margin-bottom:16px;">
+    <div class="card">
       <div class="card-title">Today's solar forecast — hourly GHI (W/m²)</div>
-      <canvas class="ghi-chart" id="ghi-canvas"></canvas>
+      <div class="chart-wrap" style="height:160px"><canvas id="ghi-chart"></canvas></div>
       <div class="forecast-scroll">
         <div class="forecast-row" id="forecast-row"></div>
       </div>
     </div>
-    <div class="card full">
-      <div class="card-title">7-day outlook</div>
-      <div class="daily-forecast" id="daily-forecast"></div>
+    <div class="card">
+      <div class="card-title">7-day outlook — click any day for hourly detail</div>
+      <div class="daily-fc" id="daily-fc"></div>
+      <div id="day-detail">
+        <div id="day-detail-title"></div>
+        <div class="legend" style="margin-top:10px">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--sun)"></div>Predicted solar output</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--home);opacity:0.6"></div>Est. consumption (baseline)</div>
+        </div>
+        <div class="chart-wrap" style="height:200px"><canvas id="day-detail-chart"></canvas></div>
+      </div>
     </div>
   </div>
 
-  <!-- ALERTS TAB -->
+  <!-- ═══ ALERTS ═══ -->
   <div class="tab-panel" id="tab-alerts">
-    <div class="card full">
+    <div class="card">
       <div class="card-title">Alert Configuration</div>
       <div class="alert-config">
-
         <div class="alert-row">
-          <div class="alert-desc">
-            <strong style="color:var(--export)">☀️ Solar excess alert</strong><br/>
-            Notify when exporting &gt;3 kW to grid for 10+ consecutive minutes
-          </div>
-          <label class="toggle">
-            <input type="checkbox" id="toggle-export" checked onchange="saveAlertConfig()"/>
-            <span class="toggle-slider"></span>
-          </label>
+          <div class="alert-desc"><strong style="color:var(--export)">☀️ Solar excess alert</strong><br/>Notify when exporting &gt;3kW for 10+ consecutive minutes</div>
+          <label class="toggle"><input type="checkbox" id="toggle-export" checked onchange="saveAlertConfig()"/><span class="toggle-slider"></span></label>
         </div>
-
         <div class="alert-row">
-          <div class="alert-desc">
-            <strong style="color:var(--import)">🔴 Grid import alert</strong><br/>
-            Notify when importing &gt;3 kW from grid for 10+ minutes (sunrise+1h → sunset-1h)
-          </div>
-          <label class="toggle">
-            <input type="checkbox" id="toggle-import" checked onchange="saveAlertConfig()"/>
-            <span class="toggle-slider"></span>
-          </label>
+          <div class="alert-desc"><strong style="color:var(--import)">🔴 Grid import alert</strong><br/>Notify when importing &gt;3kW during daylight hours for 10+ minutes</div>
+          <label class="toggle"><input type="checkbox" id="toggle-import" checked onchange="saveAlertConfig()"/><span class="toggle-slider"></span></label>
         </div>
-
         <div class="alert-row">
-          <div class="alert-desc">
-            <strong style="color:var(--text)">🔔 Browser push notifications</strong><br/>
-            Allow this site to send notifications when alerts trigger
-          </div>
+          <div class="alert-desc"><strong style="color:var(--text)">🔔 Browser push notifications</strong><br/>Allow this site to send notifications when alerts trigger</div>
           <button id="notif-btn" onclick="requestNotifPermission()">Enable Notifications</button>
         </div>
-
-        <div style="padding-top:12px; border-top:1px solid var(--border); font-size:0.7rem; color:var(--muted); line-height:1.6;">
-          Alert thresholds: <strong style="color:var(--text)">3 kW</strong> sustained for <strong style="color:var(--text)">10 minutes</strong>.<br/>
-          Data refreshes every <strong style="color:var(--text)">60 seconds</strong> automatically.<br/>
-          Alert cooldown: <strong style="color:var(--text)">30 minutes</strong> between repeated alerts of the same type.
+        <div style="padding-top:12px;border-top:1px solid var(--border);font-size:0.68rem;color:var(--muted);line-height:1.7;">
+          Threshold: <strong style="color:var(--text)">3 kW</strong> sustained for <strong style="color:var(--text)">10 min</strong> · Refresh: <strong style="color:var(--text)">60s</strong> · Cooldown: <strong style="color:var(--text)">30 min</strong>
         </div>
-
       </div>
     </div>
-
-    <div class="card full" style="margin-top:16px;">
+    <div class="card">
       <div class="card-title">Alert Log</div>
-      <div id="alert-log" style="font-size:0.72rem; color:var(--muted); line-height:1.8;">
-        No alerts fired yet this session.
-      </div>
+      <div id="alert-log" style="color:var(--muted);font-size:0.72rem;">No alerts fired yet this session.</div>
     </div>
   </div>
 
   <div class="update-ticker" id="update-ticker">Last updated: —</div>
-
-</div><!-- /app -->
+</div>
 
 <script>
-// ─── Config ───────────────────────────────────────────────────────────────────
-const ALERT_THRESHOLD_W = 3000;   // 3 kW
-const ALERT_DURATION_MS = 10 * 60 * 1000;  // 10 minutes
-const ALERT_COOLDOWN_MS = 30 * 60 * 1000;  // 30 min cooldown between alerts
-const REFRESH_INTERVAL_MS = 60 * 1000;     // poll every 60s
+const ALERT_THRESHOLD_W = 3000;
+const ALERT_DURATION_MS = 10 * 60 * 1000;
+const ALERT_COOLDOWN_MS = 30 * 60 * 1000;
+const REFRESH_MS = 60 * 1000;
+// Approx panel system: 6.6kW system, ~37m² array area, 18% efficiency
+const PANEL_M2 = 37, PANEL_EFF = 0.18;
 
-// ─── State ───────────────────────────────────────────────────────────────────
-let exportAlertStart = null;
-let importAlertStart = null;
-let lastExportAlertFired = 0;
-let lastImportAlertFired = 0;
-let alertLog = [];
-let semsData = null;
-let ecowittData = null;
-let forecastData = null;
-let refreshTimer = null;
-let currentTab = 'live';
+Chart.defaults.color = '#5a6478';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+Chart.defaults.font.family = "'DM Mono', monospace";
+Chart.defaults.font.size = 10;
 
-// ─── Tabs ─────────────────────────────────────────────────────────────────────
-function switchTab(tab) {
-  currentTab = tab;
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('tab-' + tab).classList.add('active');
-  event.target.classList.add('active');
-  if (tab === 'forecast' && forecastData) renderForecast(forecastData);
+let semsData=null, ecowittData=null, forecastData=null;
+let exportAlertStart=null, importAlertStart=null;
+let lastExportAlert=0, lastImportAlert=0;
+let alertLog=[];
+let hourlyBarChart=null, dayLineChart=null, ghiChart=null, dayDetailChart=null;
+let hourlyHistory={};
+let selectedDayEl=null;
+
+// ── Tabs ──
+function switchTab(tab, el) {
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  el.classList.add('active');
+  if (tab==='forecast' && forecastData) renderForecast(forecastData);
 }
 
-// ─── Fetch helpers ───────────────────────────────────────────────────────────
-async function fetchSems() {
-  const res = await fetch('/.netlify/functions/sems');
-  if (!res.ok) throw new Error(`SEMS ${res.status}`);
-  return res.json();
-}
+// ── Fetch ──
+async function fetchSems()     { const r=await fetch('/.netlify/functions/sems');     if(!r.ok) throw new Error('SEMS '+r.status);    return r.json(); }
+async function fetchEcowitt()  { const r=await fetch('/.netlify/functions/ecowitt');  if(!r.ok) throw new Error('Eco '+r.status);     return r.json(); }
+async function fetchForecast() { const r=await fetch('/.netlify/functions/forecast'); if(!r.ok) throw new Error('FC '+r.status);      return r.json(); }
 
-async function fetchEcowitt() {
-  const res = await fetch('/.netlify/functions/ecowitt');
-  if (!res.ok) throw new Error(`Ecowitt ${res.status}`);
-  return res.json();
-}
-
-async function fetchForecast() {
-  const res = await fetch('/.netlify/functions/forecast');
-  if (!res.ok) throw new Error(`Forecast ${res.status}`);
-  return res.json();
-}
-
-// ─── Main refresh ────────────────────────────────────────────────────────────
+// ── Main ──
 async function refreshAll() {
   setStatus('loading');
-  try {
-    const [sems, ecowitt, forecast] = await Promise.allSettled([
-      fetchSems(), fetchEcowitt(), fetchForecast()
-    ]);
+  const [sems,eco,fc] = await Promise.allSettled([fetchSems(),fetchEcowitt(),fetchForecast()]);
 
-    if (sems.status === 'fulfilled') {
-      semsData = sems.value;
-      renderSems(semsData);
-    } else {
-      console.error('SEMS error:', sems.reason);
-    }
+  if (sems.status==='fulfilled') { semsData=sems.value; renderStats(semsData); recordHistory(semsData); }
+  else console.error('SEMS:',sems.reason);
 
-    if (ecowitt.status === 'fulfilled') {
-      ecowittData = ecowitt.value;
-      renderEcowitt(ecowittData);
-    } else {
-      console.error('Ecowitt error:', ecowitt.reason);
-    }
+  if (eco.status==='fulfilled') { ecowittData=eco.value; renderWeather(ecowittData); }
+  else console.error('Ecowitt:',eco.reason);
 
-    if (forecast.status === 'fulfilled') {
-      forecastData = forecast.value;
-      if (currentTab === 'forecast') renderForecast(forecastData);
-    }
+  if (fc.status==='fulfilled') { forecastData=fc.value; }
+  else console.error('FC:',fc.reason);
 
-    checkAlerts(semsData, forecastData);
-    setStatus('live');
-    document.getElementById('update-ticker').textContent =
-      'Last updated: ' + new Date().toLocaleTimeString('en-AU', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  renderHourlyBarChart();
+  renderDayLineChart();
+  const activeTab = document.querySelector('.tab-panel.active')?.id;
+  if (activeTab==='tab-forecast' && forecastData) renderForecast(forecastData);
 
-  } catch(e) {
-    setStatus('error');
-    console.error(e);
+  checkAlerts(semsData, forecastData);
+  setStatus(sems.status==='fulfilled' ? 'live' : 'error');
+  document.getElementById('update-ticker').textContent =
+    'Last updated: ' + new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+// ── History ──
+function recordHistory(d) {
+  if (!d) return;
+  const key = new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:false});
+  hourlyHistory[key] = {
+    consumption: d.homePower   || 0,
+    gridImport:  d.importPower || 0,
+    gridExport:  d.exportPower || 0,
+    solar:       d.pvPower     || 0,
+  };
+}
+
+// ── Stats ──
+function renderStats(d) {
+  setVal('pv-power',     fmtW(d.pvPower)    +'<span class="stat-unit">W</span>');
+  setVal('export-power', fmtW(d.exportPower) +'<span class="stat-unit">W</span>');
+  setVal('import-power', fmtW(d.importPower) +'<span class="stat-unit">W</span>');
+  setVal('home-power',   fmtW(d.homePower)   +'<span class="stat-unit">W</span>');
+  setVal('daily-gen',    fmtKwh(d.dailyGeneration) +' kWh');
+  setVal('daily-export', fmtKwh(d.dailyExport)     +' kWh');
+  setVal('daily-import', fmtKwh(d.dailyImport)     +' kWh');
+  setVal('daily-home',   fmtKwh(d.dailyConsumption)+' kWh');
+
+  const soc=d.batterySoc||0, bat=d.batteryPower||0;
+  const hasBat = soc>0||bat!==0;
+  document.getElementById('battery-section').style.display = hasBat?'flex':'none';
+  document.getElementById('no-battery').style.display = hasBat?'none':'block';
+  if (hasBat) {
+    document.getElementById('soc-pct').textContent = soc+'%';
+    document.getElementById('soc-circle').style.strokeDashoffset = 150.8*(1-soc/100);
+    setVal('bat-power', Math.abs(bat)+' W');
+    document.getElementById('bat-dir').textContent = bat>0?'⬆ Charging':bat<0?'⬇ Discharging':'Idle';
   }
 }
 
-// ─── Render SEMS ─────────────────────────────────────────────────────────────
-function renderSems(d) {
-  setText('pv-power', fmt(d.pvPower) + '<span class="flow-unit">W</span>');
-  setText('export-power', fmt(d.exportPower) + '<span class="flow-unit">W</span>');
-  setText('import-power', fmt(d.importPower) + '<span class="flow-unit">W</span>');
-  setText('home-power', fmt(d.homePower) + '<span class="flow-unit">W</span>');
+// ── Hourly bar chart ──
+function renderHourlyBarChart() {
+  const labels = Object.keys(hourlyHistory).sort();
+  if (!labels.length) return;
+  const ctx = document.getElementById('hourly-bar-chart').getContext('2d');
+  if (hourlyBarChart) hourlyBarChart.destroy();
+  hourlyBarChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label:'Total usage',         data:labels.map(k=>Math.round(hourlyHistory[k].consumption)), backgroundColor:'rgba(110,142,251,0.75)', borderRadius:3 },
+        { label:'Purchased from grid', data:labels.map(k=>Math.round(hourlyHistory[k].gridImport)),  backgroundColor:'rgba(255,77,109,0.75)',  borderRadius:3 },
+        { label:'Exported to grid',    data:labels.map(k=>Math.round(hourlyHistory[k].gridExport)),  backgroundColor:'rgba(0,229,160,0.75)',   borderRadius:3 },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.raw+'W'}} },
+      scales:{
+        x:{ grid:{display:false}, ticks:{maxRotation:0} },
+        y:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{callback:v=>v+'W'} }
+      }
+    }
+  });
+}
 
-  setText('daily-gen', (d.dailyGeneration || 0).toFixed(1) + ' kWh');
-  setText('daily-export', (d.dailyExport || 0).toFixed(1) + ' kWh');
-  setText('daily-import', (d.dailyImport || 0).toFixed(1) + ' kWh');
-  setText('daily-home', (d.dailyConsumption || 0).toFixed(1) + ' kWh');
+// ── Day line chart ──
+function renderDayLineChart() {
+  const ctx = document.getElementById('day-line-chart').getContext('2d');
+  const histLabels = Object.keys(hourlyHistory).sort();
 
-  // Battery
-  const soc = d.batterySoc || 0;
-  const batPower = d.batteryPower || 0;
-  if (soc > 0 || batPower !== 0) {
-    document.getElementById('battery-section').style.display = 'flex';
-    document.getElementById('no-battery').style.display = 'none';
-    document.getElementById('soc-pct').textContent = soc + '%';
-    // SVG dash offset: circumference = 2π×26 ≈ 163.4
-    const offset = 163.4 * (1 - soc / 100);
-    document.getElementById('soc-circle').style.strokeDashoffset = offset;
-    setText('bat-power', Math.abs(batPower) + ' W');
-    document.getElementById('bat-direction').textContent =
-      batPower > 0 ? '⬆ Charging' : batPower < 0 ? '⬇ Discharging' : 'Idle';
-  } else {
-    document.getElementById('battery-section').style.display = 'none';
-    document.getElementById('no-battery').style.display = 'block';
+  // Future forecast solar
+  let fcLabels=[], fcSolar=[];
+  if (forecastData) {
+    const now=new Date(), todayStr=now.toISOString().slice(0,10);
+    const future = forecastData.hourly.filter(h=>{
+      const hDate=h.time.slice(0,10), hHr=parseInt(h.time.slice(11,13));
+      return hDate===todayStr && hHr>=now.getHours();
+    });
+    fcLabels = future.map(h=>h.time.slice(11,16));
+    fcSolar  = future.map(h=>Math.round(h.ghi*PANEL_EFF*PANEL_M2));
   }
+
+  const allLabels = [...new Set([...histLabels,...fcLabels])].sort();
+
+  const mkDs = (knownLabels,vals,color,label,dashed=false) => ({
+    label, fill:false, tension:0.4, borderWidth:dashed?1.5:2,
+    borderDash:dashed?[5,4]:[], pointRadius:2, spanGaps:false,
+    borderColor:color,
+    backgroundColor:color.replace('rgb(','rgba(').replace(')',',0.07)'),
+    data: allLabels.map(l=>{ const i=knownLabels.indexOf(l); return i>=0?vals[i]:null; })
+  });
+
+  const datasets = [
+    mkDs(histLabels, histLabels.map(k=>hourlyHistory[k].consumption), 'rgb(110,142,251)', 'Consumption'),
+    mkDs(histLabels, histLabels.map(k=>hourlyHistory[k].gridImport),  'rgb(255,77,109)',   'Grid import'),
+    mkDs(histLabels, histLabels.map(k=>hourlyHistory[k].gridExport),  'rgb(0,229,160)',    'Grid export'),
+    mkDs(fcLabels,   fcSolar,                                          'rgb(245,166,35)',   'Forecast solar', true),
+  ];
+
+  if (dayLineChart) dayLineChart.destroy();
+  dayLineChart = new Chart(ctx, {
+    type:'line', data:{labels:allLabels, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{mode:'index',intersect:false, callbacks:{label:c=>c.dataset.label+': '+c.raw+'W'}}},
+      scales:{
+        x:{ grid:{display:false}, ticks:{maxTicksLimit:12,maxRotation:0} },
+        y:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{callback:v=>v+'W'} }
+      }
+    }
+  });
 }
 
-// ─── Render Ecowitt ──────────────────────────────────────────────────────────
-function renderEcowitt(d) {
-  setText('w-temp', d.temperature != null ? d.temperature.toFixed(1) + ' °C' : '—');
-  setText('w-humid', d.humidity != null ? d.humidity + ' %' : '—');
-  setText('w-wind', d.windSpeed != null ? d.windSpeed.toFixed(1) + ' km/h' : '—');
-  setText('w-rain', d.rainDaily != null ? d.rainDaily.toFixed(1) + ' mm' : '—');
-
-  const irr = d.solarIrradiance || 0;
-  setText('w-irr-val', irr.toFixed(0) + ' W/m²');
-  // Max reasonable irradiance ~1200 W/m²
-  const pct = Math.min(100, (irr / 1200) * 100);
-  document.getElementById('w-irr-bar').style.width = pct + '%';
+// ── Weather ──
+function renderWeather(d) {
+  setText('w-temp',  d.temperature!=null ? d.temperature.toFixed(1)+' °C' : '—');
+  setText('w-humid', d.humidity!=null    ? d.humidity+' %'                : '—');
+  setText('w-wind',  d.windSpeed!=null   ? d.windSpeed.toFixed(1)+' km/h' : '—');
+  setText('w-rain',  d.rainDaily!=null   ? d.rainDaily.toFixed(1)+' mm'   : '—');
+  const irr=d.solarIrradiance||0;
+  setText('w-irr-val', irr.toFixed(0)+' W/m²');
+  document.getElementById('w-irr-bar').style.width = Math.min(100,irr/12)+'%';
 }
 
-// ─── Render Forecast ─────────────────────────────────────────────────────────
+// ── Forecast tab ──
 function renderForecast(data) {
-  const now = new Date();
-  const todayStr = now.toISOString().slice(0, 10);
+  if (!data) return;
+  const now=new Date(), todayStr=now.toISOString().slice(0,10);
+  const todayDaily = data.daily.find(d=>d.date===todayStr)||data.daily[0];
+  const sunriseH = todayDaily?.sunrise ? new Date(todayDaily.sunrise).getHours() : 6;
+  const sunsetH  = todayDaily?.sunset  ? new Date(todayDaily.sunset).getHours()  : 20;
 
-  // Filter to today's hours from current hour
-  const todayHours = data.hourly.filter(h => {
-    const hDate = h.time.slice(0, 10);
-    const hHour = parseInt(h.time.slice(11, 13));
-    return hDate === todayStr && hHour >= now.getHours() - 1;
-  }).slice(0, 18);
-
-  // Forecast row
-  const row = document.getElementById('forecast-row');
-  row.innerHTML = todayHours.map(h => {
-    const hour = parseInt(h.time.slice(11, 13));
-    const isNow = hour === now.getHours();
-    const icon = getWeatherIcon(h.weatherCode, h.cloudCover);
-    return `<div class="forecast-hour ${isNow ? 'highlight' : ''}">
-      <div class="fh-time">${hour.toString().padStart(2,'0')}:00</div>
-      <div class="fh-icon">${icon}</div>
-      <div class="fh-ghi">${h.ghi}W</div>
-      <div class="fh-cloud">☁ ${h.cloudCover}%</div>
+  // Hourly cards
+  const todayHours = data.hourly.filter(h=>h.time.slice(0,10)===todayStr);
+  document.getElementById('forecast-row').innerHTML = todayHours.map(h=>{
+    const hr=parseInt(h.time.slice(11,13));
+    const isNow=hr===now.getHours(), isNight=hr<sunriseH||hr>sunsetH;
+    return `<div class="fh ${isNow?'now':''} ${isNight?'night':''}">
+      <div class="fh-time">${String(hr).padStart(2,'0')}:00</div>
+      <div class="fh-icon">${isNight?'🌙':getWeatherIcon(h.weatherCode,h.cloudCover)}</div>
+      <div class="fh-ghi" style="color:${isNight?'var(--muted)':'var(--sun)'}">${isNight?'—':h.ghi+'W'}</div>
+      <div class="fh-cloud">${isNight?'':('☁ '+h.cloudCover+'%')}</div>
       <div class="fh-temp">${h.temperature.toFixed(0)}°C</div>
     </div>`;
   }).join('');
 
-  // Mini GHI chart
-  drawGhiChart(todayHours);
+  // GHI bar chart
+  renderGhiChart(todayHours, sunriseH, sunsetH);
 
-  // 7-day
-  const dailyEl = document.getElementById('daily-forecast');
-  dailyEl.innerHTML = data.daily.map(d => {
-    const date = new Date(d.date + 'T12:00:00');
-    const day = date.toLocaleDateString('en-AU', { weekday: 'short' });
-    const icon = getWeatherIcon(d.weatherCode, 50);
-    return `<div class="daily-fc-item">
+  // 7-day cards
+  document.getElementById('daily-fc').innerHTML = data.daily.map((d,i)=>{
+    const date=new Date(d.date+'T12:00:00');
+    const day = i===0?'Today':date.toLocaleDateString('en-AU',{weekday:'short'});
+    const dayHours = data.hourly.filter(h=>h.time.slice(0,10)===d.date);
+    const estKwh = dayHours.reduce((s,h)=>s+h.ghi*PANEL_EFF*PANEL_M2/1000,0).toFixed(1);
+    return `<div class="dfi" onclick="selectDay('${d.date}',this)">
       <div class="dfi-day">${day}</div>
-      <div class="dfi-icon">${icon}</div>
-      <div class="dfi-uv">UV ${d.uvIndexMax || 0}</div>
-      <div class="dfi-rain">💧 ${(d.precipitationSum || 0).toFixed(0)}mm</div>
+      <div class="dfi-icon">${getWeatherIcon(d.weatherCode,50)}</div>
+      <div class="dfi-uv">UV ${d.uvIndexMax||0}</div>
+      <div class="dfi-solar">~${estKwh}kWh</div>
+      <div class="dfi-rain">💧${(d.precipitationSum||0).toFixed(0)}mm</div>
     </div>`;
   }).join('');
 }
 
-function drawGhiChart(hours) {
-  const canvas = document.getElementById('ghi-canvas');
-  const ctx = canvas.getContext('2d');
-  canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-  canvas.height = canvas.offsetHeight * window.devicePixelRatio;
-  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-  const w = canvas.offsetWidth, h = canvas.offsetHeight;
-
-  const maxGhi = Math.max(...hours.map(h => h.ghi), 100);
-  const pts = hours.map((h, i) => ({
-    x: (i / (hours.length - 1)) * w,
-    y: h - ((h.ghi / maxGhi) * (h - 8)) - 4
-  }));
-
-  // Gradient fill
-  const grad = ctx.createLinearGradient(0, 0, 0, h);
-  grad.addColorStop(0, 'rgba(245,166,35,0.4)');
-  grad.addColorStop(1, 'rgba(245,166,35,0)');
-
-  ctx.beginPath();
-  ctx.moveTo(0, h);
-  hours.forEach((hr, i) => {
-    const x = (i / (hours.length - 1)) * w;
-    const y = h - ((hr.ghi / maxGhi) * (h - 8)) - 4;
-    i === 0 ? ctx.lineTo(x, y) : ctx.lineTo(x, y);
+function renderGhiChart(hours, sunriseH, sunsetH) {
+  const ctx = document.getElementById('ghi-chart').getContext('2d');
+  if (ghiChart) ghiChart.destroy();
+  const labels = hours.map(h=>String(parseInt(h.time.slice(11,13))).padStart(2,'0')+':00');
+  const ghiData = hours.map(h=>{ const hr=parseInt(h.time.slice(11,13)); return (hr<sunriseH||hr>sunsetH)?0:h.ghi; });
+  const bgColors = hours.map(h=>{ const hr=parseInt(h.time.slice(11,13)); return (hr<sunriseH||hr>sunsetH)?'rgba(90,100,120,0.25)':'rgba(245,166,35,0.65)'; });
+  ghiChart = new Chart(ctx,{
+    type:'bar',
+    data:{ labels, datasets:[{ data:ghiData, backgroundColor:bgColors, borderRadius:3, label:'GHI W/m²' }] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>c.raw+' W/m²'}}},
+      scales:{ x:{grid:{display:false},ticks:{maxRotation:0,maxTicksLimit:12}}, y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v+'W'}} }
+    }
   });
-  ctx.lineTo(w, h);
-  ctx.closePath();
-  ctx.fillStyle = grad;
-  ctx.fill();
-
-  // Line
-  ctx.beginPath();
-  hours.forEach((hr, i) => {
-    const x = (i / (hours.length - 1)) * w;
-    const y = h - ((hr.ghi / maxGhi) * (h - 8)) - 4;
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  });
-  ctx.strokeStyle = 'rgba(245,166,35,0.8)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
 }
 
-function getWeatherIcon(code, cloud) {
-  if (code === 0) return '☀️';
-  if (code <= 2) return '⛅';
-  if (code === 3) return '☁️';
-  if (code <= 49) return '🌫️';
-  if (code <= 69) return '🌧️';
-  if (code <= 79) return '❄️';
-  if (code <= 82) return '🌦️';
-  if (code <= 99) return '⛈️';
-  return cloud > 70 ? '☁️' : cloud > 30 ? '⛅' : '☀️';
+// ── Day detail (7-day click) ──
+function selectDay(date, el) {
+  if (selectedDayEl) selectedDayEl.classList.remove('selected');
+  selectedDayEl=el; el.classList.add('selected');
+  document.getElementById('day-detail').style.display='block';
+  const dateObj=new Date(date+'T12:00:00');
+  document.getElementById('day-detail-title').textContent =
+    dateObj.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
+  if (!forecastData) return;
+
+  const dayHours = forecastData.hourly.filter(h=>h.time.slice(0,10)===date);
+  const todayD   = forecastData.daily.find(d=>d.date===date)||forecastData.daily[0];
+  const sunriseH = todayD?.sunrise ? new Date(todayD.sunrise).getHours() : 6;
+  const sunsetH  = todayD?.sunset  ? new Date(todayD.sunset).getHours()  : 20;
+  const labels   = dayHours.map(h=>String(parseInt(h.time.slice(11,13))).padStart(2,'0')+':00');
+  const solar    = dayHours.map(h=>{ const hr=parseInt(h.time.slice(11,13)); return (hr<sunriseH||hr>sunsetH)?0:Math.round(h.ghi*PANEL_EFF*PANEL_M2); });
+  const baseline = semsData?.homePower||400;
+  const consumption = labels.map(()=>baseline);
+
+  const ctx = document.getElementById('day-detail-chart').getContext('2d');
+  if (dayDetailChart) dayDetailChart.destroy();
+  dayDetailChart = new Chart(ctx,{
+    type:'line',
+    data:{ labels, datasets:[
+      { label:'Predicted solar output', data:solar,       borderColor:'rgb(245,166,35)', backgroundColor:'rgba(245,166,35,0.09)', borderWidth:2, tension:0.4, fill:true, pointRadius:2 },
+      { label:'Est. consumption',       data:consumption, borderColor:'rgb(110,142,251)', backgroundColor:'transparent',           borderWidth:1.5, borderDash:[4,3], tension:0, fill:false, pointRadius:0 },
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{mode:'index',intersect:false, callbacks:{label:c=>c.dataset.label+': '+c.raw+'W'}}},
+      scales:{ x:{grid:{display:false},ticks:{maxRotation:0,maxTicksLimit:12}}, y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v+'W'},min:0} }
+    }
+  });
 }
 
-// ─── Alert logic ─────────────────────────────────────────────────────────────
+// ── Alerts ──
 function checkAlerts(sems, forecast) {
   if (!sems) return;
-  const now = Date.now();
-  const config = loadAlertConfig();
-
-  // Get sunrise/sunset from today's forecast
-  let sunriseMs = 0, sunsetMs = Infinity;
+  const now=Date.now(), cfg=loadAlertConfig();
+  let sunriseMs=0, sunsetMs=Infinity;
   if (forecast?.daily?.length) {
-    const today = forecast.daily[0];
-    if (today.sunrise) sunriseMs = new Date(today.sunrise).getTime() + 60 * 60 * 1000; // +1h
-    if (today.sunset) sunsetMs = new Date(today.sunset).getTime() - 60 * 60 * 1000;   // -1h
+    const t=forecast.daily[0];
+    if(t.sunrise) sunriseMs=new Date(t.sunrise).getTime()+3600000;
+    if(t.sunset)  sunsetMs =new Date(t.sunset).getTime() -3600000;
   }
+  const inDay = now>=sunriseMs&&now<=sunsetMs;
 
-  const inDaytime = now >= sunriseMs && now <= sunsetMs;
-
-  // Export alert
-  if (config.exportEnabled && sems.exportPower > ALERT_THRESHOLD_W) {
-    if (!exportAlertStart) exportAlertStart = now;
-    const elapsed = now - exportAlertStart;
-    if (elapsed >= ALERT_DURATION_MS && now - lastExportAlertFired > ALERT_COOLDOWN_MS) {
-      fireAlert('export', `☀️ Solar excess: exporting ${fmt(sems.exportPower)}W to grid for 10+ minutes. Consider running appliances or charging your EV.`);
-      lastExportAlertFired = now;
+  if (cfg.exportEnabled&&sems.exportPower>ALERT_THRESHOLD_W) {
+    if (!exportAlertStart) exportAlertStart=now;
+    if (now-exportAlertStart>=ALERT_DURATION_MS&&now-lastExportAlert>ALERT_COOLDOWN_MS) {
+      fireAlert('export',`☀️ Solar excess: exporting ${fmtW(sems.exportPower)}W to grid for 10+ min. Plug in the EV or run appliances.`);
+      lastExportAlert=now;
     }
-  } else {
-    exportAlertStart = null;
-  }
+  } else { exportAlertStart=null; }
 
-  // Import alert (daytime only)
-  if (config.importEnabled && inDaytime && sems.importPower > ALERT_THRESHOLD_W) {
-    if (!importAlertStart) importAlertStart = now;
-    const elapsed = now - importAlertStart;
-    if (elapsed >= ALERT_DURATION_MS && now - lastImportAlertFired > ALERT_COOLDOWN_MS) {
-      fireAlert('import', `🔴 High grid import: drawing ${fmt(sems.importPower)}W from grid during daylight hours for 10+ minutes.`);
-      lastImportAlertFired = now;
+  if (cfg.importEnabled&&inDay&&sems.importPower>ALERT_THRESHOLD_W) {
+    if (!importAlertStart) importAlertStart=now;
+    if (now-importAlertStart>=ALERT_DURATION_MS&&now-lastImportAlert>ALERT_COOLDOWN_MS) {
+      fireAlert('import',`🔴 High grid import: drawing ${fmtW(sems.importPower)}W from grid during daylight for 10+ min.`);
+      lastImportAlert=now;
     }
-  } else {
-    importAlertStart = null;
-  }
+  } else { importAlertStart=null; }
 
-  // Show live banner for ongoing conditions (no cooldown check)
-  const banner = document.getElementById('alert-banner');
-  if (sems.exportPower > ALERT_THRESHOLD_W && exportAlertStart) {
-    const elapsed = Math.floor((now - exportAlertStart) / 1000);
-    const remaining = Math.max(0, Math.ceil((ALERT_DURATION_MS - (now - exportAlertStart)) / 1000));
-    banner.style.display = 'block';
-    banner.className = 'export-alert';
-    if (remaining > 0) {
-      banner.textContent = `☀️ Exporting ${fmt(sems.exportPower)}W — alert fires in ${remaining}s if sustained`;
-    } else {
-      banner.textContent = `☀️ Solar excess alert active — exporting ${fmt(sems.exportPower)}W to grid`;
-    }
-  } else if (inDaytime && sems.importPower > ALERT_THRESHOLD_W && importAlertStart) {
-    const remaining = Math.max(0, Math.ceil((ALERT_DURATION_MS - (now - importAlertStart)) / 1000));
-    banner.style.display = 'block';
-    banner.className = 'import-alert';
-    banner.textContent = remaining > 0
-      ? `🔴 Importing ${fmt(sems.importPower)}W — import alert fires in ${remaining}s`
-      : `🔴 High grid import alert active — drawing ${fmt(sems.importPower)}W`;
-  } else {
-    banner.style.display = 'none';
-  }
+  const banner=document.getElementById('alert-banner');
+  if (sems.exportPower>ALERT_THRESHOLD_W&&exportAlertStart) {
+    const rem=Math.max(0,Math.ceil((ALERT_DURATION_MS-(now-exportAlertStart))/1000));
+    banner.style.display='block'; banner.className='export-alert';
+    banner.textContent=rem>0?`☀️ Exporting ${fmtW(sems.exportPower)}W — alert fires in ${rem}s`:`☀️ Solar excess alert — exporting ${fmtW(sems.exportPower)}W to grid`;
+  } else if (inDay&&sems.importPower>ALERT_THRESHOLD_W&&importAlertStart) {
+    const rem=Math.max(0,Math.ceil((ALERT_DURATION_MS-(now-importAlertStart))/1000));
+    banner.style.display='block'; banner.className='import-alert';
+    banner.textContent=rem>0?`🔴 Importing ${fmtW(sems.importPower)}W — alert fires in ${rem}s`:`🔴 High grid import alert — drawing ${fmtW(sems.importPower)}W`;
+  } else { banner.style.display='none'; }
 }
 
-function fireAlert(type, message) {
-  // Browser push notification
-  if (Notification.permission === 'granted') {
-    new Notification('Solar Hub', {
-      body: message,
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
-      tag: type, // prevents duplicate stacking
-    });
-  }
-
-  // Log it
-  const entry = { time: new Date().toLocaleTimeString('en-AU'), type, message };
-  alertLog.unshift(entry);
+function fireAlert(type,msg) {
+  if (Notification.permission==='granted') new Notification('Solar Hub',{body:msg,tag:type});
+  alertLog.unshift({time:new Date().toLocaleTimeString('en-AU'),type,msg});
   renderAlertLog();
 }
 
 function renderAlertLog() {
-  const el = document.getElementById('alert-log');
-  if (alertLog.length === 0) {
-    el.textContent = 'No alerts fired yet this session.';
-    return;
-  }
-  el.innerHTML = alertLog.slice(0, 20).map(a => `
-    <div style="padding:8px 0; border-bottom:1px solid var(--border); display:flex; gap:10px; align-items:flex-start;">
-      <span style="color:var(--muted); flex-shrink:0;">${a.time}</span>
-      <span style="color:${a.type === 'export' ? 'var(--export)' : 'var(--import)'};">${a.message}</span>
-    </div>
-  `).join('');
+  const el=document.getElementById('alert-log');
+  if (!alertLog.length) { el.textContent='No alerts fired yet this session.'; return; }
+  el.innerHTML=alertLog.slice(0,20).map(a=>`<div class="log-entry"><span style="color:var(--muted);flex-shrink:0">${a.time}</span><span style="color:${a.type==='export'?'var(--export)':'var(--import)'}">${a.msg}</span></div>`).join('');
 }
 
-// ─── Notifications ───────────────────────────────────────────────────────────
 async function requestNotifPermission() {
-  if (!('Notification' in window)) {
-    alert('Browser notifications not supported on this device/browser.');
-    return;
-  }
-  const perm = await Notification.requestPermission();
-  updateNotifBtn(perm);
+  if (!('Notification' in window)) { alert('Notifications not supported.'); return; }
+  updateNotifBtn(await Notification.requestPermission());
+}
+function updateNotifBtn(p) {
+  const b=document.getElementById('notif-btn');
+  if(p==='granted'){b.textContent='✓ Notifications enabled';b.disabled=true;}
+  else if(p==='denied'){b.textContent='✗ Blocked — allow in browser settings';b.disabled=true;}
+  else{b.textContent='Enable Notifications';b.disabled=false;}
 }
 
-function updateNotifBtn(perm) {
-  const btn = document.getElementById('notif-btn');
-  if (perm === 'granted') {
-    btn.textContent = '✓ Notifications enabled';
-    btn.disabled = true;
-    btn.style.opacity = '0.7';
-  } else if (perm === 'denied') {
-    btn.textContent = '✗ Notifications blocked — allow in browser settings';
-    btn.disabled = true;
-  } else {
-    btn.textContent = 'Enable Notifications';
-    btn.disabled = false;
-  }
-}
-
-// ─── Alert config persistence ────────────────────────────────────────────────
 function saveAlertConfig() {
-  const config = {
-    exportEnabled: document.getElementById('toggle-export').checked,
-    importEnabled: document.getElementById('toggle-import').checked,
-  };
-  try { localStorage.setItem('solarHubAlerts', JSON.stringify(config)); } catch(e) {}
+  try{localStorage.setItem('solarHubAlerts',JSON.stringify({exportEnabled:document.getElementById('toggle-export').checked,importEnabled:document.getElementById('toggle-import').checked}));}catch(e){}
 }
-
 function loadAlertConfig() {
-  try {
-    const saved = localStorage.getItem('solarHubAlerts');
-    if (saved) return JSON.parse(saved);
-  } catch(e) {}
-  return { exportEnabled: true, importEnabled: true };
+  try{const s=localStorage.getItem('solarHubAlerts');if(s)return JSON.parse(s);}catch(e){}
+  return {exportEnabled:true,importEnabled:true};
 }
 
-function applyAlertConfig() {
-  const config = loadAlertConfig();
-  document.getElementById('toggle-export').checked = config.exportEnabled;
-  document.getElementById('toggle-import').checked = config.importEnabled;
+function setVal(id,html){const e=document.getElementById(id);if(e)e.innerHTML=html;}
+function setText(id,txt){const e=document.getElementById(id);if(e)e.textContent=txt;}
+function fmtW(w){if(w==null)return '—';if(w>=1000)return (w/1000).toFixed(2)+'k';return Math.round(w).toString();}
+function fmtKwh(k){if(k==null||k===undefined)return '—';return Number(k).toFixed(1);}
+function setStatus(s){document.getElementById('status-dot').className='status-dot '+(s==='live'?'live':s==='error'?'error':'');document.getElementById('status-text').textContent=s==='live'?'Live':s==='error'?'Error':'Updating…';}
+function getWeatherIcon(code,cloud){
+  if(code===0)return '☀️';if(code<=2)return '⛅';if(code===3)return '☁️';
+  if(code<=49)return '🌫️';if(code<=69)return '🌧️';if(code<=79)return '❄️';
+  if(code<=82)return '🌦️';if(code<=99)return '⛈️';
+  return cloud>70?'☁️':cloud>30?'⛅':'☀️';
 }
 
-// ─── UI helpers ──────────────────────────────────────────────────────────────
-function setText(id, html) {
-  const el = document.getElementById(id);
-  if (el) el.innerHTML = html;
-}
-
-function fmt(w) {
-  if (w === null || w === undefined) return '—';
-  if (w >= 1000) return (w / 1000).toFixed(2) + ' k';
-  return Math.round(w).toString();
-}
-
-function setStatus(state) {
-  const dot = document.getElementById('status-dot');
-  const text = document.getElementById('status-text');
-  dot.className = 'status-dot ' + (state === 'live' ? 'live' : state === 'error' ? 'error' : '');
-  text.textContent = state === 'live' ? 'Live' : state === 'error' ? 'Error' : 'Updating…';
-}
-
-// ─── Auto-refresh ─────────────────────────────────────────────────────────────
-function startAutoRefresh() {
-  clearInterval(refreshTimer);
-  refreshTimer = setInterval(refreshAll, REFRESH_INTERVAL_MS);
-}
-
-// ─── Init ─────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  applyAlertConfig();
+document.addEventListener('DOMContentLoaded',()=>{
+  const c=loadAlertConfig();
+  document.getElementById('toggle-export').checked=c.exportEnabled;
+  document.getElementById('toggle-import').checked=c.importEnabled;
   updateNotifBtn(Notification.permission);
   refreshAll();
-  startAutoRefresh();
+  setInterval(refreshAll,REFRESH_MS);
 });
 </script>
 </body>
