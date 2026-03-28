@@ -1,0 +1,12 @@
+{
+  "name": "solar-hub",
+  "version": "1.0.0",
+  "description": "Solar monitoring dashboard — GoodWe SEMS + Ecowitt + Open-Meteo",
+  "private": true,
+  "scripts": {
+    "dev": "netlify dev"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
+  }
+}
