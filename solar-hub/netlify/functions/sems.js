@@ -4,7 +4,7 @@
 const STATION_ID = "f04ed04f-8f02-4eda-9fc9-03c68fab7ad2";
 
 // SEMSplus uses a different base URL than old semsportal
-const LOGIN_URL = "https://semsplus.goodwe.com/api/v1/Common/CrossLogin";
+const LOGIN_URL = "https://www.semsportal.com/api/v1/Common/CrossLogin";
 
 async function getToken(email, password) {
   const res = await fetch(LOGIN_URL, {
