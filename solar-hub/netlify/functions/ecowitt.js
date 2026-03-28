@@ -2,7 +2,7 @@
 // Proxies requests to the Ecowitt cloud API v3
 
 const ECOWITT_BASE = "https://api.ecowitt.net/api/v3";
-const APPLICATION_KEY = "d4d54185-e9d9-4639-8fca-2c8593603558";
+const APPLICATION_KEY = "7C78EE38078394C154BD80B2D874DBD3";
 const MAC = "8C:4F:00:4F:FC:E2";
 
 exports.handler = async (event) => {
