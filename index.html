@@ -442,6 +442,18 @@ async function refreshAll(){
 // ── History ───────────────────────────────────────────────────────────────────
 function recordHistory(d){
   if(!d) return;
+  // Prefer SEMS hourlyChart for full day coverage
+  if(d.hourlyChart && d.hourlyChart.length > 2){
+    hourlyHistory = {};
+    d.hourlyChart.forEach(pt=>{
+      if(pt.time) hourlyHistory[pt.time]={
+        consumption:pt.homePower||0, gridImport:pt.gridImport||0,
+        gridExport:pt.gridExport||0, solar:pt.pvPower||0,
+      };
+    });
+    return;
+  }
+  // Fallback: live reading
   const key=new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:false});
   hourlyHistory[key]={consumption:d.homePower||0,gridImport:d.importPower||0,gridExport:d.exportPower||0,solar:d.pvPower||0};
 }
@@ -494,23 +506,38 @@ function renderCosts(d){
 // ── Hourly stacked bar ────────────────────────────────────────────────────────
 function renderHourlyBarChart(){
   const labels=Object.keys(hourlyHistory).sort();
-  if(!labels.length) return;
-  // Derive: selfUse = solar - export (capped at 0), gridImport, excess export
-  const selfUse  = labels.map(k=>Math.max(0, hourlyHistory[k].solar - hourlyHistory[k].gridExport));
-  const gridImp  = labels.map(k=>Math.round(hourlyHistory[k].gridImport));
-  const excess   = labels.map(k=>Math.round(hourlyHistory[k].gridExport));
+  if(!labels.length){
+    // Show placeholder message
+    const ctx=document.getElementById('hourly-bar-chart').getContext('2d');
+    if(hourlyBarChart) hourlyBarChart.destroy();
+    ctx.fillStyle='rgba(90,100,120,0.5)';
+    ctx.font='12px DM Mono, monospace';
+    ctx.textAlign='center';
+    ctx.fillText('Hourly data loading — check back after first full day',ctx.canvas.offsetWidth/2,100);
+    return;
+  }
+  // selfUse = solar generated minus what was exported (what was actually consumed from solar)
+  const selfUse = labels.map(k=>Math.round(Math.max(0, hourlyHistory[k].solar - hourlyHistory[k].gridExport)));
+  const gridImp = labels.map(k=>Math.round(hourlyHistory[k].gridImport));
+  const excess  = labels.map(k=>Math.round(hourlyHistory[k].gridExport));
+  // Filter to only hours with any activity
+  const hasData = labels.some(k=>hourlyHistory[k].solar>0||hourlyHistory[k].gridImport>0||hourlyHistory[k].gridExport>0);
+  if(!hasData) return;
   const ctx=document.getElementById('hourly-bar-chart').getContext('2d');
   if(hourlyBarChart) hourlyBarChart.destroy();
   hourlyBarChart=new Chart(ctx,{
     type:'bar',
     data:{labels,datasets:[
-      {label:'Solar self-use', data:selfUse, backgroundColor:'rgba(110,142,251,0.85)', borderRadius:3, stack:'s'},
-      {label:'From grid',      data:gridImp, backgroundColor:'rgba(255,77,109,0.85)',  borderRadius:3, stack:'s'},
-      {label:'Excess export',  data:excess,  backgroundColor:'rgba(0,229,160,0.85)',   borderRadius:3, stack:'e'},
+      {label:'Solar self-use', data:selfUse, backgroundColor:'rgba(110,142,251,0.85)', borderRadius:2, stack:'consumption'},
+      {label:'From grid',      data:gridImp, backgroundColor:'rgba(255,77,109,0.85)',  borderRadius:2, stack:'consumption'},
+      {label:'Excess export',  data:excess,  backgroundColor:'rgba(0,229,160,0.85)',   borderRadius:2, stack:'consumption'},
     ]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,callbacks:{label:c=>c.dataset.label+': '+c.raw+'W'}}},
-      scales:{x:{stacked:true,grid:{display:false},ticks:{maxRotation:0}},y:{stacked:false,grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v+'W'}}}
+      plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,callbacks:{label:c=>c.dataset.label+': '+Math.round(c.raw)+'W'}}},
+      scales:{
+        x:{stacked:true,grid:{display:false},ticks:{maxRotation:0,maxTicksLimit:16,font:{size:9}}},
+        y:{stacked:false,grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v>=1000?(v/1000).toFixed(1)+'kW':v+'W',font:{size:9}},min:0}
+      }
     }
   });
 }
@@ -533,8 +560,8 @@ function renderPieCharts(){
       labels:['Self-used at home','Exported to grid'],
       datasets:[{data:[+selfUse.toFixed(2),+exp.toFixed(2)],backgroundColor:['rgba(110,142,251,0.85)','rgba(0,229,160,0.85)'],borderWidth:0,hoverOffset:4}]
     },
-    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
-      plugins:{legend:{display:true,position:'right',labels:{font:{size:10},boxWidth:10,padding:8,color:'#5a6478'}},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
+      plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10},boxWidth:10,padding:6,color:'#5a6478'}},
       tooltip:{callbacks:{label:c=>c.label+': '+c.raw+' kWh'}}}}
   });
 
@@ -547,8 +574,8 @@ function renderPieCharts(){
       labels:['From solar','From grid'],
       datasets:[{data:[+selfUse.toFixed(2),+imp.toFixed(2)],backgroundColor:['rgba(110,142,251,0.85)','rgba(255,77,109,0.85)'],borderWidth:0,hoverOffset:4}]
     },
-    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
-      plugins:{legend:{display:true,position:'right',labels:{font:{size:10},boxWidth:10,padding:8,color:'#5a6478'}},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
+      plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10},boxWidth:10,padding:6,color:'#5a6478'}},
       tooltip:{callbacks:{label:c=>c.label+': '+c.raw+' kWh'}}}}
   });
 }
@@ -557,31 +584,41 @@ function renderPieCharts(){
 function renderDayLineChart(){
   const ctx=document.getElementById('day-line-chart').getContext('2d');
   const histLabels=Object.keys(hourlyHistory).sort();
+  // Forecast solar for rest of day (future hours only)
   let fcLabels=[],fcSolar=[];
   if(forecastData){
     const now=new Date(),todayStr=now.toISOString().slice(0,10);
-    const future=forecastData.hourly.filter(h=>h.time.slice(0,10)===todayStr&&parseInt(h.time.slice(11,13))>=now.getHours());
+    const future=forecastData.hourly.filter(h=>{
+      if(h.time.slice(0,10)!==todayStr) return false;
+      const hr=parseInt(h.time.slice(11,13));
+      return hr>=now.getHours();
+    });
     fcLabels=future.map(h=>h.time.slice(11,16));
     fcSolar =future.map(h=>Math.round(h.ghi*PANEL_EFF*PANEL_M2));
   }
   const allLabels=[...new Set([...histLabels,...fcLabels])].sort();
-  const mkDs=(kl,vals,color,label,dashed=false)=>({
-    label,fill:false,tension:0.4,borderWidth:dashed?1.5:2,borderDash:dashed?[5,4]:[],
-    pointRadius:2,spanGaps:false,borderColor:color,
-    backgroundColor:color.replace('rgb(','rgba(').replace(')',',0.06)'),
-    data:allLabels.map(l=>{const i=kl.indexOf(l);return i>=0?vals[i]:null;})
+  if(!allLabels.length) return;
+  const mkDs=(kl,vals,color,label,dashed=false,fill=false)=>({
+    label,fill,tension:0.4,borderWidth:dashed?1.5:2,borderDash:dashed?[5,4]:[],
+    pointRadius:histLabels.length>20?0:2,spanGaps:false,borderColor:color,
+    backgroundColor:fill?color.replace('rgb(','rgba(').replace(')',',0.12)'):'transparent',
+    data:allLabels.map(l=>{const i=kl.indexOf(l);return i>=0?Math.round(vals[i]):null;})
   });
   const datasets=[
-    mkDs(histLabels,histLabels.map(k=>hourlyHistory[k].consumption),'rgb(110,142,251)','Consumption'),
+    mkDs(histLabels,histLabels.map(k=>hourlyHistory[k].consumption),'rgb(110,142,251)','Consumption',false,false),
     mkDs(histLabels,histLabels.map(k=>hourlyHistory[k].gridImport), 'rgb(255,77,109)', 'Grid import'),
     mkDs(histLabels,histLabels.map(k=>hourlyHistory[k].gridExport), 'rgb(0,229,160)',  'Grid export'),
-    mkDs(fcLabels,  fcSolar,                                         'rgb(245,166,35)', 'Forecast solar',true),
+    mkDs(fcLabels,  fcSolar,                                         'rgb(245,166,35)', 'Forecast solar',true,true),
   ];
   if(dayLineChart) dayLineChart.destroy();
   dayLineChart=new Chart(ctx,{type:'line',data:{labels:allLabels,datasets},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,callbacks:{label:c=>c.dataset.label+': '+c.raw+'W'}}},
-      scales:{x:{grid:{display:false},ticks:{maxTicksLimit:12,maxRotation:0}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v+'W'}}}}
+      plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,callbacks:{label:c=>c.dataset.label+': '+Math.round(c.raw)+'W'}}},
+      scales:{
+        x:{grid:{display:false},ticks:{maxTicksLimit:13,maxRotation:0,font:{size:9}}},
+        y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v>=1000?(v/1000).toFixed(1)+'kW':v+'W',font:{size:9}},min:0}
+      }
+    }
   });
 }
 
