@@ -78,9 +78,7 @@ exports.handler = async (event) => {
     const dailyGeneration  = inv.eday   ?? kpi.power ?? 0;
     const dailyExport      = full.seller ?? stats.sell ?? 0;
     const dailyImport      = full.buy    ?? stats.buy  ?? 0;
-    const dailyConsumption = stats.consumptionOfLoad
-      ? parseFloat(String(stats.consumptionOfLoad)) / 1000  // convert Wh→kWh if needed
-      : (dailyGeneration + dailyImport - dailyExport);
+    const dailyConsumption = stats.consumptionOfLoad ?? (dailyGeneration + dailyImport - dailyExport);
 
     const payload = {
       pvPower, gridPower, homePower, batteryPower, batterySoc,
