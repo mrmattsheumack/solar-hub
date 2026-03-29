@@ -36,7 +36,7 @@ exports.handler = async (event) => {
       wind_speed_unitid: "7",// km/h
       rainfall_unitid: "12", // mm
       solar_irradiance_unitid: "16", // W/m²
-      capacity_unitid: "4",
+      capacity_unitid: "24",
     });
 
     const res = await fetch(`${ECOWITT_BASE}/device/real_time?${params}`);
