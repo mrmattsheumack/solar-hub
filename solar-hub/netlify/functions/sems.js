@@ -4,6 +4,13 @@ const LOGIN_URL = "https://au.semsportal.com/api/v2/common/crosslogin";
 const DETAIL_URL = "https://au.semsportal.com/api/v2/PowerStation/GetMonitorDetailByPowerstationId";
 const EMPTY_TOKEN = "eyJ1aWQiOiIiLCJ0aW1lc3RhbXAiOjAsInRva2VuIjoiIiwiY2xpZW50Ijoid2ViIiwidmVyc2lvbiI6IiIsImxhbmd1YWdlIjoiZW4ifQ==";
 
+// Parse "1642(W)" → 1642
+function parseW(str) {
+  if (!str) return 0;
+  const m = String(str).match(/([-\d.]+)/);
+  return m ? parseFloat(m[1]) : 0;
+}
+
 async function getToken(email, password) {
   const res = await fetch(LOGIN_URL, {
     method: "POST",
@@ -30,14 +37,9 @@ exports.handler = async (event) => {
 
   try {
     const auth = await getToken(email, password);
-
     const tokenHeader = JSON.stringify({
-      uid: auth.uid,
-      timestamp: auth.timestamp,
-      token: auth.token,
-      client: auth.client,
-      version: auth.version,
-      language: auth.language,
+      uid: auth.uid, timestamp: auth.timestamp, token: auth.token,
+      client: auth.client, version: auth.version, language: auth.language,
     });
 
     const res = await fetch(DETAIL_URL, {
@@ -46,43 +48,51 @@ exports.handler = async (event) => {
       body: JSON.stringify({ powerStationId: STATION_ID }),
     });
     const text = await res.text();
-    let data;
-    try { data = JSON.parse(text); } catch(e) { throw new Error(`Detail parse error: ${text.slice(0,300)}`); }
+    let resp;
+    try { resp = JSON.parse(text); } catch(e) { throw new Error(`Detail parse error: ${text.slice(0,300)}`); }
 
-    if (event.queryStringParameters && event.queryStringParameters.debug === '2') {
-      return { statusCode: 200, headers, body: JSON.stringify({ debug_detail: data }) };
-    }
+    const detail  = resp.data || {};
+    const kpi     = detail.kpi || {};
+    const info    = detail.info || {};
+    const pf      = detail.powerflow || {};
+    const inv     = (detail.inverter || [])[0] || {};
+    const full    = inv.invert_full || {};
+    const stats   = detail.energeStatisticsCharts || {};
 
-    // v2 response structure
-    const detail = data.data || data;
-    const kpi      = detail.kpi      || {};
-    const info     = detail.info     || {};
-    const inverter = (detail.inverter || [])[0] || {};
-    const d        = detail.data     || {};
+    // ── Power flows (W) ────────────────────────────────────────────────────
+    // pmeter: negative = importing from grid, positive = exporting to grid
+    const pmeter   = full.pmeter ?? 0;
+    const pvPower  = full.pv_power ?? parseW(pf.pv) ?? 0;
+    const homePower = parseW(pf.load) || Math.abs(pmeter) + pvPower;
 
-    const rawGrid      = kpi.pac_purchase ?? kpi.pgrid ?? d.pgrid ?? inverter.pgrid ?? 0;
-    const pvPower      = kpi.pac          ?? d.pac     ?? inverter.pac              ?? 0;
-    const homePower    = kpi.use_power    ?? kpi.pload ?? d.pload ?? inverter.pload ?? 0;
-    const batteryPower = kpi.pbat         ?? d.pbat    ?? inverter.pbat             ?? 0;
-    const batterySoc   = kpi.soc          ?? d.soc     ?? inverter.battery_charge   ?? 0;
-    const dailyGeneration  = kpi.power      ?? info.eday_efficiency ?? d.eday ?? inverter.eday ?? 0;
-    const dailyExport      = kpi.esell      ?? d.esell ?? 0;
-    const dailyImport      = kpi.ebuy       ?? d.ebuy  ?? 0;
-    const dailyConsumption = kpi.load_power ?? d.eload ?? 0;
-    const exportPower = Math.max(0, -rawGrid);
-    const importPower = Math.max(0,  rawGrid);
+    // Grid: pmeter negative means buying, positive means selling
+    const gridPower   = pmeter;
+    const importPower = Math.max(0, -pmeter);  // buying from grid
+    const exportPower = Math.max(0,  pmeter);  // selling to grid
 
-    return {
-      statusCode: 200, headers,
-      body: JSON.stringify({
-        pvPower, gridPower: rawGrid, homePower, batteryPower, batterySoc,
-        exportPower, importPower,
-        dailyGeneration, dailyExport, dailyImport, dailyConsumption,
-        stationName: info.stationname || "Home PV array",
-        timestamp: new Date().toISOString(),
-        _raw: { kpi, info, inverterKeys: Object.keys(inverter), dKeys: Object.keys(d) },
-      }),
+    // Battery
+    const batterySoc   = full.soc ?? 0;
+    const batteryPower = full.total_pbattery ?? 0;
+
+    // ── Daily totals (kWh) ────────────────────────────────────────────────
+    const dailyGeneration  = inv.eday   ?? kpi.power ?? 0;
+    const dailyExport      = full.seller ?? stats.sell ?? 0;
+    const dailyImport      = full.buy    ?? stats.buy  ?? 0;
+    const dailyConsumption = stats.consumptionOfLoad
+      ? parseFloat(String(stats.consumptionOfLoad)) / 1000  // convert Wh→kWh if needed
+      : (dailyGeneration + dailyImport - dailyExport);
+
+    const payload = {
+      pvPower, gridPower, homePower, batteryPower, batterySoc,
+      exportPower, importPower,
+      dailyGeneration, dailyExport, dailyImport,
+      dailyConsumption: parseFloat(dailyConsumption.toFixed(2)),
+      stationName: info.stationname || "Home PV array",
+      capacity: info.capacity || 13.2,
+      timestamp: new Date().toISOString(),
     };
+
+    return { statusCode: 200, headers, body: JSON.stringify(payload) };
   } catch (err) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
   }
