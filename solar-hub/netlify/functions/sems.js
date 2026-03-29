@@ -57,6 +57,12 @@ exports.handler = async (event) => {
 
   try {
     const auth = await getToken(email, password);
+
+    // DEBUG — return auth object so we can see what API url and fields come back
+    if (event.queryStringParameters?.debug === '1') {
+      return { statusCode: 200, headers, body: JSON.stringify({ debug_auth: auth }) };
+    }
+
     const detail = await getStationDetail(auth);
 
     // ── Field mapping ──────────────────────────────────────────────────────
