@@ -202,21 +202,23 @@
       </div>
     </div>
 
-    <!-- TODAY power bar -->
-    <div class="card" style="margin-bottom:14px;padding:14px 18px;">
-      <div style="font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">☀️ Today — totals so far</div>
-      <div class="power-bar" id="today-bar-wrap">
-        <div class="pb-seg" id="today-seg-selfuse" style="background:rgba(110,142,251,0.85);"></div>
-        <div class="pb-seg" id="today-seg-export"  style="background:rgba(0,229,160,0.85);"></div>
-        <div class="pb-seg" id="today-seg-import"  style="background:rgba(255,77,109,0.85);"></div>
-        <div class="pb-empty" id="today-bar-empty"></div>
+    <!-- Daily kWh totals -->
+    <div class="daily-row">
+      <div class="daily-card">
+        <div class="daily-label">Generated today</div>
+        <div class="daily-value" id="daily-gen" style="color:var(--sun)">— kWh</div>
       </div>
-      <div class="pb-legend">
-        <div class="live-stat"><div class="live-dot" style="background:rgba(245,166,35,0.9)"></div><span class="live-label">Generated</span><span class="live-val" id="daily-gen" style="color:var(--sun)">—</span></div>
-        <div class="live-stat"><div class="live-dot" style="background:rgba(110,142,251,0.85)"></div><span class="live-label">Self-used</span><span class="live-val" id="daily-selfuse" style="color:var(--home)">—</span></div>
-        <div class="live-stat"><div class="live-dot" style="background:rgba(0,229,160,0.85)"></div><span class="live-label">Exported</span><span class="live-val" id="daily-export" style="color:var(--export)">—</span></div>
-        <div class="live-stat"><div class="live-dot" style="background:rgba(255,77,109,0.85)"></div><span class="live-label">Imported</span><span class="live-val" id="daily-import" style="color:var(--import)">—</span></div>
-        <div class="live-stat"><div class="live-dot" style="background:rgba(110,142,251,0.4)"></div><span class="live-label">Consumed</span><span class="live-val" id="daily-home" style="color:var(--home)">—</span></div>
+      <div class="daily-card">
+        <div class="daily-label">Exported today</div>
+        <div class="daily-value" id="daily-export" style="color:var(--export)">— kWh</div>
+      </div>
+      <div class="daily-card">
+        <div class="daily-label">Imported today</div>
+        <div class="daily-value" id="daily-import" style="color:var(--import)">— kWh</div>
+      </div>
+      <div class="daily-card">
+        <div class="daily-label">Consumed today</div>
+        <div class="daily-value" id="daily-home" style="color:var(--home)">— kWh</div>
       </div>
     </div>
 
@@ -627,17 +629,10 @@ function renderStats(d){
   const cons = d.dailyConsumption || 0;
   const selfUseKwh = Math.max(0, gen - exp);
 
-  setText('daily-gen',     fmtKwh(gen)        + ' kWh');
-  setText('daily-selfuse', fmtKwh(selfUseKwh) + ' kWh');
-  setText('daily-export',  fmtKwh(exp)        + ' kWh');
-  setText('daily-import',  fmtKwh(imp)        + ' kWh');
-  setText('daily-home',    fmtKwh(cons)       + ' kWh');
-
-  // TODAY power bar
-  const todayTotal = Math.max(selfUseKwh + exp + imp, 0.01);
-  renderPowerBar('today-seg-selfuse', selfUseKwh, todayTotal);
-  renderPowerBar('today-seg-export',  exp,         todayTotal);
-  renderPowerBar('today-seg-import',  imp,         todayTotal);
+  setVal('daily-gen',    fmtKwh(gen)  + ' kWh');
+  setVal('daily-export', fmtKwh(exp)  + ' kWh');
+  setVal('daily-import', fmtKwh(imp)  + ' kWh');
+  setVal('daily-home',   fmtKwh(cons) + ' kWh');
 
   // TODAY pie charts
   renderMiniPie('pie-solar-today',
