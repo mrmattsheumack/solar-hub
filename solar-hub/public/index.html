@@ -503,8 +503,25 @@ let lastExportAlert=0, lastImportAlert=0;
 let alertLog=[];
 let hourlyBarChart=null, dayLineChart=null, ghiChart=null, dayDetailChart=null;
 let pieSolarChart=null, pieConsumptionChart=null;
-let hourlyHistory={};
 let selectedDayEl=null;
+
+// ── Persist hourlyHistory across page reloads (keyed by date) ────────────────
+const TODAY_KEY = 'solarHistory_' + new Date().toISOString().slice(0,10);
+function loadHourlyHistory() {
+  try {
+    const saved = localStorage.getItem(TODAY_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch(e) { return {}; }
+}
+function saveHourlyHistory() {
+  try { localStorage.setItem(TODAY_KEY, JSON.stringify(hourlyHistory)); } catch(e) {}
+  // Clean up old days (keep only last 3)
+  try {
+    const keys = Object.keys(localStorage).filter(k=>k.startsWith('solarHistory_')).sort();
+    while(keys.length > 3) { localStorage.removeItem(keys.shift()); }
+  } catch(e) {}
+}
+let hourlyHistory = loadHourlyHistory();
 
 // ── Tabs (see history JS below) ─────────────────────────────────────────────
 
@@ -536,20 +553,22 @@ async function refreshAll(){
 // ── History ───────────────────────────────────────────────────────────────────
 function recordHistory(d){
   if(!d) return;
-  // Prefer SEMS hourlyChart for full day coverage
-  if(d.hourlyChart && d.hourlyChart.length > 2){
-    hourlyHistory = {};
-    d.hourlyChart.forEach(pt=>{
-      if(pt.time) hourlyHistory[pt.time]={
-        consumption:pt.homePower||0, gridImport:pt.gridImport||0,
-        gridExport:pt.gridExport||0, solar:pt.pvPower||0,
-      };
-    });
-    return;
-  }
-  // Fallback: live reading
-  const key=new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:false});
-  hourlyHistory[key]={consumption:d.homePower||0,gridImport:d.importPower||0,gridExport:d.exportPower||0,solar:d.pvPower||0};
+  // Add current live reading — always accumulate, never wipe existing data
+  const key = new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:false});
+  const pvPow   = d.pvPower    || 0;
+  const expPow  = d.exportPower || 0;
+  const impPow  = d.importPower || 0;
+  const homePow = d.homePower   || 0;
+  const selfUse = Math.max(0, pvPow - expPow);
+
+  hourlyHistory[key] = {
+    solar:       pvPow,
+    selfUse:     selfUse,
+    gridExport:  expPow,
+    gridImport:  impPow,
+    consumption: homePow,
+  };
+  saveHourlyHistory();
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
@@ -575,33 +594,25 @@ function renderStats(d){
   setVal('daily-home',  fmtKwh(d.dailyConsumption)+' kWh');
 
   // Horizontal live power bar
-  // Total width = max of (generation, consumption) for scale
-  const totalW = Math.max(pvPower + importPow, homePow, 1);
-  const pctSolar   = (pvPower    / totalW * 100).toFixed(1);
-  const pctSelfUse = (selfUsePow / totalW * 100).toFixed(1);
-  const pctExport  = (exportPow  / totalW * 100).toFixed(1);
-  const pctImport  = (importPow  / totalW * 100).toFixed(1);
-
-  function setBarSeg(id, pct, label) {
+  // Segments: [solar self-use | grid import | excess export]
+  // Total = consumption (self-use + import) + export — the full picture
+  const totalW = Math.max(selfUsePow + importPow + exportPow, 100);
+  function setBarSeg(id, w, label) {
     const el = document.getElementById(id);
     if (!el) return;
-    el.style.width = pct + '%';
+    const pct = (w / totalW * 100);
+    el.style.width = pct.toFixed(1) + '%';
     el.style.flexShrink = '0';
-    el.innerHTML = pct > 8 ? `<span style="font-size:0.6rem;font-weight:500;color:rgba(0,0,0,0.7);white-space:nowrap;">${label}</span>` : '';
+    el.innerHTML = pct > 9 ? `<span style="font-size:0.6rem;font-weight:500;color:rgba(0,0,0,0.75);white-space:nowrap;padding:0 4px">${label}</span>` : '';
   }
-  // Show generation bar OR self-use + export (they overlap)
-  // Use: [generating solar | exporting | importing] — solar fills left, export is part of solar, import fills right
-  if (pvPower > 0) {
-    setBarSeg('live-seg-solar',   pctSolar,   fmtW(pvPower)+'W solar');
-    setBarSeg('live-seg-selfuse', '0',        '');
-    setBarSeg('live-seg-export',  pctExport,  fmtW(exportPow)+'W export');
-    setBarSeg('live-seg-import',  pctImport,  fmtW(importPow)+'W grid');
-  } else {
-    // Night: just show import and consumption
-    setBarSeg('live-seg-solar',   '0', '');
-    setBarSeg('live-seg-selfuse', '0', '');
-    setBarSeg('live-seg-export',  '0', '');
-    setBarSeg('live-seg-import',  '100', fmtW(importPow)+'W from grid');
+  setBarSeg('live-seg-solar',   pvPower,    fmtW(pvPower));
+  setBarSeg('live-seg-selfuse', selfUsePow, fmtW(selfUsePow));
+  setBarSeg('live-seg-export',  exportPow,  fmtW(exportPow));
+  setBarSeg('live-seg-import',  importPow,  fmtW(importPow));
+  // If everything is zero (e.g. API not loaded yet) show a neutral grey bar
+  if (totalW <= 100) {
+    const wrap = document.getElementById('live-bar-wrap');
+    if (wrap) wrap.style.background = 'rgba(90,100,120,0.2)';
   }
 
   // Battery
@@ -642,38 +653,32 @@ function renderCosts(d){
 
 // ── Hourly stacked bar ────────────────────────────────────────────────────────
 function renderHourlyBarChart(){
-  const labels=Object.keys(hourlyHistory).sort();
-  if(!labels.length){
-    // Show placeholder message
-    const ctx=document.getElementById('hourly-bar-chart').getContext('2d');
-    if(hourlyBarChart) hourlyBarChart.destroy();
-    ctx.fillStyle='rgba(90,100,120,0.5)';
-    ctx.font='12px DM Mono, monospace';
-    ctx.textAlign='center';
-    ctx.fillText('Hourly data loading — check back after first full day',ctx.canvas.offsetWidth/2,100);
-    return;
-  }
-  // selfUse = solar generated minus what was exported (what was actually consumed from solar)
-  const selfUse = labels.map(k=>Math.round(Math.max(0, hourlyHistory[k].solar - hourlyHistory[k].gridExport)));
-  const gridImp = labels.map(k=>Math.round(hourlyHistory[k].gridImport));
-  const excess  = labels.map(k=>Math.round(hourlyHistory[k].gridExport));
-  // Filter to only hours with any activity
-  const hasData = labels.some(k=>hourlyHistory[k].solar>0||hourlyHistory[k].gridImport>0||hourlyHistory[k].gridExport>0);
-  if(!hasData) return;
-  const ctx=document.getElementById('hourly-bar-chart').getContext('2d');
-  if(hourlyBarChart) hourlyBarChart.destroy();
-  hourlyBarChart=new Chart(ctx,{
-    type:'bar',
-    data:{labels,datasets:[
-      {label:'Solar self-use', data:selfUse, backgroundColor:'rgba(110,142,251,0.85)', borderRadius:2, stack:'consumption'},
-      {label:'From grid',      data:gridImp, backgroundColor:'rgba(255,77,109,0.85)',  borderRadius:2, stack:'consumption'},
-      {label:'Excess export',  data:excess,  backgroundColor:'rgba(0,229,160,0.85)',   borderRadius:2, stack:'consumption'},
+  const labels = Object.keys(hourlyHistory).sort();
+  if (!labels.length) return;
+
+  // Use stored selfUse if available, else derive from solar - export
+  const selfUse = labels.map(k => {
+    const h = hourlyHistory[k];
+    return Math.round(h.selfUse != null ? h.selfUse : Math.max(0, (h.solar||0) - (h.gridExport||0)));
+  });
+  const gridImp = labels.map(k => Math.round(hourlyHistory[k].gridImport || 0));
+  const excess  = labels.map(k => Math.round(hourlyHistory[k].gridExport  || 0));
+
+  const ctx = document.getElementById('hourly-bar-chart').getContext('2d');
+  if (hourlyBarChart) hourlyBarChart.destroy();
+  hourlyBarChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label:'Solar self-use', data:selfUse, backgroundColor:'rgba(110,142,251,0.85)', borderRadius:2, stack:'s' },
+      { label:'From grid',      data:gridImp, backgroundColor:'rgba(255,77,109,0.85)',  borderRadius:2, stack:'s' },
+      { label:'Excess export',  data:excess,  backgroundColor:'rgba(0,229,160,0.85)',   borderRadius:2, stack:'s' },
     ]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,callbacks:{label:c=>c.dataset.label+': '+Math.round(c.raw)+'W'}}},
-      scales:{
-        x:{stacked:true,grid:{display:false},ticks:{maxRotation:0,maxTicksLimit:16,font:{size:9}}},
-        y:{stacked:false,grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v>=1000?(v/1000).toFixed(1)+'kW':v+'W',font:{size:9}},min:0}
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{display:false}, tooltip:{mode:'index',intersect:false,callbacks:{label:c=>c.dataset.label+': '+Math.round(c.raw)+'W'}} },
+      scales: {
+        x: { stacked:true, grid:{display:false}, ticks:{maxRotation:0,maxTicksLimit:24,font:{size:9}} },
+        y: { stacked:true, grid:{color:'rgba(255,255,255,0.04)'}, ticks:{callback:v=>v>=1000?(v/1000).toFixed(1)+'kW':v+'W',font:{size:9}}, min:0 }
       }
     }
   });
