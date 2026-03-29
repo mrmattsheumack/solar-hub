@@ -76,12 +76,21 @@ exports.handler = async (event) => {
     const stats  = detail.energeStatisticsCharts || {};
 
     // Live power flows
-    const pmeter     = full.pmeter ?? 0;
-    const pvPower    = full.pv_power ?? parseW(pf.pv) ?? 0;
-    const homePower  = parseW(pf.load) || Math.abs(pmeter) + pvPower;
-    const gridPower  = pmeter;
+    // pmeter: negative = importing from grid, positive = exporting to grid
+    const pmeter      = full.pmeter ?? 0;
+    const gridPower   = pmeter;
     const importPower = Math.max(0, -pmeter);
     const exportPower = Math.max(0,  pmeter);
+
+    // pvPower: try explicit fields first, then energy balance
+    // Energy balance: pvPower = homePower + exportPower - importPower
+    const pvRaw = full.pv_power || full.pac || parseW(pf.pv) || kpi.pac || 0;
+    // homePower from powerflow load string e.g. "1642(W)"
+    const homePower = parseW(pf.load) || 0;
+    // Derive pvPower from energy balance if explicit field is 0
+    // pvPower = load + export - import (conservation of energy)
+    const pvBalanced = Math.max(0, homePower + exportPower - importPower);
+    const pvPowerFinal = pvRaw > 0 ? pvRaw : pvBalanced;
     const batterySoc  = full.soc ?? 0;
     const batteryPower = full.total_pbattery ?? 0;
 
@@ -123,7 +132,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200, headers,
       body: JSON.stringify({
-        pvPower, gridPower, homePower, batteryPower, batterySoc,
+        pvPower: Math.round(pvPowerFinal), gridPower, homePower: Math.round(homePower), batteryPower, batterySoc,
         exportPower, importPower,
         dailyGeneration, dailyExport, dailyImport,
         dailyConsumption: parseFloat(Number(dailyConsumption).toFixed(2)),
