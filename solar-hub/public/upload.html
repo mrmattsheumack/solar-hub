@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Solar Hub — AGL Data Upload</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root { --sun:#f5a623; --export:#00e5a0; --import:#ff4d6d; --bg:#0a0e1a; --bg2:#0f1525; --bg3:#151c30; --border:rgba(255,255,255,0.07); --text:#e8eaf0; --muted:#5a6478; }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+    .card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:32px;width:100%;max-width:600px;}
+    h1{font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;margin-bottom:4px;}
+    .sub{font-size:0.68rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:24px;}
+    .step{margin-bottom:20px;padding:16px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);}
+    .step-title{font-size:0.7rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+    .sql-block{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:0.68rem;line-height:1.7;color:#a8d8a0;overflow-x:auto;white-space:pre;}
+    .drop-zone{border:2px dashed var(--border);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:12px;}
+    .drop-zone:hover,.drop-zone.over{border-color:var(--sun);background:rgba(245,166,35,0.04);}
+    .drop-zone p{font-size:0.78rem;color:var(--muted);margin-top:8px;}
+    .drop-icon{font-size:2rem;margin-bottom:8px;}
+    input[type=file]{display:none;}
+    .btn{width:100%;padding:12px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--sun),var(--sun-glow,#ff6b00));color:#000;font-family:'DM Mono',monospace;font-size:0.8rem;font-weight:500;cursor:pointer;transition:opacity 0.2s;letter-spacing:0.05em;}
+    .btn:hover{opacity:0.85;}
+    .btn:disabled{opacity:0.4;cursor:default;}
+    .progress{margin-top:16px;display:none;}
+    .progress-bar-track{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-bottom:8px;}
+    .progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--sun),var(--export));border-radius:3px;transition:width 0.3s;width:0%;}
+    .progress-text{font-size:0.68rem;color:var(--muted);}
+    .log{margin-top:16px;max-height:200px;overflow-y:auto;font-size:0.65rem;line-height:1.8;color:var(--muted);}
+    .log .ok{color:var(--export);}
+    .log .err{color:var(--import);}
+    .log .info{color:var(--sun);}
+    a{color:var(--sun);text-decoration:none;font-size:0.68rem;}
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>☀️ AGL Data Upload</h1>
+  <div class="sub">Solar Hub — Historical Usage Importer</div>
+
+  <div class="step">
+    <div class="step-title">Step 1 — Create the Supabase table (first time only)</div>
+    <p style="font-size:0.68rem;color:var(--muted);margin-bottom:10px;">Run this SQL in your Supabase SQL editor (<a href="https://supabase.com/dashboard/project/uzdfjlddgeoelltnprpb/sql" target="_blank">open editor ↗</a>):</p>
+    <div class="sql-block">CREATE TABLE IF NOT EXISTS solar_agl_usage (
+  id          bigserial PRIMARY KEY,
+  start_time  timestamptz NOT NULL,
+  end_time    timestamptz NOT NULL,
+  type        text NOT NULL,  -- 'Solar' or 'Generalusage'
+  kwh         numeric(10,4) NOT NULL DEFAULT 0,
+  quality     text,
+  created_at  timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agl_start ON solar_agl_usage (start_time);
+CREATE INDEX IF NOT EXISTS idx_agl_type  ON solar_agl_usage (type, start_time);
+
+-- Allow anonymous reads and inserts
+ALTER TABLE solar_agl_usage ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "public read"   ON solar_agl_usage FOR SELECT USING (true);
+CREATE POLICY "public insert" ON solar_agl_usage FOR INSERT WITH CHECK (true);
+CREATE POLICY "public delete" ON solar_agl_usage FOR DELETE USING (true);</div>
+  </div>
+
+  <div class="step">
+    <div class="step-title">Step 2 — Upload your AGL CSV</div>
+    <p style="font-size:0.68rem;color:var(--muted);margin-bottom:12px;">Download from <a href="https://myaccount.agl.com.au/usage" target="_blank">myaccount.agl.com.au/usage ↗</a> then drop it below. Existing data for overlapping dates will be replaced.</p>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div class="drop-icon">📂</div>
+      <strong id="drop-label">Drop AGL CSV here or click to browse</strong>
+      <p>MyUsageData_DD-MM-YYYY.csv</p>
+    </div>
+    <input type="file" id="file-input" accept=".csv,.zip"/>
+    <button class="btn" id="upload-btn" disabled onclick="startUpload()">Upload to Supabase</button>
+    <div class="progress" id="progress">
+      <div class="progress-bar-track"><div class="progress-bar-fill" id="progress-fill"></div></div>
+      <div class="progress-text" id="progress-text">Preparing…</div>
+    </div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <a href="/">← Back to Solar Hub</a>
+</div>
+
+<script>
+const SUPABASE_URL = "https://uzdfjlddgeoelltnprpb.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6ZGZqbGRkZ2VvZWxsdG5wcnBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyODc3NzIsImV4cCI6MjA4OTg2Mzc3Mn0.mqs_ho9NP3Igwls4tI1CV2LqGYNBD1MgDvSGfOx2xZc";
+const BATCH_SIZE = 500;
+
+let parsedRows = [];
+
+function log(msg, cls='') {
+  const el = document.getElementById('log');
+  const line = document.createElement('div');
+  if(cls) line.className = cls;
+  line.textContent = msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function setProgress(pct, text) {
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = text;
+}
+
+// Drag and drop
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); handleFile(e.dataTransfer.files[0]); });
+document.getElementById('file-input').addEventListener('change', e => handleFile(e.target.files[0]));
+
+function handleFile(file) {
+  if (!file) return;
+  document.getElementById('drop-label').textContent = file.name;
+  document.getElementById('log').innerHTML = '';
+  log(`📄 Reading ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)…`, 'info');
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      parsedRows = parseCSV(e.target.result);
+      log(`✓ Parsed ${parsedRows.length.toLocaleString()} rows`, 'ok');
+      document.getElementById('upload-btn').disabled = false;
+    } catch(err) {
+      log(`✗ Parse error: ${err.message}`, 'err');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const rows = [];
+  // Skip header
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].trim().split(',');
+    if (cols.length < 9) continue;
+    const type = cols[5].trim(); // Solar or Generalusage
+    if (type !== 'Solar' && type !== 'Generalusage') continue;
+    const startRaw = cols[6].trim(); // "21/02/2025 12:00:00 AM"
+    const endRaw   = cols[7].trim();
+    const kwh      = parseFloat(cols[8]) || 0;
+    const quality  = cols[10]?.trim() || 'A';
+
+    const startTime = parseAGLDate(startRaw);
+    const endTime   = parseAGLDate(endRaw);
+    if (!startTime) continue;
+
+    rows.push({ start_time: startTime, end_time: endTime, type, kwh, quality });
+  }
+  return rows;
+}
+
+function parseAGLDate(str) {
+  // "21/02/2025 12:00:00 AM" → ISO string in Melbourne time
+  try {
+    const [datePart, timePart, ampm] = str.split(' ');
+    const [day, month, year] = datePart.split('/');
+    let [hh, mm, ss] = timePart.split(':').map(Number);
+    if (ampm === 'PM' && hh !== 12) hh += 12;
+    if (ampm === 'AM' && hh === 12) hh = 0;
+    // Construct as Melbourne local time (AEDT UTC+11 or AEST UTC+10)
+    // Use a simple ISO string and let Supabase store as-is with timezone offset
+    const pad = n => String(n).padStart(2,'0');
+    // Determine UTC offset for Melbourne (AEDT Nov-Apr = +11, AEST May-Oct = +10)
+    const monthNum = parseInt(month);
+    const offset = (monthNum >= 4 && monthNum <= 10) ? '+10:00' : '+11:00';
+    return `${year}-${pad(parseInt(month))}-${pad(parseInt(day))}T${pad(hh)}:${pad(mm)}:${pad(ss)}${offset}`;
+  } catch(e) {
+    return null;
+  }
+}
+
+async function startUpload() {
+  if (!parsedRows.length) return;
+  const btn = document.getElementById('upload-btn');
+  btn.disabled = true;
+  document.getElementById('progress').style.display = 'block';
+  document.getElementById('log').innerHTML = '';
+
+  // Get date range to delete first (clean replace)
+  const dates = parsedRows.map(r => r.start_time.slice(0,10));
+  const minDate = dates.reduce((a,b) => a<b?a:b);
+  const maxDate = dates.reduce((a,b) => a>b?a:b);
+
+  log(`🗑 Removing existing data from ${minDate} to ${maxDate}…`, 'info');
+  setProgress(5, 'Removing old data…');
+
+  try {
+    const delRes = await fetch(`${SUPABASE_URL}/rest/v1/solar_agl_usage?start_time=gte.${minDate}T00:00:00&start_time=lte.${maxDate}T23:59:59`, {
+      method: 'DELETE',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    });
+    log(`✓ Old data cleared`, 'ok');
+  } catch(e) {
+    log(`⚠ Delete failed (continuing anyway): ${e.message}`, 'err');
+  }
+
+  // Insert in batches
+  const total = parsedRows.length;
+  const batches = Math.ceil(total / BATCH_SIZE);
+  log(`⬆ Uploading ${total.toLocaleString()} rows in ${batches} batches…`, 'info');
+
+  let inserted = 0;
+  for (let b = 0; b < batches; b++) {
+    const batch = parsedRows.slice(b * BATCH_SIZE, (b+1) * BATCH_SIZE);
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/solar_agl_usage`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify(batch),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        log(`✗ Batch ${b+1} failed: ${err.slice(0,100)}`, 'err');
+      } else {
+        inserted += batch.length;
+      }
+    } catch(e) {
+      log(`✗ Batch ${b+1} error: ${e.message}`, 'err');
+    }
+    const pct = Math.round(10 + (inserted/total)*88);
+    setProgress(pct, `Uploaded ${inserted.toLocaleString()} / ${total.toLocaleString()} rows…`);
+  }
+
+  setProgress(100, 'Complete!');
+  log(`✓ Done — ${inserted.toLocaleString()} rows uploaded to solar_agl_usage`, 'ok');
+  log(`→ Return to Solar Hub to see your history`, 'info');
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
