@@ -28,9 +28,9 @@ async function getStationDetail(auth) {
     timestamp: auth.timestamp, uid: auth.uid, token: auth.token,
   });
 
-  // Try the powerstation detail endpoint
-  const apiBase = auth.api || "https://semsplus.goodwe.com";
-  const url = `${apiBase}/v1/PowerStation/GetMonitorDetailByPowerstationId`;
+  // ── Try both known API base URLs ──────────────────────────────────────────
+  const apiBase = auth.api || "https://www.semsportal.com";
+  const url = `${apiBase}/api/v1/PowerStation/GetMonitorDetailByPowerstationId`;
 
   const res = await fetch(url, {
     method: "POST",
