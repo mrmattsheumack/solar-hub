@@ -10,148 +10,130 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <style>
     :root {
-      --sun: #f5a623;
-      --sun-glow: #ff6b00;
-      --export: #00e5a0;
-      --import: #ff4d6d;
-      --battery: #4db8ff;
-      --home: #6e8efb;
-      --bg: #0a0e1a;
-      --bg2: #0f1525;
-      --bg3: #151c30;
-      --border: rgba(255,255,255,0.07);
-      --text: #e8eaf0;
-      --muted: #5a6478;
+      --sun:#f5a623; --sun-glow:#ff6b00; --export:#00e5a0; --import:#ff4d6d;
+      --battery:#4db8ff; --home:#6e8efb; --bg:#0a0e1a; --bg2:#0f1525;
+      --bg3:#151c30; --border:rgba(255,255,255,0.07); --text:#e8eaf0; --muted:#5a6478;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; min-height: 100vh; overflow-x: hidden; }
-    body::before {
-      content: ''; position: fixed; inset: 0;
-      background: radial-gradient(ellipse 80% 40% at 60% -10%, rgba(245,166,35,0.10) 0%, transparent 60%),
-                  radial-gradient(ellipse 40% 30% at 90% 20%, rgba(255,107,0,0.06) 0%, transparent 50%);
-      pointer-events: none; z-index: 0;
-    }
-    .app { position: relative; z-index: 1; max-width: 1280px; margin: 0 auto; padding: 20px 20px 60px; }
-
-    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
-    .logo { display: flex; align-items: center; gap: 12px; }
-    .logo-icon { width: 38px; height: 38px; background: linear-gradient(135deg, var(--sun), var(--sun-glow)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 0 20px rgba(245,166,35,0.35); }
-    .logo-text { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.2rem; letter-spacing: -0.02em; }
-    .logo-sub { font-size: 0.62rem; color: var(--muted); letter-spacing: 0.15em; text-transform: uppercase; }
-    .header-right { display: flex; align-items: center; gap: 10px; }
-    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); transition: background 0.3s; }
-    .status-dot.live { background: var(--export); box-shadow: 0 0 8px var(--export); animation: pulse 2s infinite; }
-    .status-dot.error { background: var(--import); }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-    .status-text { font-size: 0.68rem; color: var(--muted); letter-spacing: 0.08em; }
-    .btn { padding: 6px 13px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg3); color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.7rem; cursor: pointer; transition: all 0.2s; }
-    .btn:hover { border-color: var(--sun); color: var(--sun); }
-    .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-    .toolbar-left { display: flex; align-items: center; gap: 8px; }
-
-    #alert-banner { display: none; margin-bottom: 16px; padding: 12px 16px; border-radius: 10px; border-left: 3px solid; font-size: 0.78rem; line-height: 1.5; }
-    #alert-banner.export-alert { background: rgba(0,229,160,0.08); border-color: var(--export); color: var(--export); }
-    #alert-banner.import-alert { background: rgba(255,77,109,0.08); border-color: var(--import); color: var(--import); }
-
-    .tabs { display: flex; gap: 6px; margin-bottom: 18px; }
-    .tab { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.7rem; cursor: pointer; transition: all 0.2s; }
-    .tab.active { background: var(--bg2); border-color: rgba(245,166,35,0.4); color: var(--sun); }
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
-
-    .stat-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 14px; }
-    @media(max-width:700px){ .stat-row { grid-template-columns: repeat(2,1fr); } }
-    .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; position: relative; overflow: hidden; }
-    .stat-card::after { content:''; position:absolute; top:-24px; right:-24px; width:90px; height:90px; border-radius:50%; opacity:0.07; }
-    .stat-card.solar::after { background: var(--sun); }
-    .stat-card.export::after { background: var(--export); }
-    .stat-card.import-card::after { background: var(--import); }
-    .stat-card.home::after { background: var(--home); }
-    .stat-icon { font-size: 1.1rem; margin-bottom: 8px; }
-    .stat-label { font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
-    .stat-value { font-family: 'Syne', sans-serif; font-size: 1.7rem; font-weight: 700; letter-spacing: -0.02em; }
-    .stat-unit { font-size: 0.68rem; color: var(--muted); margin-left: 2px; font-family:'DM Mono',monospace; font-weight:400; }
-    .stat-card.solar .stat-value { color: var(--sun); }
-    .stat-card.export .stat-value { color: var(--export); }
-    .stat-card.import-card .stat-value { color: var(--import); }
-    .stat-card.home .stat-value { color: var(--home); }
-
-    .daily-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 14px; }
-    @media(max-width:700px){ .daily-row { grid-template-columns: repeat(2,1fr); } }
-    .daily-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
-    .daily-label { font-size: 0.58rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
-    .daily-value { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 600; }
-
-    .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 14px; }
-    .card-title { font-family: 'Syne', sans-serif; font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
-    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
-    @media(max-width:700px){ .two-col { grid-template-columns: 1fr; } }
-
-    .chart-wrap { position: relative; width: 100%; }
-
-    .legend { display: flex; gap: 14px; margin-bottom: 10px; flex-wrap: wrap; }
-    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.61rem; color: var(--muted); }
-    .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
-
-    .weather-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .w-label { font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
-    .w-val { font-family: 'Syne', sans-serif; font-size: 1.05rem; font-weight: 600; }
-    .irr-wrap { margin-top: 12px; }
-    .irr-label { font-size: 0.58rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 5px; display:flex; justify-content:space-between; }
-    .irr-track { height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
-    .irr-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg,var(--sun-glow),var(--sun)); transition: width 1s ease; }
-
-    .soc-wrap { display: flex; align-items: center; gap: 14px; }
-    .soc-ring { position: relative; width: 60px; height: 60px; flex-shrink: 0; }
-    .soc-ring svg { transform: rotate(-90deg); }
-    .soc-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'Syne',sans-serif; font-size: 0.85rem; font-weight: 700; color: var(--battery); }
-    .soc-power { font-family: 'Syne',sans-serif; font-size: 1.05rem; font-weight: 600; color: var(--battery); }
-    .soc-dir { font-size: 0.62rem; color: var(--muted); margin-top: 2px; }
-
-    .forecast-scroll { overflow-x: auto; padding-bottom: 6px; margin-top: 12px; }
-    .forecast-row { display: flex; gap: 8px; min-width: max-content; }
-    .fh { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px; border-radius: 10px; background: var(--bg3); border: 1px solid var(--border); min-width: 62px; }
-    .fh.now { border-color: var(--sun); background: rgba(245,166,35,0.07); }
-    .fh.night { opacity: 0.45; }
-    .fh-time { font-size: 0.62rem; color: var(--muted); }
-    .fh-icon { font-size: 1.05rem; }
-    .fh-ghi { font-family: 'Syne',sans-serif; font-size: 0.8rem; font-weight: 700; color: var(--sun); }
-    .fh-cloud { font-size: 0.58rem; color: var(--muted); }
-    .fh-temp { font-size: 0.62rem; }
-
-    .daily-fc { display: grid; grid-template-columns: repeat(7,1fr); gap: 8px; margin-top: 14px; }
-    @media(max-width:700px){ .daily-fc { grid-template-columns: repeat(4,1fr); } }
-    .dfi { text-align: center; padding: 12px 6px; border-radius: 10px; background: var(--bg3); border: 1px solid var(--border); cursor: pointer; transition: all 0.2s; }
-    .dfi:hover,.dfi.selected { border-color: var(--sun); background: rgba(245,166,35,0.07); }
-    .dfi-day { font-size: 0.58rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
-    .dfi-icon { font-size: 1.15rem; margin-bottom: 3px; }
-    .dfi-uv { font-size: 0.62rem; color: var(--sun); }
-    .dfi-solar { font-size: 0.6rem; color: var(--export); margin-top: 2px; }
-    .dfi-rain { font-size: 0.58rem; color: var(--battery); margin-top: 1px; }
-
-    #day-detail { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
-    #day-detail-title { font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
-
-    .alert-config { display: flex; flex-direction: column; gap: 14px; }
-    .alert-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .alert-desc { font-size: 0.72rem; color: var(--muted); line-height: 1.5; flex: 1; }
-    .toggle { position: relative; width: 38px; height: 21px; cursor: pointer; flex-shrink: 0; }
-    .toggle input { opacity: 0; width: 0; height: 0; }
-    .toggle-slider { position: absolute; inset: 0; background: var(--bg3); border: 1px solid var(--border); border-radius: 11px; transition: 0.3s; }
-    .toggle-slider::before { content:''; position:absolute; width:15px; height:15px; left:2px; top:2px; background:var(--muted); border-radius:50%; transition:0.3s; }
-    .toggle input:checked + .toggle-slider { background: rgba(0,229,160,0.15); border-color: var(--export); }
-    .toggle input:checked + .toggle-slider::before { transform: translateX(17px); background: var(--export); }
-    #notif-btn { width:100%; padding:9px; margin-top:4px; border-radius:8px; background:rgba(245,166,35,0.08); border:1px solid rgba(245,166,35,0.25); color:var(--sun); font-family:'DM Mono',monospace; font-size:0.72rem; cursor:pointer; transition:all 0.2s; }
-    #notif-btn:hover { background: rgba(245,166,35,0.15); }
-    #notif-btn:disabled { opacity:0.5; cursor:default; }
-    .log-entry { padding:8px 0; border-bottom:1px solid var(--border); display:flex; gap:10px; align-items:flex-start; }
-
-    .update-ticker { text-align:center; font-size:0.6rem; color:var(--muted); margin-top:20px; letter-spacing:0.08em; }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;overflow-x:hidden;}
+    body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 40% at 60% -10%,rgba(245,166,35,0.10) 0%,transparent 60%),radial-gradient(ellipse 40% 30% at 90% 20%,rgba(255,107,0,0.06) 0%,transparent 50%);pointer-events:none;z-index:0;}
+    .app{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:20px 20px 60px;}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border);}
+    .logo{display:flex;align-items:center;gap:12px;}
+    .logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--sun),var(--sun-glow));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 20px rgba(245,166,35,0.35);}
+    .logo-text{font-family:'Syne',sans-serif;font-weight:800;font-size:1.2rem;letter-spacing:-0.02em;}
+    .logo-sub{font-size:0.62rem;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;}
+    .header-right{display:flex;align-items:center;gap:10px;}
+    .status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background 0.3s;}
+    .status-dot.live{background:var(--export);box-shadow:0 0 8px var(--export);animation:pulse 2s infinite;}
+    .status-dot.error{background:var(--import);}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+    .status-text{font-size:0.68rem;color:var(--muted);letter-spacing:0.08em;}
+    .btn{padding:6px 13px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'DM Mono',monospace;font-size:0.7rem;cursor:pointer;transition:all 0.2s;}
+    .btn:hover{border-color:var(--sun);color:var(--sun);}
+    .toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+    #alert-banner{display:none;margin-bottom:16px;padding:12px 16px;border-radius:10px;border-left:3px solid;font-size:0.78rem;line-height:1.5;}
+    #alert-banner.export-alert{background:rgba(0,229,160,0.08);border-color:var(--export);color:var(--export);}
+    #alert-banner.import-alert{background:rgba(255,77,109,0.08);border-color:var(--import);color:var(--import);}
+    .tabs{display:flex;gap:6px;margin-bottom:0;}
+    .tab{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:0.7rem;cursor:pointer;transition:all 0.2s;}
+    .tab.active{background:var(--bg2);border-color:rgba(245,166,35,0.4);color:var(--sun);}
+    .tab-panel{display:none;}
+    .tab-panel.active{display:block;}
+    .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;}
+    @media(max-width:700px){.stat-row{grid-template-columns:repeat(2,1fr);}}
+    .stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px 18px;position:relative;overflow:hidden;}
+    .stat-card::after{content:'';position:absolute;top:-24px;right:-24px;width:90px;height:90px;border-radius:50%;opacity:0.07;}
+    .stat-card.solar::after{background:var(--sun);}
+    .stat-card.export::after{background:var(--export);}
+    .stat-card.import-card::after{background:var(--import);}
+    .stat-card.home::after{background:var(--home);}
+    .stat-icon{font-size:1.1rem;margin-bottom:8px;}
+    .stat-label{font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+    .stat-value{font-family:'Syne',sans-serif;font-size:1.7rem;font-weight:700;letter-spacing:-0.02em;}
+    .stat-unit{font-size:0.68rem;color:var(--muted);margin-left:2px;font-family:'DM Mono',monospace;font-weight:400;}
+    .stat-card.solar .stat-value{color:var(--sun);}
+    .stat-card.export .stat-value{color:var(--export);}
+    .stat-card.import-card .stat-value{color:var(--import);}
+    .stat-card.home .stat-value{color:var(--home);}
+    .daily-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;}
+    @media(max-width:700px){.daily-row{grid-template-columns:repeat(2,1fr);}}
+    .daily-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
+    .daily-label{font-size:0.58rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+    .daily-value{font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:600;}
+    .card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:14px;}
+    .card-title{font-family:'Syne',sans-serif;font-size:0.65rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+    @media(max-width:700px){.two-col{grid-template-columns:1fr;}}
+    .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
+    @media(max-width:900px){.three-col{grid-template-columns:1fr 1fr;}}
+    @media(max-width:600px){.three-col{grid-template-columns:1fr;}}
+    .chart-wrap{position:relative;width:100%;}
+    .legend{display:flex;gap:14px;margin-bottom:10px;flex-wrap:wrap;}
+    .legend-item{display:flex;align-items:center;gap:6px;font-size:0.61rem;color:var(--muted);}
+    .legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+    .weather-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .w-label{font-size:0.58rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;}
+    .w-val{font-family:'Syne',sans-serif;font-size:1.05rem;font-weight:600;}
+    .irr-wrap{margin-top:12px;}
+    .irr-label{font-size:0.58rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:5px;display:flex;justify-content:space-between;}
+    .irr-track{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+    .irr-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--sun-glow),var(--sun));transition:width 1s ease;}
+    .soc-wrap{display:flex;align-items:center;gap:14px;}
+    .soc-ring{position:relative;width:60px;height:60px;flex-shrink:0;}
+    .soc-ring svg{transform:rotate(-90deg);}
+    .soc-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:0.85rem;font-weight:700;color:var(--battery);}
+    .soc-power{font-family:'Syne',sans-serif;font-size:1.05rem;font-weight:600;color:var(--battery);}
+    .soc-dir{font-size:0.62rem;color:var(--muted);margin-top:2px;}
+    /* Cost card */
+    .cost-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;}
+    @media(max-width:600px){.cost-row{grid-template-columns:1fr 1fr;}}
+    .cost-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
+    .cost-label{font-size:0.58rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+    .cost-value{font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:600;}
+    .cost-note{font-size:0.58rem;color:var(--muted);margin-top:3px;}
+    /* Forecast */
+    .forecast-scroll{overflow-x:auto;padding-bottom:6px;margin-top:12px;}
+    .forecast-row{display:flex;gap:8px;min-width:max-content;}
+    .fh{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);min-width:62px;}
+    .fh.now{border-color:var(--sun);background:rgba(245,166,35,0.07);}
+    .fh.night{opacity:0.45;}
+    .fh-time{font-size:0.62rem;color:var(--muted);}
+    .fh-icon{font-size:1.05rem;}
+    .fh-ghi{font-family:'Syne',sans-serif;font-size:0.8rem;font-weight:700;color:var(--sun);}
+    .fh-cloud{font-size:0.58rem;color:var(--muted);}
+    .fh-temp{font-size:0.62rem;}
+    .daily-fc{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:14px;}
+    @media(max-width:700px){.daily-fc{grid-template-columns:repeat(4,1fr);}}
+    .dfi{text-align:center;padding:12px 6px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);cursor:pointer;transition:all 0.2s;}
+    .dfi:hover,.dfi.selected{border-color:var(--sun);background:rgba(245,166,35,0.07);}
+    .dfi-day{font-size:0.58rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+    .dfi-icon{font-size:1.15rem;margin-bottom:3px;}
+    .dfi-uv{font-size:0.62rem;color:var(--sun);}
+    .dfi-solar{font-size:0.6rem;color:var(--export);margin-top:2px;}
+    .dfi-rain{font-size:0.58rem;color:var(--battery);margin-top:1px;}
+    #day-detail{display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
+    #day-detail-title{font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
+    .alert-config{display:flex;flex-direction:column;gap:14px;}
+    .alert-row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+    .alert-desc{font-size:0.72rem;color:var(--muted);line-height:1.5;flex:1;}
+    .toggle{position:relative;width:38px;height:21px;cursor:pointer;flex-shrink:0;}
+    .toggle input{opacity:0;width:0;height:0;}
+    .toggle-slider{position:absolute;inset:0;background:var(--bg3);border:1px solid var(--border);border-radius:11px;transition:0.3s;}
+    .toggle-slider::before{content:'';position:absolute;width:15px;height:15px;left:2px;top:2px;background:var(--muted);border-radius:50%;transition:0.3s;}
+    .toggle input:checked+.toggle-slider{background:rgba(0,229,160,0.15);border-color:var(--export);}
+    .toggle input:checked+.toggle-slider::before{transform:translateX(17px);background:var(--export);}
+    #notif-btn{width:100%;padding:9px;margin-top:4px;border-radius:8px;background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.25);color:var(--sun);font-family:'DM Mono',monospace;font-size:0.72rem;cursor:pointer;transition:all 0.2s;}
+    #notif-btn:hover{background:rgba(245,166,35,0.15);}
+    #notif-btn:disabled{opacity:0.5;cursor:default;}
+    .log-entry{padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;}
+    .update-ticker{text-align:center;font-size:0.6rem;color:var(--muted);margin-top:20px;letter-spacing:0.08em;}
+    .tariff-banner{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:0.65rem;color:var(--muted);margin-bottom:14px;display:flex;gap:16px;flex-wrap:wrap;}
+    .tariff-item span{color:var(--text);}
   </style>
 </head>
 <body>
 <div class="app">
-
   <header>
     <div class="logo">
       <div class="logo-icon">☀️</div>
@@ -169,7 +151,7 @@
   <div id="alert-banner"></div>
 
   <div class="toolbar">
-    <div class="tabs" style="margin-bottom:0">
+    <div class="tabs">
       <button class="tab active" onclick="switchTab('live',this)">⚡ Live</button>
       <button class="tab" onclick="switchTab('forecast',this)">☁️ Forecast</button>
       <button class="tab" onclick="switchTab('alerts',this)">🔔 Alerts</button>
@@ -177,9 +159,19 @@
     <button class="btn" onclick="refreshAll()">↻ Refresh</button>
   </div>
 
-  <!-- ═══ LIVE ═══ -->
+  <!-- ═══ LIVE TAB ═══ -->
   <div class="tab-panel active" id="tab-live">
 
+    <!-- Tariff banner -->
+    <div class="tariff-banner">
+      <span class="tariff-item">Plan: <span>Night Saver EV</span></span>
+      <span class="tariff-item">Usage: <span>26.53c/kWh</span></span>
+      <span class="tariff-item">Night EV (12am–6am): <span>8.0c/kWh</span></span>
+      <span class="tariff-item">Feed-in: <span>1.5c/kWh</span></span>
+      <span class="tariff-item">Supply: <span>$1.039/day</span></span>
+    </div>
+
+    <!-- Live power stats -->
     <div class="stat-row">
       <div class="stat-card solar">
         <div class="stat-icon">☀️</div>
@@ -203,6 +195,7 @@
       </div>
     </div>
 
+    <!-- Daily kWh totals -->
     <div class="daily-row">
       <div class="daily-card">
         <div class="daily-label">Generated today</div>
@@ -222,19 +215,63 @@
       </div>
     </div>
 
-    <!-- Hourly bar chart -->
-    <div class="card">
-      <div class="card-title">Hourly energy — today</div>
-      <div class="legend">
-        <div class="legend-item"><div class="legend-dot" style="background:var(--home)"></div>Total usage</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--import)"></div>Purchased from grid</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--export)"></div>Exported to grid</div>
+    <!-- Cost estimates -->
+    <div class="cost-row">
+      <div class="cost-card">
+        <div class="cost-label">Grid cost today</div>
+        <div class="cost-value" id="cost-grid" style="color:var(--import)">—</div>
+        <div class="cost-note">at 26.53c/kWh</div>
       </div>
-      <div class="chart-wrap" style="height:200px"><canvas id="hourly-bar-chart"></canvas></div>
+      <div class="cost-card">
+        <div class="cost-label">Solar savings today</div>
+        <div class="cost-value" id="cost-savings" style="color:var(--export)">—</div>
+        <div class="cost-note">avoided grid purchase</div>
+      </div>
+      <div class="cost-card">
+        <div class="cost-label">Feed-in credit today</div>
+        <div class="cost-value" id="cost-feedin" style="color:var(--sun)">—</div>
+        <div class="cost-note">at 1.5c/kWh export</div>
+      </div>
+      <div class="cost-card">
+        <div class="cost-label">Supply charge today</div>
+        <div class="cost-value" id="cost-supply" style="color:var(--muted)">—</div>
+        <div class="cost-note">$1.039/day fixed</div>
+      </div>
+      <div class="cost-card">
+        <div class="cost-label">Net bill today</div>
+        <div class="cost-value" id="cost-net">—</div>
+        <div class="cost-note">grid + supply − feed-in</div>
+      </div>
+    </div>
+
+    <!-- Stacked bar + pie charts row -->
+    <div class="two-col">
+      <!-- Stacked bar chart -->
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Hourly energy — today</div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:rgba(110,142,251,0.85)"></div>Solar self-use</div>
+          <div class="legend-item"><div class="legend-dot" style="background:rgba(255,77,109,0.85)"></div>From grid</div>
+          <div class="legend-item"><div class="legend-dot" style="background:rgba(0,229,160,0.85)"></div>Excess export</div>
+        </div>
+        <div class="chart-wrap" style="height:220px"><canvas id="hourly-bar-chart"></canvas></div>
+      </div>
+
+      <!-- Pie charts stacked -->
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="card" style="margin-bottom:0;flex:1">
+          <div class="card-title">Solar generated — destination</div>
+          <div class="chart-wrap" style="height:140px"><canvas id="pie-solar"></canvas></div>
+        </div>
+        <div class="card" style="margin-bottom:0;flex:1">
+          <div class="card-title">Home consumption — source</div>
+          <div class="chart-wrap" style="height:140px"><canvas id="pie-consumption"></canvas></div>
+        </div>
+      </div>
     </div>
 
     <!-- Day line chart -->
-    <div class="card">
+    <div class="card" style="margin-top:14px">
       <div class="card-title">Power throughout the day</div>
       <div class="legend">
         <div class="legend-item"><div class="legend-dot" style="background:var(--home)"></div>Consumption</div>
@@ -242,7 +279,7 @@
         <div class="legend-item"><div class="legend-dot" style="background:var(--export)"></div>Grid export</div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--sun);opacity:0.6"></div>Forecast solar</div>
       </div>
-      <div class="chart-wrap" style="height:220px"><canvas id="day-line-chart"></canvas></div>
+      <div class="chart-wrap" style="height:200px"><canvas id="day-line-chart"></canvas></div>
     </div>
 
     <!-- Weather + Battery -->
@@ -278,13 +315,13 @@
             <div class="soc-dir" id="bat-dir">—</div>
           </div>
         </div>
-        <div id="no-battery" style="display:none;color:var(--muted);font-size:0.73rem;margin-top:8px;">No battery detected on this inverter</div>
+        <div id="no-battery" style="display:none;color:var(--muted);font-size:0.73rem;margin-top:8px;">No battery detected</div>
       </div>
     </div>
 
   </div><!-- /live -->
 
-  <!-- ═══ FORECAST ═══ -->
+  <!-- ═══ FORECAST TAB ═══ -->
   <div class="tab-panel" id="tab-forecast">
     <div class="card">
       <div class="card-title">Today's solar forecast — hourly GHI (W/m²)</div>
@@ -307,7 +344,7 @@
     </div>
   </div>
 
-  <!-- ═══ ALERTS ═══ -->
+  <!-- ═══ ALERTS TAB ═══ -->
   <div class="tab-panel" id="tab-alerts">
     <div class="card">
       <div class="card-title">Alert Configuration</div>
@@ -317,15 +354,15 @@
           <label class="toggle"><input type="checkbox" id="toggle-export" checked onchange="saveAlertConfig()"/><span class="toggle-slider"></span></label>
         </div>
         <div class="alert-row">
-          <div class="alert-desc"><strong style="color:var(--import)">🔴 Grid import alert</strong><br/>Notify when importing &gt;3kW during daylight hours for 10+ minutes</div>
+          <div class="alert-desc"><strong style="color:var(--import)">🔴 Grid import alert</strong><br/>Notify when importing &gt;3kW during daylight for 10+ minutes</div>
           <label class="toggle"><input type="checkbox" id="toggle-import" checked onchange="saveAlertConfig()"/><span class="toggle-slider"></span></label>
         </div>
         <div class="alert-row">
-          <div class="alert-desc"><strong style="color:var(--text)">🔔 Browser push notifications</strong><br/>Allow this site to send notifications when alerts trigger</div>
+          <div class="alert-desc"><strong style="color:var(--text)">🔔 Browser push notifications</strong></div>
           <button id="notif-btn" onclick="requestNotifPermission()">Enable Notifications</button>
         </div>
         <div style="padding-top:12px;border-top:1px solid var(--border);font-size:0.68rem;color:var(--muted);line-height:1.7;">
-          Threshold: <strong style="color:var(--text)">3 kW</strong> sustained for <strong style="color:var(--text)">10 min</strong> · Refresh: <strong style="color:var(--text)">60s</strong> · Cooldown: <strong style="color:var(--text)">30 min</strong>
+          Threshold: <strong style="color:var(--text)">3 kW</strong> for <strong style="color:var(--text)">10 min</strong> · Refresh: <strong style="color:var(--text)">60s</strong> · Cooldown: <strong style="color:var(--text)">30 min</strong>
         </div>
       </div>
     </div>
@@ -339,11 +376,19 @@
 </div>
 
 <script>
+// ── Tariff config (AGL Night Saver EV Plan, VIC, Mar 2026) ──────────────────
+const TARIFF = {
+  usage:      0.26532,   // $/kWh general usage
+  nightEV:    0.08,      // $/kWh 12am-6am
+  feedIn:     0.015,     // $/kWh solar export
+  supply:     1.03884,   // $/day
+};
+
+// ── Alert config ─────────────────────────────────────────────────────────────
 const ALERT_THRESHOLD_W = 3000;
 const ALERT_DURATION_MS = 10 * 60 * 1000;
 const ALERT_COOLDOWN_MS = 30 * 60 * 1000;
 const REFRESH_MS = 60 * 1000;
-// Approx panel system: 6.6kW system, ~37m² array area, 18% efficiency
 const PANEL_M2 = 37, PANEL_EFF = 0.18;
 
 Chart.defaults.color = '#5a6478';
@@ -356,183 +401,249 @@ let exportAlertStart=null, importAlertStart=null;
 let lastExportAlert=0, lastImportAlert=0;
 let alertLog=[];
 let hourlyBarChart=null, dayLineChart=null, ghiChart=null, dayDetailChart=null;
+let pieSolarChart=null, pieConsumptionChart=null;
 let hourlyHistory={};
 let selectedDayEl=null;
 
-// ── Tabs ──
-function switchTab(tab, el) {
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(tab,el){
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   el.classList.add('active');
-  if (tab==='forecast' && forecastData) renderForecast(forecastData);
+  if(tab==='forecast'&&forecastData) renderForecast(forecastData);
 }
 
-// ── Fetch ──
-async function fetchSems()     { const r=await fetch('/.netlify/functions/sems');     if(!r.ok) throw new Error('SEMS '+r.status);    return r.json(); }
-async function fetchEcowitt()  { const r=await fetch('/.netlify/functions/ecowitt');  if(!r.ok) throw new Error('Eco '+r.status);     return r.json(); }
-async function fetchForecast() { const r=await fetch('/.netlify/functions/forecast'); if(!r.ok) throw new Error('FC '+r.status);      return r.json(); }
+// ── Fetch ─────────────────────────────────────────────────────────────────────
+async function fetchSems()    {const r=await fetch('/.netlify/functions/sems');    if(!r.ok)throw new Error('SEMS '+r.status);    return r.json();}
+async function fetchEcowitt() {const r=await fetch('/.netlify/functions/ecowitt'); if(!r.ok)throw new Error('Eco '+r.status);     return r.json();}
+async function fetchForecast(){const r=await fetch('/.netlify/functions/forecast');if(!r.ok)throw new Error('FC '+r.status);      return r.json();}
 
-// ── Main ──
-async function refreshAll() {
+// ── Main refresh ──────────────────────────────────────────────────────────────
+async function refreshAll(){
   setStatus('loading');
-  const [sems,eco,fc] = await Promise.allSettled([fetchSems(),fetchEcowitt(),fetchForecast()]);
-
-  if (sems.status==='fulfilled') { semsData=sems.value; renderStats(semsData); recordHistory(semsData); }
+  const [sems,eco,fc]=await Promise.allSettled([fetchSems(),fetchEcowitt(),fetchForecast()]);
+  if(sems.status==='fulfilled'){semsData=sems.value;renderStats(semsData);recordHistory(semsData);renderCosts(semsData);}
   else console.error('SEMS:',sems.reason);
-
-  if (eco.status==='fulfilled') { ecowittData=eco.value; renderWeather(ecowittData); }
-  else console.error('Ecowitt:',eco.reason);
-
-  if (fc.status==='fulfilled') { forecastData=fc.value; }
+  if(eco.status==='fulfilled'){ecowittData=eco.value;renderWeather(ecowittData);}
+  else console.error('Eco:',eco.reason);
+  if(fc.status==='fulfilled') forecastData=fc.value;
   else console.error('FC:',fc.reason);
-
   renderHourlyBarChart();
   renderDayLineChart();
-  const activeTab = document.querySelector('.tab-panel.active')?.id;
-  if (activeTab==='tab-forecast' && forecastData) renderForecast(forecastData);
-
-  checkAlerts(semsData, forecastData);
-  setStatus(sems.status==='fulfilled' ? 'live' : 'error');
-  document.getElementById('update-ticker').textContent =
-    'Last updated: ' + new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  renderPieCharts();
+  const activeTab=document.querySelector('.tab-panel.active')?.id;
+  if(activeTab==='tab-forecast'&&forecastData) renderForecast(forecastData);
+  checkAlerts(semsData,forecastData);
+  setStatus(sems.status==='fulfilled'?'live':'error');
+  document.getElementById('update-ticker').textContent='Last updated: '+new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }
 
-// ── History ──
-function recordHistory(d) {
-  if (!d) return;
-  const key = new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:false});
-  hourlyHistory[key] = {
-    consumption: d.homePower   || 0,
-    gridImport:  d.importPower || 0,
-    gridExport:  d.exportPower || 0,
-    solar:       d.pvPower     || 0,
-  };
-}
-
-// ── Stats ──
-function renderStats(d) {
-  setVal('pv-power',     fmtW(d.pvPower)    +'<span class="stat-unit">W</span>');
-  setVal('export-power', fmtW(d.exportPower) +'<span class="stat-unit">W</span>');
-  setVal('import-power', fmtW(d.importPower) +'<span class="stat-unit">W</span>');
-  setVal('home-power',   fmtW(d.homePower)   +'<span class="stat-unit">W</span>');
-  setVal('daily-gen',    fmtKwh(d.dailyGeneration) +' kWh');
-  setVal('daily-export', fmtKwh(d.dailyExport)     +' kWh');
-  setVal('daily-import', fmtKwh(d.dailyImport)     +' kWh');
-  setVal('daily-home',   fmtKwh(d.dailyConsumption)+' kWh');
-
-  const soc=d.batterySoc||0, bat=d.batteryPower||0;
-  const hasBat = soc>0||bat!==0;
-  document.getElementById('battery-section').style.display = hasBat?'flex':'none';
-  document.getElementById('no-battery').style.display = hasBat?'none':'block';
-  if (hasBat) {
-    document.getElementById('soc-pct').textContent = soc+'%';
-    document.getElementById('soc-circle').style.strokeDashoffset = 150.8*(1-soc/100);
-    setVal('bat-power', Math.abs(bat)+' W');
-    document.getElementById('bat-dir').textContent = bat>0?'⬆ Charging':bat<0?'⬇ Discharging':'Idle';
-  }
-}
-
-// ── Hourly bar chart ──
-function renderHourlyBarChart() {
-  const labels = Object.keys(hourlyHistory).sort();
-  if (!labels.length) return;
-  const ctx = document.getElementById('hourly-bar-chart').getContext('2d');
-  if (hourlyBarChart) hourlyBarChart.destroy();
-  hourlyBarChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        { label:'Total usage',         data:labels.map(k=>Math.round(hourlyHistory[k].consumption)), backgroundColor:'rgba(110,142,251,0.75)', borderRadius:3 },
-        { label:'Purchased from grid', data:labels.map(k=>Math.round(hourlyHistory[k].gridImport)),  backgroundColor:'rgba(255,77,109,0.75)',  borderRadius:3 },
-        { label:'Exported to grid',    data:labels.map(k=>Math.round(hourlyHistory[k].gridExport)),  backgroundColor:'rgba(0,229,160,0.75)',   borderRadius:3 },
-      ]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.raw+'W'}} },
-      scales:{
-        x:{ grid:{display:false}, ticks:{maxRotation:0} },
-        y:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{callback:v=>v+'W'} }
-      }
-    }
-  });
-}
-
-// ── Day line chart ──
-function renderDayLineChart() {
-  const ctx = document.getElementById('day-line-chart').getContext('2d');
-  const histLabels = Object.keys(hourlyHistory).sort();
-
-  // Future forecast solar
-  let fcLabels=[], fcSolar=[];
-  if (forecastData) {
-    const now=new Date(), todayStr=now.toISOString().slice(0,10);
-    const future = forecastData.hourly.filter(h=>{
-      const hDate=h.time.slice(0,10), hHr=parseInt(h.time.slice(11,13));
-      return hDate===todayStr && hHr>=now.getHours();
+// ── History ───────────────────────────────────────────────────────────────────
+function recordHistory(d){
+  if(!d) return;
+  // Prefer SEMS hourlyChart for full day coverage
+  if(d.hourlyChart && d.hourlyChart.length > 2){
+    hourlyHistory = {};
+    d.hourlyChart.forEach(pt=>{
+      if(pt.time) hourlyHistory[pt.time]={
+        consumption:pt.homePower||0, gridImport:pt.gridImport||0,
+        gridExport:pt.gridExport||0, solar:pt.pvPower||0,
+      };
     });
-    fcLabels = future.map(h=>h.time.slice(11,16));
-    fcSolar  = future.map(h=>Math.round(h.ghi*PANEL_EFF*PANEL_M2));
+    return;
   }
+  // Fallback: live reading
+  const key=new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:false});
+  hourlyHistory[key]={consumption:d.homePower||0,gridImport:d.importPower||0,gridExport:d.exportPower||0,solar:d.pvPower||0};
+}
 
-  const allLabels = [...new Set([...histLabels,...fcLabels])].sort();
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function renderStats(d){
+  setVal('pv-power',    fmtW(d.pvPower)    +'<span class="stat-unit">W</span>');
+  setVal('export-power',fmtW(d.exportPower) +'<span class="stat-unit">W</span>');
+  setVal('import-power',fmtW(d.importPower) +'<span class="stat-unit">W</span>');
+  setVal('home-power',  fmtW(d.homePower)   +'<span class="stat-unit">W</span>');
+  setVal('daily-gen',   fmtKwh(d.dailyGeneration)+' kWh');
+  setVal('daily-export',fmtKwh(d.dailyExport)+' kWh');
+  setVal('daily-import',fmtKwh(d.dailyImport)+' kWh');
+  setVal('daily-home',  fmtKwh(d.dailyConsumption)+' kWh');
+  const soc=d.batterySoc||0, bat=d.batteryPower||0, hasBat=soc>0||bat!==0;
+  document.getElementById('battery-section').style.display=hasBat?'flex':'none';
+  document.getElementById('no-battery').style.display=hasBat?'none':'block';
+  if(hasBat){
+    document.getElementById('soc-pct').textContent=soc+'%';
+    document.getElementById('soc-circle').style.strokeDashoffset=150.8*(1-soc/100);
+    setVal('bat-power',Math.abs(bat)+' W');
+    document.getElementById('bat-dir').textContent=bat>0?'⬆ Charging':bat<0?'⬇ Discharging':'Idle';
+  }
+}
 
-  const mkDs = (knownLabels,vals,color,label,dashed=false) => ({
-    label, fill:false, tension:0.4, borderWidth:dashed?1.5:2,
-    borderDash:dashed?[5,4]:[], pointRadius:2, spanGaps:false,
-    borderColor:color,
-    backgroundColor:color.replace('rgb(','rgba(').replace(')',',0.07)'),
-    data: allLabels.map(l=>{ const i=knownLabels.indexOf(l); return i>=0?vals[i]:null; })
-  });
+// ── Cost calculations ─────────────────────────────────────────────────────────
+function renderCosts(d){
+  if(!d) return;
+  const imp   = d.dailyImport      || 0;
+  const exp   = d.dailyExport      || 0;
+  const gen   = d.dailyGeneration  || 0;
+  const cons  = d.dailyConsumption || 0;
+  const selfUse = Math.max(0, gen - exp);  // solar used at home
 
-  const datasets = [
-    mkDs(histLabels, histLabels.map(k=>hourlyHistory[k].consumption), 'rgb(110,142,251)', 'Consumption'),
-    mkDs(histLabels, histLabels.map(k=>hourlyHistory[k].gridImport),  'rgb(255,77,109)',   'Grid import'),
-    mkDs(histLabels, histLabels.map(k=>hourlyHistory[k].gridExport),  'rgb(0,229,160)',    'Grid export'),
-    mkDs(fcLabels,   fcSolar,                                          'rgb(245,166,35)',   'Forecast solar', true),
-  ];
+  const gridCost    = imp * TARIFF.usage;
+  const feedInCredit= exp * TARIFF.feedIn;
+  const solarSavings= selfUse * TARIFF.usage; // avoided purchase
+  const supplyCharge= TARIFF.supply;
+  const netBill     = gridCost + supplyCharge - feedInCredit;
 
-  if (dayLineChart) dayLineChart.destroy();
-  dayLineChart = new Chart(ctx, {
-    type:'line', data:{labels:allLabels, datasets},
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:false}, tooltip:{mode:'index',intersect:false, callbacks:{label:c=>c.dataset.label+': '+c.raw+'W'}}},
+  setText('cost-grid',     '$'+gridCost.toFixed(2));
+  setText('cost-savings',  '$'+solarSavings.toFixed(2));
+  setText('cost-feedin',   '$'+feedInCredit.toFixed(2));
+  setText('cost-supply',   '$'+supplyCharge.toFixed(2));
+  const netEl=document.getElementById('cost-net');
+  netEl.textContent='$'+netBill.toFixed(2);
+  netEl.style.color=netBill<0?'var(--export)':'var(--import)';
+}
+
+// ── Hourly stacked bar ────────────────────────────────────────────────────────
+function renderHourlyBarChart(){
+  const labels=Object.keys(hourlyHistory).sort();
+  if(!labels.length){
+    // Show placeholder message
+    const ctx=document.getElementById('hourly-bar-chart').getContext('2d');
+    if(hourlyBarChart) hourlyBarChart.destroy();
+    ctx.fillStyle='rgba(90,100,120,0.5)';
+    ctx.font='12px DM Mono, monospace';
+    ctx.textAlign='center';
+    ctx.fillText('Hourly data loading — check back after first full day',ctx.canvas.offsetWidth/2,100);
+    return;
+  }
+  // selfUse = solar generated minus what was exported (what was actually consumed from solar)
+  const selfUse = labels.map(k=>Math.round(Math.max(0, hourlyHistory[k].solar - hourlyHistory[k].gridExport)));
+  const gridImp = labels.map(k=>Math.round(hourlyHistory[k].gridImport));
+  const excess  = labels.map(k=>Math.round(hourlyHistory[k].gridExport));
+  // Filter to only hours with any activity
+  const hasData = labels.some(k=>hourlyHistory[k].solar>0||hourlyHistory[k].gridImport>0||hourlyHistory[k].gridExport>0);
+  if(!hasData) return;
+  const ctx=document.getElementById('hourly-bar-chart').getContext('2d');
+  if(hourlyBarChart) hourlyBarChart.destroy();
+  hourlyBarChart=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'Solar self-use', data:selfUse, backgroundColor:'rgba(110,142,251,0.85)', borderRadius:2, stack:'consumption'},
+      {label:'From grid',      data:gridImp, backgroundColor:'rgba(255,77,109,0.85)',  borderRadius:2, stack:'consumption'},
+      {label:'Excess export',  data:excess,  backgroundColor:'rgba(0,229,160,0.85)',   borderRadius:2, stack:'consumption'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,callbacks:{label:c=>c.dataset.label+': '+Math.round(c.raw)+'W'}}},
       scales:{
-        x:{ grid:{display:false}, ticks:{maxTicksLimit:12,maxRotation:0} },
-        y:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{callback:v=>v+'W'} }
+        x:{stacked:true,grid:{display:false},ticks:{maxRotation:0,maxTicksLimit:16,font:{size:9}}},
+        y:{stacked:false,grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v>=1000?(v/1000).toFixed(1)+'kW':v+'W',font:{size:9}},min:0}
       }
     }
   });
 }
 
-// ── Weather ──
-function renderWeather(d) {
-  setText('w-temp',  d.temperature!=null ? d.temperature.toFixed(1)+' °C' : '—');
-  setText('w-humid', d.humidity!=null    ? d.humidity+' %'                : '—');
-  setText('w-wind',  d.windSpeed!=null   ? d.windSpeed.toFixed(1)+' km/h' : '—');
-  setText('w-rain',  d.rainDaily!=null   ? d.rainDaily.toFixed(1)+' mm'   : '—');
-  const irr=d.solarIrradiance||0;
-  setText('w-irr-val', irr.toFixed(0)+' W/m²');
-  document.getElementById('w-irr-bar').style.width = Math.min(100,irr/12)+'%';
+// ── Pie charts ────────────────────────────────────────────────────────────────
+function renderPieCharts(){
+  if(!semsData) return;
+  const gen    = semsData.dailyGeneration  || 0;
+  const exp    = semsData.dailyExport      || 0;
+  const imp    = semsData.dailyImport      || 0;
+  const cons   = semsData.dailyConsumption || 0;
+  const selfUse= Math.max(0, gen - exp);
+
+  // Pie 1: Solar destination (self-use vs exported)
+  const p1ctx=document.getElementById('pie-solar').getContext('2d');
+  if(pieSolarChart) pieSolarChart.destroy();
+  pieSolarChart=new Chart(p1ctx,{
+    type:'doughnut',
+    data:{
+      labels:['Self-used at home','Exported to grid'],
+      datasets:[{data:[+selfUse.toFixed(2),+exp.toFixed(2)],backgroundColor:['rgba(110,142,251,0.85)','rgba(0,229,160,0.85)'],borderWidth:0,hoverOffset:4}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
+      plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10},boxWidth:10,padding:6,color:'#5a6478'}},
+      tooltip:{callbacks:{label:c=>c.label+': '+c.raw+' kWh'}}}}
+  });
+
+  // Pie 2: Consumption source (solar vs grid)
+  const p2ctx=document.getElementById('pie-consumption').getContext('2d');
+  if(pieConsumptionChart) pieConsumptionChart.destroy();
+  pieConsumptionChart=new Chart(p2ctx,{
+    type:'doughnut',
+    data:{
+      labels:['From solar','From grid'],
+      datasets:[{data:[+selfUse.toFixed(2),+imp.toFixed(2)],backgroundColor:['rgba(110,142,251,0.85)','rgba(255,77,109,0.85)'],borderWidth:0,hoverOffset:4}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
+      plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10},boxWidth:10,padding:6,color:'#5a6478'}},
+      tooltip:{callbacks:{label:c=>c.label+': '+c.raw+' kWh'}}}}
+  });
 }
 
-// ── Forecast tab ──
-function renderForecast(data) {
-  if (!data) return;
-  const now=new Date(), todayStr=now.toISOString().slice(0,10);
-  const todayDaily = data.daily.find(d=>d.date===todayStr)||data.daily[0];
-  const sunriseH = todayDaily?.sunrise ? new Date(todayDaily.sunrise).getHours() : 6;
-  const sunsetH  = todayDaily?.sunset  ? new Date(todayDaily.sunset).getHours()  : 20;
+// ── Day line chart ────────────────────────────────────────────────────────────
+function renderDayLineChart(){
+  const ctx=document.getElementById('day-line-chart').getContext('2d');
+  const histLabels=Object.keys(hourlyHistory).sort();
+  // Forecast solar for rest of day (future hours only)
+  let fcLabels=[],fcSolar=[];
+  if(forecastData){
+    const now=new Date(),todayStr=now.toISOString().slice(0,10);
+    const future=forecastData.hourly.filter(h=>{
+      if(h.time.slice(0,10)!==todayStr) return false;
+      const hr=parseInt(h.time.slice(11,13));
+      return hr>=now.getHours();
+    });
+    fcLabels=future.map(h=>h.time.slice(11,16));
+    fcSolar =future.map(h=>Math.round(h.ghi*PANEL_EFF*PANEL_M2));
+  }
+  const allLabels=[...new Set([...histLabels,...fcLabels])].sort();
+  if(!allLabels.length) return;
+  const mkDs=(kl,vals,color,label,dashed=false,fill=false)=>({
+    label,fill,tension:0.4,borderWidth:dashed?1.5:2,borderDash:dashed?[5,4]:[],
+    pointRadius:histLabels.length>20?0:2,spanGaps:false,borderColor:color,
+    backgroundColor:fill?color.replace('rgb(','rgba(').replace(')',',0.12)'):'transparent',
+    data:allLabels.map(l=>{const i=kl.indexOf(l);return i>=0?Math.round(vals[i]):null;})
+  });
+  const datasets=[
+    mkDs(histLabels,histLabels.map(k=>hourlyHistory[k].consumption),'rgb(110,142,251)','Consumption',false,false),
+    mkDs(histLabels,histLabels.map(k=>hourlyHistory[k].gridImport), 'rgb(255,77,109)', 'Grid import'),
+    mkDs(histLabels,histLabels.map(k=>hourlyHistory[k].gridExport), 'rgb(0,229,160)',  'Grid export'),
+    mkDs(fcLabels,  fcSolar,                                         'rgb(245,166,35)', 'Forecast solar',true,true),
+  ];
+  if(dayLineChart) dayLineChart.destroy();
+  dayLineChart=new Chart(ctx,{type:'line',data:{labels:allLabels,datasets},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,callbacks:{label:c=>c.dataset.label+': '+Math.round(c.raw)+'W'}}},
+      scales:{
+        x:{grid:{display:false},ticks:{maxTicksLimit:13,maxRotation:0,font:{size:9}}},
+        y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v>=1000?(v/1000).toFixed(1)+'kW':v+'W',font:{size:9}},min:0}
+      }
+    }
+  });
+}
 
-  // Hourly cards
-  const todayHours = data.hourly.filter(h=>h.time.slice(0,10)===todayStr);
-  document.getElementById('forecast-row').innerHTML = todayHours.map(h=>{
-    const hr=parseInt(h.time.slice(11,13));
-    const isNow=hr===now.getHours(), isNight=hr<sunriseH||hr>sunsetH;
-    return `<div class="fh ${isNow?'now':''} ${isNight?'night':''}">
+// ── Weather ───────────────────────────────────────────────────────────────────
+function renderWeather(d){
+  setText('w-temp', d.temperature!=null?d.temperature.toFixed(1)+' °C':'—');
+  setText('w-humid',d.humidity!=null?d.humidity+' %':'—');
+  setText('w-wind', d.windSpeed!=null?d.windSpeed.toFixed(1)+' km/h':'—');
+  setText('w-rain', d.rainDaily!=null?d.rainDaily.toFixed(1)+' mm':'—');
+  const irr=d.solarIrradiance||0;
+  setText('w-irr-val',irr.toFixed(0)+' W/m²');
+  document.getElementById('w-irr-bar').style.width=Math.min(100,irr/12)+'%';
+}
+
+// ── Forecast ──────────────────────────────────────────────────────────────────
+function renderForecast(data){
+  if(!data) return;
+  const now=new Date(),todayStr=now.toISOString().slice(0,10);
+  const todayDaily=data.daily.find(d=>d.date===todayStr)||data.daily[0];
+  const sunriseH=todayDaily?.sunrise?new Date(todayDaily.sunrise).getHours():6;
+  const sunsetH =todayDaily?.sunset ?new Date(todayDaily.sunset).getHours() :20;
+  const todayHours=data.hourly.filter(h=>h.time.slice(0,10)===todayStr);
+  document.getElementById('forecast-row').innerHTML=todayHours.map(h=>{
+    const hr=parseInt(h.time.slice(11,13)),isNow=hr===now.getHours(),isNight=hr<sunriseH||hr>sunsetH;
+    return`<div class="fh ${isNow?'now':''} ${isNight?'night':''}">
       <div class="fh-time">${String(hr).padStart(2,'0')}:00</div>
       <div class="fh-icon">${isNight?'🌙':getWeatherIcon(h.weatherCode,h.cloudCover)}</div>
       <div class="fh-ghi" style="color:${isNight?'var(--muted)':'var(--sun)'}">${isNight?'—':h.ghi+'W'}</div>
@@ -540,17 +651,13 @@ function renderForecast(data) {
       <div class="fh-temp">${h.temperature.toFixed(0)}°C</div>
     </div>`;
   }).join('');
-
-  // GHI bar chart
-  renderGhiChart(todayHours, sunriseH, sunsetH);
-
-  // 7-day cards
-  document.getElementById('daily-fc').innerHTML = data.daily.map((d,i)=>{
+  renderGhiChart(todayHours,sunriseH,sunsetH);
+  document.getElementById('daily-fc').innerHTML=data.daily.map((d,i)=>{
     const date=new Date(d.date+'T12:00:00');
-    const day = i===0?'Today':date.toLocaleDateString('en-AU',{weekday:'short'});
-    const dayHours = data.hourly.filter(h=>h.time.slice(0,10)===d.date);
-    const estKwh = dayHours.reduce((s,h)=>s+h.ghi*PANEL_EFF*PANEL_M2/1000,0).toFixed(1);
-    return `<div class="dfi" onclick="selectDay('${d.date}',this)">
+    const day=i===0?'Today':date.toLocaleDateString('en-AU',{weekday:'short'});
+    const dayHours=data.hourly.filter(h=>h.time.slice(0,10)===d.date);
+    const estKwh=dayHours.reduce((s,h)=>s+h.ghi*PANEL_EFF*PANEL_M2/1000,0).toFixed(1);
+    return`<div class="dfi" onclick="selectDay('${d.date}',this)">
       <div class="dfi-day">${day}</div>
       <div class="dfi-icon">${getWeatherIcon(d.weatherCode,50)}</div>
       <div class="dfi-uv">UV ${d.uvIndexMax||0}</div>
@@ -560,138 +667,104 @@ function renderForecast(data) {
   }).join('');
 }
 
-function renderGhiChart(hours, sunriseH, sunsetH) {
-  const ctx = document.getElementById('ghi-chart').getContext('2d');
-  if (ghiChart) ghiChart.destroy();
-  const labels = hours.map(h=>String(parseInt(h.time.slice(11,13))).padStart(2,'0')+':00');
-  const ghiData = hours.map(h=>{ const hr=parseInt(h.time.slice(11,13)); return (hr<sunriseH||hr>sunsetH)?0:h.ghi; });
-  const bgColors = hours.map(h=>{ const hr=parseInt(h.time.slice(11,13)); return (hr<sunriseH||hr>sunsetH)?'rgba(90,100,120,0.25)':'rgba(245,166,35,0.65)'; });
-  ghiChart = new Chart(ctx,{
-    type:'bar',
-    data:{ labels, datasets:[{ data:ghiData, backgroundColor:bgColors, borderRadius:3, label:'GHI W/m²' }] },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>c.raw+' W/m²'}}},
-      scales:{ x:{grid:{display:false},ticks:{maxRotation:0,maxTicksLimit:12}}, y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v+'W'}} }
-    }
+function renderGhiChart(hours,sunriseH,sunsetH){
+  const ctx=document.getElementById('ghi-chart').getContext('2d');
+  if(ghiChart) ghiChart.destroy();
+  const labels=hours.map(h=>String(parseInt(h.time.slice(11,13))).padStart(2,'0')+':00');
+  const ghiData=hours.map(h=>{const hr=parseInt(h.time.slice(11,13));return(hr<sunriseH||hr>sunsetH)?0:h.ghi;});
+  const bgColors=hours.map(h=>{const hr=parseInt(h.time.slice(11,13));return(hr<sunriseH||hr>sunsetH)?'rgba(90,100,120,0.25)':'rgba(245,166,35,0.65)';});
+  ghiChart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:ghiData,backgroundColor:bgColors,borderRadius:3,label:'GHI W/m²'}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw+' W/m²'}}},
+      scales:{x:{grid:{display:false},ticks:{maxRotation:0,maxTicksLimit:12}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v+'W'}}}}
   });
 }
 
-// ── Day detail (7-day click) ──
-function selectDay(date, el) {
-  if (selectedDayEl) selectedDayEl.classList.remove('selected');
-  selectedDayEl=el; el.classList.add('selected');
+function selectDay(date,el){
+  if(selectedDayEl) selectedDayEl.classList.remove('selected');
+  selectedDayEl=el;el.classList.add('selected');
   document.getElementById('day-detail').style.display='block';
   const dateObj=new Date(date+'T12:00:00');
-  document.getElementById('day-detail-title').textContent =
-    dateObj.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
-  if (!forecastData) return;
-
-  const dayHours = forecastData.hourly.filter(h=>h.time.slice(0,10)===date);
-  const todayD   = forecastData.daily.find(d=>d.date===date)||forecastData.daily[0];
-  const sunriseH = todayD?.sunrise ? new Date(todayD.sunrise).getHours() : 6;
-  const sunsetH  = todayD?.sunset  ? new Date(todayD.sunset).getHours()  : 20;
-  const labels   = dayHours.map(h=>String(parseInt(h.time.slice(11,13))).padStart(2,'0')+':00');
-  const solar    = dayHours.map(h=>{ const hr=parseInt(h.time.slice(11,13)); return (hr<sunriseH||hr>sunsetH)?0:Math.round(h.ghi*PANEL_EFF*PANEL_M2); });
-  const baseline = semsData?.homePower||400;
-  const consumption = labels.map(()=>baseline);
-
-  const ctx = document.getElementById('day-detail-chart').getContext('2d');
-  if (dayDetailChart) dayDetailChart.destroy();
-  dayDetailChart = new Chart(ctx,{
-    type:'line',
-    data:{ labels, datasets:[
-      { label:'Predicted solar output', data:solar,       borderColor:'rgb(245,166,35)', backgroundColor:'rgba(245,166,35,0.09)', borderWidth:2, tension:0.4, fill:true, pointRadius:2 },
-      { label:'Est. consumption',       data:consumption, borderColor:'rgb(110,142,251)', backgroundColor:'transparent',           borderWidth:1.5, borderDash:[4,3], tension:0, fill:false, pointRadius:0 },
-    ]},
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:false}, tooltip:{mode:'index',intersect:false, callbacks:{label:c=>c.dataset.label+': '+c.raw+'W'}}},
-      scales:{ x:{grid:{display:false},ticks:{maxRotation:0,maxTicksLimit:12}}, y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v+'W'},min:0} }
-    }
+  document.getElementById('day-detail-title').textContent=dateObj.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
+  if(!forecastData) return;
+  const dayHours=forecastData.hourly.filter(h=>h.time.slice(0,10)===date);
+  const todayD=forecastData.daily.find(d=>d.date===date)||forecastData.daily[0];
+  const sunriseH=todayD?.sunrise?new Date(todayD.sunrise).getHours():6;
+  const sunsetH =todayD?.sunset ?new Date(todayD.sunset).getHours() :20;
+  const labels=dayHours.map(h=>String(parseInt(h.time.slice(11,13))).padStart(2,'0')+':00');
+  const solar=dayHours.map(h=>{const hr=parseInt(h.time.slice(11,13));return(hr<sunriseH||hr>sunsetH)?0:Math.round(h.ghi*PANEL_EFF*PANEL_M2);});
+  const baseline=semsData?.homePower||400;
+  const ctx=document.getElementById('day-detail-chart').getContext('2d');
+  if(dayDetailChart) dayDetailChart.destroy();
+  dayDetailChart=new Chart(ctx,{type:'line',data:{labels,datasets:[
+    {label:'Predicted solar',data:solar,borderColor:'rgb(245,166,35)',backgroundColor:'rgba(245,166,35,0.09)',borderWidth:2,tension:0.4,fill:true,pointRadius:2},
+    {label:'Est. consumption',data:labels.map(()=>baseline),borderColor:'rgb(110,142,251)',backgroundColor:'transparent',borderWidth:1.5,borderDash:[4,3],tension:0,fill:false,pointRadius:0},
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,callbacks:{label:c=>c.dataset.label+': '+c.raw+'W'}}},
+    scales:{x:{grid:{display:false},ticks:{maxRotation:0,maxTicksLimit:12}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v+'W'},min:0}}}
   });
 }
 
-// ── Alerts ──
-function checkAlerts(sems, forecast) {
-  if (!sems) return;
-  const now=Date.now(), cfg=loadAlertConfig();
-  let sunriseMs=0, sunsetMs=Infinity;
-  if (forecast?.daily?.length) {
-    const t=forecast.daily[0];
-    if(t.sunrise) sunriseMs=new Date(t.sunrise).getTime()+3600000;
-    if(t.sunset)  sunsetMs =new Date(t.sunset).getTime() -3600000;
-  }
-  const inDay = now>=sunriseMs&&now<=sunsetMs;
-
-  if (cfg.exportEnabled&&sems.exportPower>ALERT_THRESHOLD_W) {
-    if (!exportAlertStart) exportAlertStart=now;
-    if (now-exportAlertStart>=ALERT_DURATION_MS&&now-lastExportAlert>ALERT_COOLDOWN_MS) {
-      fireAlert('export',`☀️ Solar excess: exporting ${fmtW(sems.exportPower)}W to grid for 10+ min. Plug in the EV or run appliances.`);
-      lastExportAlert=now;
-    }
-  } else { exportAlertStart=null; }
-
-  if (cfg.importEnabled&&inDay&&sems.importPower>ALERT_THRESHOLD_W) {
-    if (!importAlertStart) importAlertStart=now;
-    if (now-importAlertStart>=ALERT_DURATION_MS&&now-lastImportAlert>ALERT_COOLDOWN_MS) {
-      fireAlert('import',`🔴 High grid import: drawing ${fmtW(sems.importPower)}W from grid during daylight for 10+ min.`);
-      lastImportAlert=now;
-    }
-  } else { importAlertStart=null; }
-
+// ── Alerts ────────────────────────────────────────────────────────────────────
+function checkAlerts(sems,forecast){
+  if(!sems) return;
+  const now=Date.now(),cfg=loadAlertConfig();
+  let sunriseMs=0,sunsetMs=Infinity;
+  if(forecast?.daily?.length){const t=forecast.daily[0];if(t.sunrise)sunriseMs=new Date(t.sunrise).getTime()+3600000;if(t.sunset)sunsetMs=new Date(t.sunset).getTime()-3600000;}
+  const inDay=now>=sunriseMs&&now<=sunsetMs;
+  if(cfg.exportEnabled&&sems.exportPower>ALERT_THRESHOLD_W){
+    if(!exportAlertStart)exportAlertStart=now;
+    if(now-exportAlertStart>=ALERT_DURATION_MS&&now-lastExportAlert>ALERT_COOLDOWN_MS){fireAlert('export',`☀️ Solar excess: exporting ${fmtW(sems.exportPower)}W to grid for 10+ min. Plug in the IONIQ 5 or run appliances.`);lastExportAlert=now;}
+  } else {exportAlertStart=null;}
+  if(cfg.importEnabled&&inDay&&sems.importPower>ALERT_THRESHOLD_W){
+    if(!importAlertStart)importAlertStart=now;
+    if(now-importAlertStart>=ALERT_DURATION_MS&&now-lastImportAlert>ALERT_COOLDOWN_MS){fireAlert('import',`🔴 High grid import: drawing ${fmtW(sems.importPower)}W from grid during daylight for 10+ min.`);lastImportAlert=now;}
+  } else {importAlertStart=null;}
   const banner=document.getElementById('alert-banner');
-  if (sems.exportPower>ALERT_THRESHOLD_W&&exportAlertStart) {
+  if(sems.exportPower>ALERT_THRESHOLD_W&&exportAlertStart){
     const rem=Math.max(0,Math.ceil((ALERT_DURATION_MS-(now-exportAlertStart))/1000));
-    banner.style.display='block'; banner.className='export-alert';
+    banner.style.display='block';banner.className='export-alert';
     banner.textContent=rem>0?`☀️ Exporting ${fmtW(sems.exportPower)}W — alert fires in ${rem}s`:`☀️ Solar excess alert — exporting ${fmtW(sems.exportPower)}W to grid`;
-  } else if (inDay&&sems.importPower>ALERT_THRESHOLD_W&&importAlertStart) {
+  } else if(inDay&&sems.importPower>ALERT_THRESHOLD_W&&importAlertStart){
     const rem=Math.max(0,Math.ceil((ALERT_DURATION_MS-(now-importAlertStart))/1000));
-    banner.style.display='block'; banner.className='import-alert';
+    banner.style.display='block';banner.className='import-alert';
     banner.textContent=rem>0?`🔴 Importing ${fmtW(sems.importPower)}W — alert fires in ${rem}s`:`🔴 High grid import alert — drawing ${fmtW(sems.importPower)}W`;
-  } else { banner.style.display='none'; }
+  } else {banner.style.display='none';}
 }
 
-function fireAlert(type,msg) {
-  if (Notification.permission==='granted') new Notification('Solar Hub',{body:msg,tag:type});
+function fireAlert(type,msg){
+  if(Notification.permission==='granted')new Notification('Solar Hub',{body:msg,tag:type});
   alertLog.unshift({time:new Date().toLocaleTimeString('en-AU'),type,msg});
   renderAlertLog();
 }
-
-function renderAlertLog() {
+function renderAlertLog(){
   const el=document.getElementById('alert-log');
-  if (!alertLog.length) { el.textContent='No alerts fired yet this session.'; return; }
+  if(!alertLog.length){el.textContent='No alerts fired yet this session.';return;}
   el.innerHTML=alertLog.slice(0,20).map(a=>`<div class="log-entry"><span style="color:var(--muted);flex-shrink:0">${a.time}</span><span style="color:${a.type==='export'?'var(--export)':'var(--import)'}">${a.msg}</span></div>`).join('');
 }
 
-async function requestNotifPermission() {
-  if (!('Notification' in window)) { alert('Notifications not supported.'); return; }
+async function requestNotifPermission(){
+  if(!('Notification'in window)){alert('Notifications not supported.');return;}
   updateNotifBtn(await Notification.requestPermission());
 }
-function updateNotifBtn(p) {
+function updateNotifBtn(p){
   const b=document.getElementById('notif-btn');
   if(p==='granted'){b.textContent='✓ Notifications enabled';b.disabled=true;}
   else if(p==='denied'){b.textContent='✗ Blocked — allow in browser settings';b.disabled=true;}
   else{b.textContent='Enable Notifications';b.disabled=false;}
 }
-
-function saveAlertConfig() {
-  try{localStorage.setItem('solarHubAlerts',JSON.stringify({exportEnabled:document.getElementById('toggle-export').checked,importEnabled:document.getElementById('toggle-import').checked}));}catch(e){}
-}
-function loadAlertConfig() {
-  try{const s=localStorage.getItem('solarHubAlerts');if(s)return JSON.parse(s);}catch(e){}
-  return {exportEnabled:true,importEnabled:true};
-}
+function saveAlertConfig(){try{localStorage.setItem('solarHubAlerts',JSON.stringify({exportEnabled:document.getElementById('toggle-export').checked,importEnabled:document.getElementById('toggle-import').checked}));}catch(e){}}
+function loadAlertConfig(){try{const s=localStorage.getItem('solarHubAlerts');if(s)return JSON.parse(s);}catch(e){}return{exportEnabled:true,importEnabled:true};}
 
 function setVal(id,html){const e=document.getElementById(id);if(e)e.innerHTML=html;}
 function setText(id,txt){const e=document.getElementById(id);if(e)e.textContent=txt;}
-function fmtW(w){if(w==null)return '—';if(w>=1000)return (w/1000).toFixed(2)+'k';return Math.round(w).toString();}
-function fmtKwh(k){if(k==null||k===undefined)return '—';return Number(k).toFixed(1);}
+function fmtW(w){if(w==null)return'—';if(w>=1000)return(w/1000).toFixed(2)+'k';return Math.round(w).toString();}
+function fmtKwh(k){if(k==null||k===undefined)return'—';return Number(k).toFixed(1);}
 function setStatus(s){document.getElementById('status-dot').className='status-dot '+(s==='live'?'live':s==='error'?'error':'');document.getElementById('status-text').textContent=s==='live'?'Live':s==='error'?'Error':'Updating…';}
 function getWeatherIcon(code,cloud){
-  if(code===0)return '☀️';if(code<=2)return '⛅';if(code===3)return '☁️';
-  if(code<=49)return '🌫️';if(code<=69)return '🌧️';if(code<=79)return '❄️';
-  if(code<=82)return '🌦️';if(code<=99)return '⛈️';
+  if(code===0)return'☀️';if(code<=2)return'⛅';if(code===3)return'☁️';
+  if(code<=49)return'🌫️';if(code<=69)return'🌧️';if(code<=79)return'❄️';
+  if(code<=82)return'🌦️';if(code<=99)return'⛈️';
   return cloud>70?'☁️':cloud>30?'⛅':'☀️';
 }
 
