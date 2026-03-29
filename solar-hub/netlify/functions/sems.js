@@ -1,46 +1,61 @@
 // netlify/functions/sems.js
 const STATION_ID = "f04ed04f-8f02-4eda-9fc9-03c68fab7ad2";
-const LOGIN_URL = "https://www.semsportal.com/api/v1/Common/CrossLogin";
+const LOGIN_URL = "https://au.semsportal.com/api/v2/common/crosslogin";
+
+// Base64 encoded empty token for login header (required by semsportal v2)
+const EMPTY_TOKEN = "eyJ1aWQiOiIiLCJ0aW1lc3RhbXAiOjAsInRva2VuIjoiIiwiY2xpZW50Ijoid2ViIiwidmVyc2lvbiI6IiIsImxhbmd1YWdlIjoiZW4ifQ==";
 
 async function getToken(email, password) {
   const res = await fetch(LOGIN_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Token": JSON.stringify({ version: "v2.1.0", client: "ios", language: "en" }),
+      "Token": EMPTY_TOKEN,
     },
-    body: JSON.stringify({ account: email, pwd: password }),
+    body: JSON.stringify({
+      account: email,
+      pwd: password,
+      agreement_agreement: 0,
+      is_local: false,
+    }),
   });
   const text = await res.text();
   let data;
   try { data = JSON.parse(text); } catch(e) { throw new Error(`Login parse error: ${text.slice(0,300)}`); }
   if (data.code !== 0) throw new Error(`Login failed (code ${data.code}): ${data.msg}`);
-  return data.data;
+  // api field is at top level OR in components
+  const apiBase = data.api || data.components?.api || "https://au.semsportal.com/api/";
+  return { ...data.data, apiBase };
 }
 
 async function getStationDetail(auth) {
-  // Token header must use string timestamp and mirror login client/version exactly
-  const tokenHeader = JSON.stringify({
-    version: "v2.1.0",
-    client: "ios",
-    language: "en",
-    timestamp: String(auth.timestamp),
+  // Encode token as base64 per au.semsportal.com v2 pattern
+  const tokenObj = {
     uid: auth.uid,
+    timestamp: auth.timestamp,
     token: auth.token,
-  });
+    client: auth.client || "web",
+    version: auth.version || "",
+    language: auth.language || "en",
+  };
+  const tokenB64 = Buffer.from(JSON.stringify(tokenObj)).toString("base64");
 
-  const apiBase = auth.api || "https://www.semsportal.com";
-  const url = `${apiBase}/api/v1/PowerStation/GetMonitorDetailByPowerstationId`;
+  // Try au endpoint directly
+  const apiBase = auth.apiBase.replace(/\/$/, "");
+  const url = `${apiBase}/v1/PowerStation/GetMonitorDetailByPowerstationId`;
 
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Token": tokenHeader },
+    headers: {
+      "Content-Type": "application/json",
+      "Token": tokenB64,
+    },
     body: JSON.stringify({ powerStationId: STATION_ID }),
   });
   const text = await res.text();
   let data;
   try { data = JSON.parse(text); } catch(e) { throw new Error(`Detail parse error: ${text.slice(0,300)}`); }
-  if (data.code !== 0) throw new Error(`Detail failed (code ${data.code}): ${data.msg}`);
+  if (data.code !== 0) throw new Error(`Detail failed (code ${data.code}): ${data.msg} [url: ${url}]`);
   return data.data;
 }
 
@@ -73,11 +88,11 @@ exports.handler = async (event) => {
     const inverter = (detail.inverter || [])[0] || {};
     const d        = detail.data     || {};
 
-    const rawGrid = kpi.pac_purchase ?? kpi.pgrid ?? d.pgrid ?? inverter.pgrid ?? 0;
-    const pvPower   = kpi.pac       ?? d.pac     ?? inverter.pac   ?? 0;
-    const homePower = kpi.use_power ?? kpi.pload  ?? d.pload ?? inverter.pload ?? 0;
-    const batteryPower = kpi.pbat   ?? d.pbat     ?? inverter.pbat ?? 0;
-    const batterySoc   = kpi.soc    ?? d.soc      ?? inverter.battery_charge ?? 0;
+    const rawGrid      = kpi.pac_purchase ?? kpi.pgrid ?? d.pgrid ?? inverter.pgrid ?? 0;
+    const pvPower      = kpi.pac          ?? d.pac     ?? inverter.pac              ?? 0;
+    const homePower    = kpi.use_power    ?? kpi.pload ?? d.pload ?? inverter.pload ?? 0;
+    const batteryPower = kpi.pbat         ?? d.pbat    ?? inverter.pbat             ?? 0;
+    const batterySoc   = kpi.soc          ?? d.soc     ?? inverter.battery_charge   ?? 0;
 
     const dailyGeneration  = kpi.power      ?? info.eday_efficiency ?? d.eday ?? inverter.eday ?? 0;
     const dailyExport      = kpi.esell      ?? d.esell ?? 0;
