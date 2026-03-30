@@ -175,13 +175,10 @@
   <!-- ═══ LIVE TAB ═══ -->
   <div class="tab-panel active" id="tab-live">
 
-    <!-- Tariff banner -->
-    <div class="tariff-banner">
-      <span class="tariff-item">Plan: <span>Night Saver EV</span></span>
-      <span class="tariff-item">Usage: <span>26.53c/kWh</span></span>
-      <span class="tariff-item">Night EV (12am–6am): <span>8.0c/kWh</span></span>
-      <span class="tariff-item">Feed-in: <span>1.5c/kWh</span></span>
-      <span class="tariff-item">Supply: <span>$1.039/day</span></span>
+    <!-- Smart suggestion banner -->
+    <div id="suggestion-banner" style="display:none;margin-bottom:12px;padding:14px 18px;border-radius:12px;border-left:4px solid var(--export);background:rgba(0,229,160,0.07);font-size:0.82rem;line-height:1.6;">
+      <div style="font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--export);margin-bottom:4px;">💡 Smart suggestion</div>
+      <div id="suggestion-text" style="color:var(--text);"></div>
     </div>
 
     <!-- LIVE power bar -->
@@ -193,12 +190,28 @@
         <div class="pb-seg" id="live-seg-import"  style="background:rgba(255,77,109,0.85);"></div>
         <div class="pb-empty" id="live-bar-empty"></div>
       </div>
-      <div class="pb-legend">
-        <div class="live-stat"><div class="live-dot" style="background:rgba(245,166,35,0.9)"></div><span class="live-label">Generating</span><span class="live-val" id="pv-power">—</span></div>
-        <div class="live-stat"><div class="live-dot" style="background:rgba(110,142,251,0.85)"></div><span class="live-label">Self-use</span><span class="live-val" id="selfuse-power">—</span></div>
-        <div class="live-stat"><div class="live-dot" style="background:rgba(0,229,160,0.85)"></div><span class="live-label">Exporting</span><span class="live-val" id="export-power">—</span></div>
-        <div class="live-stat"><div class="live-dot" style="background:rgba(255,77,109,0.85)"></div><span class="live-label">Importing</span><span class="live-val" id="import-power">—</span></div>
-        <div class="live-stat"><div class="live-dot" style="background:rgba(110,142,251,0.4)"></div><span class="live-label">Consuming</span><span class="live-val" id="home-power">—</span></div>
+      <!-- Live stat cards -->
+      <div class="stat-row" style="margin-top:12px;margin-bottom:0;">
+        <div class="daily-card" style="border-color:rgba(245,166,35,0.3);">
+          <div class="daily-label" style="color:var(--sun)">Generating</div>
+          <div class="daily-value" id="pv-power" style="color:var(--sun)">— W</div>
+        </div>
+        <div class="daily-card" style="border-color:rgba(110,142,251,0.3);">
+          <div class="daily-label" style="color:var(--home)">Self-use</div>
+          <div class="daily-value" id="selfuse-power" style="color:var(--home)">— W</div>
+        </div>
+        <div class="daily-card" style="border-color:rgba(0,229,160,0.3);">
+          <div class="daily-label" style="color:var(--export)">Exporting</div>
+          <div class="daily-value" id="export-power" style="color:var(--export)">— W</div>
+        </div>
+        <div class="daily-card" style="border-color:rgba(255,77,109,0.3);">
+          <div class="daily-label" style="color:var(--import)">Importing</div>
+          <div class="daily-value" id="import-power" style="color:var(--import)">— W</div>
+        </div>
+        <div class="daily-card" style="border-color:rgba(110,142,251,0.2);">
+          <div class="daily-label">Total Consuming</div>
+          <div class="daily-value" id="home-power" style="color:var(--home)">— W</div>
+        </div>
       </div>
     </div>
 
@@ -222,8 +235,8 @@
       </div>
     </div>
 
-    <!-- Cost estimates -->
-    <div class="cost-row">
+    <!-- Cost estimates (3 cards only — no supply/net) -->
+    <div class="cost-row" style="grid-template-columns:repeat(3,1fr);">
       <div class="cost-card">
         <div class="cost-label">Grid cost today</div>
         <div class="cost-value" id="cost-grid" style="color:var(--import)">—</div>
@@ -239,17 +252,9 @@
         <div class="cost-value" id="cost-feedin" style="color:var(--sun)">—</div>
         <div class="cost-note">at 1.5c/kWh export</div>
       </div>
-      <div class="cost-card">
-        <div class="cost-label">Supply charge</div>
-        <div class="cost-value" id="cost-supply" style="color:var(--muted)">—</div>
-        <div class="cost-note">$1.039/day fixed</div>
-      </div>
-      <div class="cost-card">
-        <div class="cost-label">Net bill today</div>
-        <div class="cost-value" id="cost-net">—</div>
-        <div class="cost-note">grid + supply − feed-in</div>
-      </div>
     </div>
+    <div id="cost-supply" style="display:none"></div>
+    <div id="cost-net" style="display:none"></div>
 
     <!-- Full-width hourly stacked bar -->
     <div class="card" style="margin-bottom:14px">
@@ -298,6 +303,15 @@
         <div class="legend-item"><div class="legend-dot" style="background:var(--sun);opacity:0.6"></div>Forecast solar</div>
       </div>
       <div class="chart-wrap" style="height:200px"><canvas id="day-line-chart"></canvas></div>
+    </div>
+
+    <!-- Tariff info moved to bottom -->
+    <div class="tariff-banner" style="margin-bottom:14px;">
+      <span class="tariff-item">Plan: <span>Night Saver EV</span></span>
+      <span class="tariff-item">Usage: <span>26.53c/kWh</span></span>
+      <span class="tariff-item">Night EV (12am–6am): <span>8.0c/kWh</span></span>
+      <span class="tariff-item">Feed-in: <span>1.5c/kWh</span></span>
+      <span class="tariff-item">Supply: <span>$1.039/day</span></span>
     </div>
 
     <!-- Weather + Battery -->
@@ -465,26 +479,78 @@
 
   <!-- ═══ ALERTS TAB ═══ -->
   <div class="tab-panel" id="tab-alerts">
-    <div class="card">
-      <div class="card-title">Alert Configuration</div>
-      <div class="alert-config">
-        <div class="alert-row">
-          <div class="alert-desc"><strong style="color:var(--export)">☀️ Solar excess alert</strong><br/>Notify when exporting &gt;3kW for 10+ consecutive minutes</div>
-          <label class="toggle"><input type="checkbox" id="toggle-export" checked onchange="saveAlertConfig()"/><span class="toggle-slider"></span></label>
+
+    <!-- Push notification enable -->
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-title">Browser Push Notifications</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div style="font-size:0.72rem;color:var(--muted);line-height:1.6;flex:1;">
+          Enable browser push notifications to receive alerts even when Solar Hub is in the background.<br/>
+          <span style="font-size:0.65rem;">You must click Allow when the browser prompts you.</span>
         </div>
-        <div class="alert-row">
-          <div class="alert-desc"><strong style="color:var(--import)">🔴 Grid import alert</strong><br/>Notify when importing &gt;3kW during daylight for 10+ minutes</div>
-          <label class="toggle"><input type="checkbox" id="toggle-import" checked onchange="saveAlertConfig()"/><span class="toggle-slider"></span></label>
+        <button id="notif-btn" onclick="requestNotifPermission()" style="white-space:nowrap;">Enable Notifications</button>
+      </div>
+    </div>
+
+    <!-- Solar excess alert -->
+    <div class="card" style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="font-size:0.72rem;font-weight:500;color:var(--export);">☀️ Solar Excess Alert</div>
+        <label class="toggle"><input type="checkbox" id="toggle-export" checked onchange="saveAlertConfig()"/><span class="toggle-slider"></span></label>
+      </div>
+      <div style="font-size:0.68rem;color:var(--muted);margin-bottom:14px;">Notify when exporting more than the threshold to the grid — a signal to run appliances or charge the EV.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <div style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Export threshold (kW)</div>
+          <input type="number" id="export-threshold-kw" value="3" min="0.5" max="13" step="0.5"
+            style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:DM Mono,monospace;font-size:0.8rem;"
+            onchange="saveAlertConfig()"/>
         </div>
-        <div class="alert-row">
-          <div class="alert-desc"><strong style="color:var(--text)">🔔 Browser push notifications</strong></div>
-          <button id="notif-btn" onclick="requestNotifPermission()">Enable Notifications</button>
-        </div>
-        <div style="padding-top:12px;border-top:1px solid var(--border);font-size:0.68rem;color:var(--muted);line-height:1.7;">
-          Threshold: <strong style="color:var(--text)">3 kW</strong> for <strong style="color:var(--text)">10 min</strong> · Refresh: <strong style="color:var(--text)">60s</strong> · Cooldown: <strong style="color:var(--text)">30 min</strong>
+        <div>
+          <div style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Sustained for (minutes)</div>
+          <input type="number" id="export-duration-min" value="10" min="1" max="60" step="1"
+            style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:DM Mono,monospace;font-size:0.8rem;"
+            onchange="saveAlertConfig()"/>
         </div>
       </div>
     </div>
+
+    <!-- Grid import alert -->
+    <div class="card" style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="font-size:0.72rem;font-weight:500;color:var(--import);">🔴 Grid Import Alert</div>
+        <label class="toggle"><input type="checkbox" id="toggle-import" checked onchange="saveAlertConfig()"/><span class="toggle-slider"></span></label>
+      </div>
+      <div style="font-size:0.68rem;color:var(--muted);margin-bottom:14px;">Notify when importing more than the threshold during daylight hours — suggests turning off appliances.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <div style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Import threshold (kW)</div>
+          <input type="number" id="import-threshold-kw" value="3" min="0.5" max="13" step="0.5"
+            style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:DM Mono,monospace;font-size:0.8rem;"
+            onchange="saveAlertConfig()"/>
+        </div>
+        <div>
+          <div style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Sustained for (minutes)</div>
+          <input type="number" id="import-duration-min" value="10" min="1" max="60" step="1"
+            style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:DM Mono,monospace;font-size:0.8rem;"
+            onchange="saveAlertConfig()"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cooldown -->
+    <div class="card" style="margin-bottom:14px;">
+      <div style="font-size:0.72rem;font-weight:500;color:var(--text);margin-bottom:12px;">⏱ Alert Cooldown</div>
+      <div style="font-size:0.68rem;color:var(--muted);margin-bottom:10px;">Minimum time between repeated alerts of the same type.</div>
+      <div style="max-width:200px;">
+        <div style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Cooldown (minutes)</div>
+        <input type="number" id="cooldown-min" value="30" min="5" max="120" step="5"
+          style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:DM Mono,monospace;font-size:0.8rem;"
+          onchange="saveAlertConfig()"/>
+      </div>
+    </div>
+
+    <!-- Alert log -->
     <div class="card">
       <div class="card-title">Alert Log</div>
       <div id="alert-log" style="color:var(--muted);font-size:0.72rem;">No alerts fired yet this session.</div>
@@ -874,28 +940,89 @@ function selectDay(date,el){
 // ── Alerts ────────────────────────────────────────────────────────────────────
 function checkAlerts(sems,forecast){
   if(!sems) return;
-  const now=Date.now(),cfg=loadAlertConfig();
-  let sunriseMs=0,sunsetMs=Infinity;
+  const now=Date.now(), cfg=loadAlertConfig();
+  const exportThreshW  = (cfg.exportThreshKw || 3) * 1000;
+  const importThreshW  = (cfg.importThreshKw || 3) * 1000;
+  const exportDurMs    = (cfg.exportDurMin   || 10) * 60000;
+  const importDurMs    = (cfg.importDurMin   || 10) * 60000;
+  const cooldownMs     = (cfg.cooldownMin    || 30) * 60000;
+
+  let sunriseMs=0, sunsetMs=Infinity;
   if(forecast?.daily?.length){const t=forecast.daily[0];if(t.sunrise)sunriseMs=new Date(t.sunrise).getTime()+3600000;if(t.sunset)sunsetMs=new Date(t.sunset).getTime()-3600000;}
-  const inDay=now>=sunriseMs&&now<=sunsetMs;
-  if(cfg.exportEnabled&&sems.exportPower>ALERT_THRESHOLD_W){
-    if(!exportAlertStart)exportAlertStart=now;
-    if(now-exportAlertStart>=ALERT_DURATION_MS&&now-lastExportAlert>ALERT_COOLDOWN_MS){fireAlert('export',`☀️ Solar excess: exporting ${fmtW(sems.exportPower)}W to grid for 10+ min. Plug in the IONIQ 5 or run appliances.`);lastExportAlert=now;}
-  } else {exportAlertStart=null;}
-  if(cfg.importEnabled&&inDay&&sems.importPower>ALERT_THRESHOLD_W){
-    if(!importAlertStart)importAlertStart=now;
-    if(now-importAlertStart>=ALERT_DURATION_MS&&now-lastImportAlert>ALERT_COOLDOWN_MS){fireAlert('import',`🔴 High grid import: drawing ${fmtW(sems.importPower)}W from grid during daylight for 10+ min.`);lastImportAlert=now;}
-  } else {importAlertStart=null;}
+  const inDay = now>=sunriseMs && now<=sunsetMs;
+
+  // Export alert
+  if(cfg.exportEnabled && sems.exportPower > exportThreshW){
+    if(!exportAlertStart) exportAlertStart=now;
+    if(now-exportAlertStart>=exportDurMs && now-lastExportAlert>cooldownMs){
+      fireAlert('export',`☀️ Solar excess: exporting ${fmtW(sems.exportPower)}W to grid. Consider charging the IONIQ 5, running the washing machine or dryer.`);
+      lastExportAlert=now;
+    }
+  } else { exportAlertStart=null; }
+
+  // Import alert
+  if(cfg.importEnabled && inDay && sems.importPower > importThreshW){
+    if(!importAlertStart) importAlertStart=now;
+    if(now-importAlertStart>=importDurMs && now-lastImportAlert>cooldownMs){
+      fireAlert('import',`🔴 High grid import: drawing ${fmtW(sems.importPower)}W from grid. Turn off dryer, oven, or other high-draw appliances.`);
+      lastImportAlert=now;
+    }
+  } else { importAlertStart=null; }
+
+  // Alert banner
   const banner=document.getElementById('alert-banner');
-  if(sems.exportPower>ALERT_THRESHOLD_W&&exportAlertStart){
-    const rem=Math.max(0,Math.ceil((ALERT_DURATION_MS-(now-exportAlertStart))/1000));
-    banner.style.display='block';banner.className='export-alert';
+  if(sems.exportPower>exportThreshW && exportAlertStart){
+    const rem=Math.max(0,Math.ceil((exportDurMs-(now-exportAlertStart))/1000));
+    banner.style.display='block'; banner.className='export-alert';
     banner.textContent=rem>0?`☀️ Exporting ${fmtW(sems.exportPower)}W — alert fires in ${rem}s`:`☀️ Solar excess alert — exporting ${fmtW(sems.exportPower)}W to grid`;
-  } else if(inDay&&sems.importPower>ALERT_THRESHOLD_W&&importAlertStart){
-    const rem=Math.max(0,Math.ceil((ALERT_DURATION_MS-(now-importAlertStart))/1000));
-    banner.style.display='block';banner.className='import-alert';
-    banner.textContent=rem>0?`🔴 Importing ${fmtW(sems.importPower)}W — alert fires in ${rem}s`:`🔴 High grid import alert — drawing ${fmtW(sems.importPower)}W`;
-  } else {banner.style.display='none';}
+  } else if(inDay && sems.importPower>importThreshW && importAlertStart){
+    const rem=Math.max(0,Math.ceil((importDurMs-(now-importAlertStart))/1000));
+    banner.style.display='block'; banner.className='import-alert';
+    banner.textContent=rem>0?`🔴 Importing ${fmtW(sems.importPower)}W — alert fires in ${rem}s`:`🔴 High grid import alert`;
+  } else { banner.style.display='none'; }
+
+  // Smart suggestion banner
+  renderSuggestion(sems, exportThreshW, importThreshW, inDay);
+}
+
+function renderSuggestion(sems, exportThreshW, importThreshW, inDay) {
+  const banner = document.getElementById('suggestion-banner');
+  const text   = document.getElementById('suggestion-text');
+  if (!banner || !text) return;
+
+  const exp = sems.exportPower || 0;
+  const imp = sems.importPower || 0;
+  const pv  = sems.pvPower    || 0;
+
+  // Large excess — encourage usage
+  if (exp > 5000) {
+    banner.style.borderColor = 'var(--export)';
+    banner.style.background  = 'rgba(0,229,160,0.07)';
+    banner.querySelector('div').style.color = 'var(--export)';
+    text.innerHTML = `<strong>You're generating ${fmtW(exp)} of surplus solar.</strong> Great time to charge the IONIQ 5 (plugging in now could add ~${Math.round(exp/7400*60)} km/hr), run the dishwasher, washing machine, or dryer simultaneously.`;
+    banner.style.display = 'block';
+  } else if (exp > 2000) {
+    banner.style.borderColor = 'var(--export)';
+    banner.style.background  = 'rgba(0,229,160,0.07)';
+    text.innerHTML = `<strong>${fmtW(exp)} surplus solar available.</strong> Good time to run one heavy appliance — washing machine, dishwasher, or start an EV charge session.`;
+    banner.style.display = 'block';
+  } else if (exp > 500) {
+    banner.style.borderColor = 'var(--sun)';
+    banner.style.background  = 'rgba(245,166,35,0.06)';
+    text.innerHTML = `<strong>${fmtW(exp)} surplus.</strong> Enough for lighting, phone charging, or a slow EV top-up. Avoid adding the oven or dryer.`;
+    banner.style.display = 'block';
+  } else if (inDay && imp > importThreshW * 0.7) {
+    // Approaching import threshold
+    banner.style.borderColor = 'var(--import)';
+    banner.style.background  = 'rgba(255,77,109,0.06)';
+    banner.querySelector('div').style.color = 'var(--import)';
+    text.innerHTML = `<strong>Grid import rising (${fmtW(imp)}).</strong> Consider turning off the dryer, oven, or EV charger to avoid drawing heavily from the grid.`;
+    banner.style.display = 'block';
+  } else if (!inDay || pv === 0) {
+    banner.style.display = 'none';
+  } else {
+    banner.style.display = 'none';
+  }
 }
 
 function fireAlert(type,msg){
@@ -919,8 +1046,23 @@ function updateNotifBtn(p){
   else if(p==='denied'){b.textContent='✗ Blocked — allow in browser settings';b.disabled=true;}
   else{b.textContent='Enable Notifications';b.disabled=false;}
 }
-function saveAlertConfig(){try{localStorage.setItem('solarHubAlerts',JSON.stringify({exportEnabled:document.getElementById('toggle-export').checked,importEnabled:document.getElementById('toggle-import').checked}));}catch(e){}}
-function loadAlertConfig(){try{const s=localStorage.getItem('solarHubAlerts');if(s)return JSON.parse(s);}catch(e){}return{exportEnabled:true,importEnabled:true};}
+function saveAlertConfig(){
+  try{
+    localStorage.setItem('solarHubAlerts', JSON.stringify({
+      exportEnabled:  document.getElementById('toggle-export').checked,
+      importEnabled:  document.getElementById('toggle-import').checked,
+      exportThreshKw: parseFloat(document.getElementById('export-threshold-kw').value) || 3,
+      exportDurMin:   parseInt(document.getElementById('export-duration-min').value)    || 10,
+      importThreshKw: parseFloat(document.getElementById('import-threshold-kw').value) || 3,
+      importDurMin:   parseInt(document.getElementById('import-duration-min').value)    || 10,
+      cooldownMin:    parseInt(document.getElementById('cooldown-min').value)           || 30,
+    }));
+  }catch(e){}
+}
+function loadAlertConfig(){
+  try{const s=localStorage.getItem('solarHubAlerts');if(s)return JSON.parse(s);}catch(e){}
+  return{exportEnabled:true,importEnabled:true,exportThreshKw:3,exportDurMin:10,importThreshKw:3,importDurMin:10,cooldownMin:30};
+}
 
 function setVal(id,html){const e=document.getElementById(id);if(e)e.innerHTML=html;}
 function setText(id,txt){const e=document.getElementById(id);if(e)e.textContent=txt;}
@@ -936,8 +1078,13 @@ function getWeatherIcon(code,cloud){
 
 document.addEventListener('DOMContentLoaded',()=>{
   const c=loadAlertConfig();
-  document.getElementById('toggle-export').checked=c.exportEnabled;
-  document.getElementById('toggle-import').checked=c.importEnabled;
+  document.getElementById('toggle-export').checked = c.exportEnabled;
+  document.getElementById('toggle-import').checked = c.importEnabled;
+  if(document.getElementById('export-threshold-kw')) document.getElementById('export-threshold-kw').value = c.exportThreshKw || 3;
+  if(document.getElementById('export-duration-min')) document.getElementById('export-duration-min').value = c.exportDurMin   || 10;
+  if(document.getElementById('import-threshold-kw')) document.getElementById('import-threshold-kw').value = c.importThreshKw || 3;
+  if(document.getElementById('import-duration-min')) document.getElementById('import-duration-min').value = c.importDurMin   || 10;
+  if(document.getElementById('cooldown-min'))        document.getElementById('cooldown-min').value        = c.cooldownMin    || 30;
   updateNotifBtn(Notification.permission);
   refreshAll();
   loadTodayFromSupabase();
