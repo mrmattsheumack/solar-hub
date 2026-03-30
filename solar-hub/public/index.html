@@ -1276,28 +1276,41 @@ async function loadTodayFromSupabase() {
     const res = await fetch(`/.netlify/functions/usage?from=${today}&to=${today}&granularity=30min`);
     const json = await res.json();
     if (!json.data || json.data.length === 0) return;
-    // Convert to hourlyHistory format
-    // AGL: Solar = exported, Generalusage = imported
-    // We can derive self-use if we have SEMS solar generation, but here use what we have
+
+    // AGL meter: solarKwh = exported to grid, gridKwh = imported from grid
+    // Self-use = generation - export. We get total generation from SEMS (dailyGeneration).
+    // Distribute self-use proportionally across intervals based on export pattern.
+    const totalExportKwh = json.data.reduce((s,d) => s+d.solarKwh, 0);
+    const totalGenKwh    = semsData?.dailyGeneration || totalExportKwh;
+    const totalSelfUse   = Math.max(0, totalGenKwh - totalExportKwh);
+
+    // Build a new history object from AGL data — this is the source of truth for the day
+    // Only replace slots that are in the past (don't overwrite live current-minute readings)
+    const nowKey = new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:false});
+
     json.data.forEach(d => {
-      // Each d has solarKwh (exported) and gridKwh (imported)
-      // Convert kWh per 30min to average W: kWh * 2 * 1000
-      const exportW = Math.round(d.solarKwh * 2 * 1000);
-      const importW = Math.round(d.gridKwh  * 2 * 1000);
-      // AGL meter: Solar register = exported kWh, Generalusage = imported kWh
-      // Self-use is not metered — will be updated when SEMS data available
+      if (d.time === nowKey) return; // keep live reading for current slot
+      const exportW  = Math.round(d.solarKwh * 2 * 1000); // kWh/30min → avg W
+      const importW  = Math.round(d.gridKwh  * 2 * 1000);
+      // Distribute self-use proportionally: slots with more export got more sun → more self-use too
+      const exportFraction = totalExportKwh > 0 ? d.solarKwh / totalExportKwh : 0;
+      const selfUseW = Math.round(totalSelfUse * exportFraction * 2 * 1000);
+      const pvW      = exportW + selfUseW;
+
       hourlyHistory[d.time] = {
         gridExport:  exportW,
         gridImport:  importW,
-        solar:       exportW,   // AGL Solar = exported to grid
-        consumption: importW,   // AGL Generalusage = imported from grid
-        selfUse:     0,         // not available from AGL meter alone
+        solar:       pvW,
+        selfUse:     selfUseW,
+        consumption: selfUseW + importW,
       };
     });
+
+    saveHourlyHistory();
     renderHourlyBarChart();
     renderDayLineChart();
-    } catch(e) {
-    console.log('Supabase today load failed (CSV not uploaded yet):', e.message);
+  } catch(e) {
+    console.log('Supabase today load skipped (CSV not uploaded yet):', e.message);
   }
 }
 
