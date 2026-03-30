@@ -128,6 +128,7 @@
     #notif-btn:disabled{opacity:0.5;cursor:default;}
     .log-entry{padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;}
     .update-ticker{text-align:center;font-size:0.6rem;color:var(--muted);margin-top:20px;letter-spacing:0.08em;}
+    @keyframes bat-shimmer{0%{left:-100%}100%{left:200%}}
     .hist-btn{padding:6px 14px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-family:'DM Mono',monospace;font-size:0.7rem;cursor:pointer;transition:all 0.2s;}
     .hist-btn:hover{border-color:var(--sun);color:var(--sun);}
     .hist-btn.active{background:rgba(245,166,35,0.12);border-color:rgba(245,166,35,0.5);color:var(--sun);}
@@ -603,6 +604,40 @@
       </div>
     </div>
 
+    <!-- Battery SOC gauge — full width horizontal -->
+    <div class="card" style="margin-bottom:8px;padding:14px 18px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);">🔋 Battery state of charge</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:0.68rem;color:var(--muted);" id="sim-bat-status">Idle</span>
+          <span style="font-family:Syne,sans-serif;font-size:1rem;font-weight:700;color:var(--battery);" id="sim-soc-inline">—%</span>
+          <span style="font-size:0.68rem;color:var(--muted);" id="sim-soc-kwh-inline">— kWh</span>
+        </div>
+      </div>
+      <!-- Battery body -->
+      <div style="position:relative;display:flex;align-items:center;gap:0;">
+        <!-- Main battery cell -->
+        <div style="flex:1;height:44px;border:2px solid rgba(77,184,255,0.4);border-radius:8px 0 0 8px;overflow:hidden;background:var(--bg3);position:relative;">
+          <div id="sim-bat-fill" style="height:100%;width:0%;background:linear-gradient(90deg,rgba(77,184,255,0.9),rgba(110,210,255,0.7));border-radius:6px 0 0 6px;transition:width 1.2s ease;position:relative;overflow:hidden;">
+            <!-- Shimmer effect -->
+            <div style="position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent);animation:bat-shimmer 2s infinite;"></div>
+          </div>
+          <!-- SOC percentage text inside bar -->
+          <div id="sim-bat-pct-label" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:Syne,sans-serif;font-size:0.85rem;font-weight:700;color:rgba(255,255,255,0.9);text-shadow:0 1px 4px rgba(0,0,0,0.5);white-space:nowrap;">—</div>
+        </div>
+        <!-- Battery terminal nub -->
+        <div style="width:8px;height:22px;background:rgba(77,184,255,0.4);border-radius:0 3px 3px 0;flex-shrink:0;"></div>
+      </div>
+      <!-- Tick marks -->
+      <div style="display:flex;justify-content:space-between;margin-top:4px;padding:0 2px;">
+        <span style="font-size:0.55rem;color:var(--muted);">0%</span>
+        <span style="font-size:0.55rem;color:var(--muted);">25%</span>
+        <span style="font-size:0.55rem;color:var(--muted);">50%</span>
+        <span style="font-size:0.55rem;color:var(--muted);">75%</span>
+        <span style="font-size:0.55rem;color:var(--muted);">100% · 10.1 kWh</span>
+      </div>
+    </div>
+
     <!-- Simulated live power bar -->
     <div class="card" style="margin-bottom:8px;padding:14px 18px;">
       <div style="font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">⚡ Simulated — right now with battery</div>
@@ -614,7 +649,7 @@
         <div class="pb-seg" id="sim-seg-import"   style="background:rgba(255,77,109,0.85);"></div>
         <div class="pb-empty"></div>
       </div>
-      <div class="stat-row" style="margin-top:12px;margin-bottom:0;">
+      <div class="stat-row" style="margin-top:12px;margin-bottom:0;flex-wrap:wrap;">
         <div class="daily-card" style="border-color:rgba(245,166,35,0.3);">
           <div class="daily-label" style="color:var(--sun)">Generating</div>
           <div class="daily-value" id="sim-pv" style="color:var(--sun)">— W</div>
@@ -627,9 +662,13 @@
           <div class="daily-label" style="color:var(--battery)">From Battery</div>
           <div class="daily-value" id="sim-from-bat" style="color:var(--battery)">— W</div>
         </div>
-        <div class="daily-card" style="border-color:rgba(0,229,160,0.3);">
-          <div class="daily-label" style="color:var(--export)">Exporting</div>
+        <div class="daily-card" style="border-color:rgba(0,229,160,0.5);">
+          <div class="daily-label" style="color:var(--export)">Exporting to Grid</div>
           <div class="daily-value" id="sim-export" style="color:var(--export)">— W</div>
+        </div>
+        <div class="daily-card" style="border-color:rgba(77,184,255,0.5);">
+          <div class="daily-label" style="color:var(--battery)">Charging Battery</div>
+          <div class="daily-value" id="sim-charging" style="color:var(--battery)">— W</div>
         </div>
         <div class="daily-card" style="border-color:rgba(255,77,109,0.2);">
           <div class="daily-label" style="color:var(--import)">From Grid</div>
@@ -1630,12 +1669,48 @@ function runBatterySimulation() {
   setText('sim-selfuse',  fmtW(selfUseNow));
   setText('sim-from-bat', fmtW(fromBatNow));
   setText('sim-export',   fmtW(exportSimNow));
+  setText('sim-charging', fmtW(chargingNow));
   setText('sim-import',   fmtW(importNow));
 
-  // SOC ring
+  // SOC values
   const socPct = Math.round(batKwh / BAT_CAPACITY_KWH * 100);
-  document.getElementById('sim-soc').textContent     = socPct + '%';
-  document.getElementById('sim-soc-kwh').textContent = batKwh.toFixed(1) + ' / ' + BAT_CAPACITY_KWH + ' kWh';
+  const socKwh = batKwh.toFixed(1);
+
+  // Header SOC (in battery info banner)
+  const socEl = document.getElementById('sim-soc');
+  if (socEl) socEl.textContent = socPct + '%';
+  const socKwhEl = document.getElementById('sim-soc-kwh');
+  if (socKwhEl) socKwhEl.textContent = socKwh + ' / ' + BAT_CAPACITY_KWH + ' kWh';
+
+  // Inline SOC in gauge card
+  const socInline = document.getElementById('sim-soc-inline');
+  if (socInline) socInline.textContent = socPct + '%';
+  const socKwhInline = document.getElementById('sim-soc-kwh-inline');
+  if (socKwhInline) socKwhInline.textContent = socKwh + ' kWh';
+
+  // Battery fill bar
+  const fillEl = document.getElementById('sim-bat-fill');
+  if (fillEl) {
+    fillEl.style.width = socPct + '%';
+    // Colour: red <20%, amber <50%, green-blue >=50%
+    if (socPct < 20) {
+      fillEl.style.background = 'linear-gradient(90deg,rgba(255,77,109,0.9),rgba(255,120,120,0.7))';
+    } else if (socPct < 50) {
+      fillEl.style.background = 'linear-gradient(90deg,rgba(245,166,35,0.9),rgba(255,200,80,0.7))';
+    } else {
+      fillEl.style.background = 'linear-gradient(90deg,rgba(77,184,255,0.9),rgba(110,210,255,0.7))';
+    }
+  }
+  const pctLabel = document.getElementById('sim-bat-pct-label');
+  if (pctLabel) pctLabel.textContent = socPct + '% · ' + socKwh + ' kWh';
+
+  // Battery status text
+  const statusEl = document.getElementById('sim-bat-status');
+  if (statusEl) {
+    if (chargingNow > 50)  statusEl.textContent = '⬆ Charging ' + fmtW(chargingNow);
+    else if (fromBatNow > 50) statusEl.textContent = '⬇ Discharging ' + fmtW(fromBatNow);
+    else statusEl.textContent = 'Idle';
+  }
 
   // Live sim power bar
   const simTotal = Math.max(selfUseNow + fromBatNow + exportSimNow + importNow, 100);
