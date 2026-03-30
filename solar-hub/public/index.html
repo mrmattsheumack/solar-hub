@@ -293,17 +293,7 @@
       </div>
     </div>
 
-    <!-- Day line chart -->
-    <div class="card" style="margin-top:14px">
-      <div class="card-title">Power throughout the day</div>
-      <div class="legend">
-        <div class="legend-item"><div class="legend-dot" style="background:var(--home)"></div>Consumption</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--import)"></div>Grid import</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--export)"></div>Grid export</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--sun);opacity:0.6"></div>Forecast solar</div>
-      </div>
-      <div class="chart-wrap" style="height:200px"><canvas id="day-line-chart"></canvas></div>
-    </div>
+
 
     <!-- Tariff info moved to bottom -->
     <div class="tariff-banner" style="margin-bottom:14px;">
@@ -624,7 +614,6 @@ async function refreshAll(){
   if(fc.status==='fulfilled') forecastData=fc.value;
   else console.error('FC:',fc.reason);
   renderHourlyBarChart();
-  renderDayLineChart();
   const activeTab=document.querySelector('.tab-panel.active')?.id;
   if(activeTab==='tab-forecast'&&forecastData) renderForecast(forecastData);
   checkAlerts(semsData,forecastData);
@@ -899,16 +888,57 @@ function renderForecast(data){
   }).join('');
 }
 
-function renderGhiChart(hours,sunriseH,sunsetH){
-  const ctx=document.getElementById('ghi-chart').getContext('2d');
-  if(ghiChart) ghiChart.destroy();
-  const labels=hours.map(h=>String(parseInt(h.time.slice(11,13))).padStart(2,'0')+':00');
-  const ghiData=hours.map(h=>{const hr=parseInt(h.time.slice(11,13));return(hr<sunriseH||hr>sunsetH)?0:h.ghi;});
-  const bgColors=hours.map(h=>{const hr=parseInt(h.time.slice(11,13));return(hr<sunriseH||hr>sunsetH)?'rgba(90,100,120,0.25)':'rgba(245,166,35,0.65)';});
-  ghiChart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:ghiData,backgroundColor:bgColors,borderRadius:3,label:'GHI W/m²'}]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw+' W/m²'}}},
-      scales:{x:{grid:{display:false},ticks:{maxRotation:0,maxTicksLimit:12}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v+'W'}}}}
+function renderGhiChart(hours, sunriseH, sunsetH){
+  const ctx = document.getElementById('ghi-chart').getContext('2d');
+  if (ghiChart) ghiChart.destroy();
+
+  const nowHr = new Date().getHours();
+
+  const labels = hours.map(h => String(parseInt(h.time.slice(11,13))).padStart(2,'0') + ':00');
+
+  // For each hour: use actual recorded generation if past, forecast if future
+  const chartData = hours.map(h => {
+    const hr = parseInt(h.time.slice(11,13));
+    if (hr < sunriseH || hr > sunsetH) return 0;
+    if (hr < nowHr) {
+      // Past hour — use actual data from hourlyHistory if available (solar field = pvW)
+      const key = String(hr).padStart(2,'0') + ':00';
+      const hist = hourlyHistory[key];
+      if (hist && (hist.solar > 0 || hist.gridExport > 0)) {
+        // Convert W back to W/m² equivalent for display consistency
+        // Or just show the actual W output directly
+        return Math.round(hist.solar || hist.gridExport || 0);
+      }
+    }
+    return h.ghi; // forecast
+  });
+
+  const bgColors = hours.map(h => {
+    const hr = parseInt(h.time.slice(11,13));
+    if (hr < sunriseH || hr > sunsetH) return 'rgba(90,100,120,0.20)'; // night
+    if (hr === nowHr) return 'rgba(0,229,160,0.85)';                    // current hour = green
+    if (hr < nowHr)  return 'rgba(245,166,35,0.90)';                    // past = solid amber
+    return 'rgba(245,166,35,0.35)';                                      // future = faded amber
+  });
+
+  const tooltipLabels = hours.map(h => {
+    const hr = parseInt(h.time.slice(11,13));
+    if (hr === nowHr) return 'Now';
+    if (hr < nowHr)   return 'Actual';
+    return 'Forecast';
+  });
+
+  ghiChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ data: chartData, backgroundColor: bgColors, borderRadius: 3, label: 'W/m²' }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{display:false}, tooltip:{ callbacks:{ label: (c,i) => tooltipLabels[c.dataIndex] + ': ' + c.raw + ' W' } } },
+      scales: {
+        x: { grid:{display:false}, ticks:{maxRotation:0, maxTicksLimit:12} },
+        y: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{callback:v=>v+'W'}, min:0 }
+      }
+    }
   });
 }
 
@@ -1157,10 +1187,25 @@ async function loadHistory() {
     const json = await res.json();
     if (!json.data) throw new Error(json.error || 'No data');
 
+    // Table not created yet
+    if (json.tableError) {
+      status.textContent = 'Table not set up yet';
+      document.getElementById('hist-empty').style.display = 'block';
+      document.getElementById('hist-empty').innerHTML =
+        '⚠️ Supabase table not created yet.<br/><br/>' +
+        'Go to <a href="https://supabase.com/dashboard/project/uzdfjlddgeoelltnprpb/sql" target="_blank" style="color:var(--sun)">Supabase SQL Editor ↗</a> and run the CREATE TABLE script from <a href="/upload.html" style="color:var(--sun)">/upload.html</a>, then upload your AGL CSV.';
+      document.getElementById('hist-stats').style.display = 'none';
+      document.getElementById('hist-costs').style.display = 'none';
+      document.getElementById('hist-pies').style.display = 'none';
+      if (histChart) { histChart.destroy(); histChart = null; }
+      return;
+    }
+
     status.textContent = `${json.rows.toLocaleString()} intervals · ${range.from} → ${range.to}`;
 
     if (json.data.length === 0) {
       document.getElementById('hist-empty').style.display = 'block';
+      document.getElementById('hist-empty').innerHTML = 'No data found for this range.<br/><a href="/upload.html" style="color:var(--sun);">Upload AGL CSV data →</a>';
       document.getElementById('hist-chart-title').textContent = 'Energy history';
       document.getElementById('hist-stats').style.display = 'none';
       document.getElementById('hist-costs').style.display = 'none';
@@ -1308,8 +1353,7 @@ async function loadTodayFromSupabase() {
 
     saveHourlyHistory();
     renderHourlyBarChart();
-    renderDayLineChart();
-  } catch(e) {
+    } catch(e) {
     console.log('Supabase today load skipped (CSV not uploaded yet):', e.message);
   }
 }
