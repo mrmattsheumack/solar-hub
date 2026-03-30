@@ -33,6 +33,7 @@
     .log .info{color:var(--sun);}
     a{color:var(--sun);text-decoration:none;font-size:0.68rem;}
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 <div class="card">
@@ -110,23 +111,29 @@ dz.addEventListener('dragleave', () => dz.classList.remove('over'));
 dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); handleFile(e.dataTransfer.files[0]); });
 document.getElementById('file-input').addEventListener('change', e => handleFile(e.target.files[0]));
 
-function handleFile(file) {
+async function handleFile(file) {
   if (!file) return;
   document.getElementById('drop-label').textContent = file.name;
   document.getElementById('log').innerHTML = '';
   log(`📄 Reading ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)…`, 'info');
-
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      parsedRows = parseCSV(e.target.result);
-      log(`✓ Parsed ${parsedRows.length.toLocaleString()} rows`, 'ok');
-      document.getElementById('upload-btn').disabled = false;
-    } catch(err) {
-      log(`✗ Parse error: ${err.message}`, 'err');
+  try {
+    let csvText;
+    if (file.name.toLowerCase().endsWith('.zip')) {
+      log('📦 Unzipping…', 'info');
+      const zip = await JSZip.loadAsync(file);
+      const csvFile = Object.values(zip.files).find(f => f.name.endsWith('.csv'));
+      if (!csvFile) throw new Error('No CSV file found inside zip');
+      csvText = await csvFile.async('string');
+      log(`✓ Extracted: ${csvFile.name}`, 'ok');
+    } else {
+      csvText = await file.text();
     }
-  };
-  reader.readAsText(file);
+    parsedRows = parseCSV(csvText);
+    log(`✓ Parsed ${parsedRows.length.toLocaleString()} rows`, 'ok');
+    document.getElementById('upload-btn').disabled = false;
+  } catch(err) {
+    log(`✗ Error: ${err.message}`, 'err');
+  }
 }
 
 function parseCSV(text) {
