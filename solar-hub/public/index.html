@@ -129,6 +129,9 @@
     .log-entry{padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;}
     .update-ticker{text-align:center;font-size:0.6rem;color:var(--muted);margin-top:20px;letter-spacing:0.08em;}
     @keyframes bat-shimmer{0%{left:-100%}100%{left:200%}}
+    .iz-mode-btn{padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-family:DM Mono,monospace;font-size:0.65rem;cursor:pointer;transition:all 0.2s;}
+    .iz-mode-btn:hover{border-color:var(--battery);color:var(--battery);}
+    .iz-mode-btn.active{background:rgba(77,184,255,0.15);border-color:var(--battery);color:var(--battery);}
     .hist-btn{padding:6px 14px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-family:'DM Mono',monospace;font-size:0.7rem;cursor:pointer;transition:all 0.2s;}
     .hist-btn:hover{border-color:var(--sun);color:var(--sun);}
     .hist-btn.active{background:rgba(245,166,35,0.12);border-color:rgba(245,166,35,0.5);color:var(--sun);}
@@ -170,6 +173,7 @@
       <button class="tab" onclick="switchTab('forecast',this)">☁️ Forecast</button>
       <button class="tab" onclick="switchTab('history',this)">📅 History</button>
       <button class="tab" onclick="switchTab('battery',this)">🔋 Battery Sim</button>
+      <button class="tab" onclick="switchTab('climate',this)">🌡️ Climate</button>
       <button class="tab" onclick="switchTab('alerts',this)">🔔 Alerts</button>
     </div>
     <button class="btn" onclick="refreshAll()">↻ Refresh</button>
@@ -568,6 +572,23 @@
       </div>
     </div>
 
+    <!-- Off-peak charging schedule card -->
+    <div class="card" style="margin-bottom:14px;border-color:rgba(77,184,255,0.2);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div>
+          <div style="font-size:0.72rem;font-weight:500;color:var(--battery);">🌙 Off-peak Grid Charging Schedule</div>
+          <div style="font-size:0.64rem;color:var(--muted);margin-top:2px;">12:00 am – 6:00 am · 8c/kWh Night Saver EV rate</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="sim-offpeak-enabled" checked onchange="runBatterySimulation()"/><span class="toggle-slider"></span></label>
+      </div>
+      <div style="font-size:0.67rem;color:var(--muted);line-height:1.7;margin-bottom:10px;">
+        When enabled, the simulator will charge from the grid during off-peak hours if the battery won't cover tonight's expected load through to midnight — factoring in tomorrow's forecast solar generation plus a <strong style="color:var(--text)">20% buffer</strong>.
+      </div>
+      <div id="sim-offpeak-decision" style="font-size:0.7rem;padding:10px 12px;background:var(--bg3);border-radius:8px;border-left:3px solid var(--battery);color:var(--text);line-height:1.6;">
+        Calculating…
+      </div>
+    </div>
+
     <!-- Savings summary row -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">
       <div class="daily-card" style="border-color:rgba(0,229,160,0.2);">
@@ -731,6 +752,84 @@
 
   </div><!-- /battery -->
 
+
+  <!-- ═══ CLIMATE TAB ═══ -->
+  <div class="tab-panel" id="tab-climate">
+
+    <!-- Connection status -->
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div>
+        <div style="font-family:Syne,sans-serif;font-size:0.85rem;font-weight:700;">iZone Climate Control</div>
+        <div style="font-size:0.65rem;color:var(--muted);margin-top:2px;">Direct local connection · 192.168.1.208 · Only works on home WiFi</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div id="izone-dot" style="width:8px;height:8px;border-radius:50%;background:var(--muted);"></div>
+          <span id="izone-status" style="font-size:0.65rem;color:var(--muted);">Not connected</span>
+        </div>
+        <button onclick="fetchIzone()" style="padding:6px 14px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:DM Mono,monospace;font-size:0.7rem;cursor:pointer;">↻ Refresh</button>
+      </div>
+    </div>
+
+    <!-- AC unit control -->
+    <div class="card" style="margin-bottom:14px;" id="izone-unit-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div class="card-title" style="margin-bottom:4px;">AC Unit</div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;">
+            <div><div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;">Mode</div><div style="font-size:0.85rem;font-weight:600;" id="iz-mode">—</div></div>
+            <div><div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;">Fan</div><div style="font-size:0.85rem;font-weight:600;" id="iz-fan">—</div></div>
+            <div><div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;">Setpoint</div><div style="font-size:0.85rem;font-weight:600;" id="iz-setpoint">—</div></div>
+            <div><div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;">Return Air</div><div style="font-size:0.85rem;font-weight:600;" id="iz-temp">—</div></div>
+            <div><div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;">Supply Air</div><div style="font-size:0.85rem;font-weight:600;" id="iz-supply">—</div></div>
+          </div>
+        </div>
+        <!-- On/off + mode controls -->
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:0.7rem;color:var(--muted);">Power</span>
+            <label class="toggle"><input type="checkbox" id="iz-power-toggle" onchange="izSetPower(this.checked)"/><span class="toggle-slider"></span></label>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="iz-mode-btn" onclick="izSetMode(1)" id="iz-btn-cool">❄ Cool</button>
+            <button class="iz-mode-btn" onclick="izSetMode(2)" id="iz-btn-heat">🔥 Heat</button>
+            <button class="iz-mode-btn" onclick="izSetMode(3)" id="iz-btn-vent">💨 Fan</button>
+            <button class="iz-mode-btn" onclick="izSetMode(4)" id="iz-btn-dry">💧 Dry</button>
+          </div>
+          <!-- Setpoint control -->
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button onclick="izAdjustSetpoint(-0.5)" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
+            <span style="font-size:0.8rem;color:var(--muted);">Setpoint</span>
+            <button onclick="izAdjustSetpoint(0.5)" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Solar smart mode banner -->
+    <div id="iz-solar-banner" style="display:none;margin-bottom:14px;padding:14px 18px;border-radius:12px;border-left:4px solid var(--export);background:rgba(0,229,160,0.07);">
+      <div style="font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--export);margin-bottom:4px;">☀️ Solar Smart Mode available</div>
+      <div id="iz-solar-text" style="font-size:0.78rem;color:var(--text);line-height:1.6;"></div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="izActivateSolarMode()" style="padding:7px 14px;border-radius:7px;border:none;background:rgba(0,229,160,0.2);color:var(--export);font-family:DM Mono,monospace;font-size:0.7rem;cursor:pointer;border:1px solid rgba(0,229,160,0.3);">Activate Solar Pre-conditioning</button>
+      </div>
+    </div>
+
+    <!-- Zone cards -->
+    <div class="card-title" style="margin-bottom:10px;">Zones</div>
+    <div id="iz-zones" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:14px;">
+      <div style="color:var(--muted);font-size:0.75rem;padding:20px;text-align:center;">Loading zones…</div>
+    </div>
+
+    <!-- Not on home network message -->
+    <div id="iz-offline-msg" style="display:none;text-align:center;padding:40px;color:var(--muted);font-size:0.75rem;line-height:1.8;">
+      ⚠️ Cannot reach iZone controller.<br/>
+      Make sure you're connected to your home WiFi network.<br/>
+      <span style="font-size:0.65rem;">192.168.1.208 is only accessible on your local network.</span>
+    </div>
+
+  </div><!-- /climate -->
+
   <div class="update-ticker" id="update-ticker">Last updated: —</div>
 </div>
 
@@ -805,6 +904,7 @@ async function refreshAll(){
   document.getElementById('update-ticker').textContent='Last updated: '+new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   // Update battery sim if that tab is active
   if(document.getElementById('tab-battery')?.classList.contains('active')) runBatterySimulation();
+  if(document.getElementById('tab-climate')?.classList.contains('active')) fetchIzone();
 }
 
 // ── History ───────────────────────────────────────────────────────────────────
@@ -1324,6 +1424,7 @@ function switchTab(tab, el) {
   if(tab==='forecast'&&forecastData) renderForecast(forecastData);
   if(tab==='history') loadHistory();
   if(tab==='battery') runBatterySimulation();
+  if(tab==='climate') fetchIzone();
 }
 
 function setHistRange(range, el) {
@@ -1559,6 +1660,25 @@ const BAT_MAX_DISCH_KW  = 5.0;    // max discharge rate kW
 let simBarChart = null;
 let simBatterySoc = 0; // live running SOC in kWh (persists within session)
 
+// ── Estimate tomorrow's solar generation from forecast ────────────
+function estimateTomorrowSolarKwh() {
+  if (!forecastData?.daily || forecastData.daily.length < 2) return 8; // default 8 kWh
+  const tomorrow = forecastData.daily[1]; // index 0 = today, 1 = tomorrow
+  return tomorrow?.energy_kwh || tomorrow?.pv_estimate || 8;
+}
+
+// ── Estimate remaining night load (now → midnight) ────────────────
+function estimateNightLoadKwh() {
+  // Use average consumption from history to estimate rest of night
+  const nowH = new Date().getHours() + new Date().getMinutes()/60;
+  const labels = Object.keys(hourlyHistory).sort();
+  if (!labels.length) return 3; // default 3 kWh
+  const totalLoad = labels.reduce((s,k) => s + (hourlyHistory[k].consumption || 0), 0);
+  const avgLoadW  = totalLoad / Math.max(labels.length, 1);
+  const hoursLeft = Math.max(0, 24 - nowH); // hours to midnight
+  return avgLoadW * hoursLeft / 1000;
+}
+
 // ── Run simulation over today's hourly history ────────────────────
 function runBatterySimulation() {
   if (!semsData) return;
@@ -1569,20 +1689,63 @@ function runBatterySimulation() {
     return;
   }
 
-  // Interval duration: 30min slots = 0.5h, 1min slots = 1/60 h
-  // Detect from label spacing
-  const isMinute = labels.length > 0 && labels[0].includes(':') &&
-    labels.length > 1 && (
-      (parseInt(labels[1].split(':')[1]) - parseInt(labels[0].split(':')[1]) + 60) % 60 === 1
-    );
+  const offpeakEnabled = document.getElementById('sim-offpeak-enabled')?.checked ?? true;
+
+  // Detect interval size
+  const isMinute = labels.length > 1 &&
+    (parseInt(labels[1].split(':')[1]) - parseInt(labels[0].split(':')[1]) + 60) % 60 === 1;
   const intervalH = isMinute ? (1/60) : 0.5;
 
-  let batKwh         = 0;    // battery state (kWh)
-  let totalImportSim = 0;    // grid import WITH battery (kWh)
-  let totalExportSim = 0;    // grid export WITH battery (kWh)
+  // ── Off-peak charging decision ────────────────────────────────────
+  // Calculate target SOC needed: cover tonight's remaining load + next morning load
+  // minus expected solar generation tomorrow (solar self-use), + 20% buffer
+  const tomorrowSolarKwh  = estimateTomorrowSolarKwh();
+  const nightLoadKwh      = estimateNightLoadKwh();
+  // Morning load before solar kicks in (assume 6am–10am = 4hrs at avg load)
+  const labels2 = Object.keys(hourlyHistory).sort();
+  const totalLoad2 = labels2.reduce((s,k) => s + (hourlyHistory[k].consumption || 0), 0);
+  const avgLoadW2  = totalLoad2 / Math.max(labels2.length, 1);
+  const morningLoadKwh = avgLoadW2 * 4 / 1000; // 4hrs pre-solar
+  // Total need before next day's solar covers things
+  const totalNeedKwh    = nightLoadKwh + morningLoadKwh;
+  // Expected solar self-use tomorrow (solar minus typical export fraction)
+  const actualExportFrac = semsData.dailyExport > 0 && semsData.dailyGeneration > 0
+    ? semsData.dailyExport / semsData.dailyGeneration : 0.3;
+  const tomorrowSelfUse = tomorrowSolarKwh * (1 - actualExportFrac);
+  // Gap = what battery needs to cover that solar won't
+  const rawGap   = Math.max(0, totalNeedKwh - tomorrowSelfUse);
+  const targetKwh = Math.min(BAT_CAPACITY_KWH, rawGap * 1.20); // +20% buffer
+  const shouldOffpeakCharge = offpeakEnabled && targetKwh > 1.0; // only if >1 kWh needed
+  const offpeakChargeKwh = shouldOffpeakCharge ? targetKwh : 0;
+
+  // Update decision explanation
+  const decEl = document.getElementById('sim-offpeak-decision');
+  if (decEl) {
+    if (!offpeakEnabled) {
+      decEl.style.borderColor = 'var(--muted)';
+      decEl.innerHTML = '⏸ Off-peak grid charging is disabled.';
+    } else if (shouldOffpeakCharge) {
+      decEl.style.borderColor = 'var(--battery)';
+      decEl.innerHTML =
+        `✅ <strong>Will charge tonight.</strong> Est. night + morning load: <strong>${totalNeedKwh.toFixed(1)} kWh</strong> · ` +
+        `Tomorrow's solar self-use: <strong>${tomorrowSelfUse.toFixed(1)} kWh</strong> · ` +
+        `Gap + 20% buffer: <strong>${targetKwh.toFixed(1)} kWh</strong> needed from grid at <strong>8c/kWh</strong> between 12am–6am.`;
+    } else {
+      decEl.style.borderColor = 'var(--export)';
+      decEl.innerHTML =
+        `☀️ <strong>No off-peak charge needed.</strong> Tomorrow's forecast solar (<strong>${tomorrowSolarKwh.toFixed(1)} kWh</strong>) ` +
+        `covers expected load. Battery will be sufficient without grid top-up.`;
+    }
+  }
+
+  let batKwh         = 0;
+  let totalImportSim = 0;
+  let totalExportSim = 0;
+  let totalOffpeakKwh= 0;  // how much was charged off-peak from grid
   let totalSelfUse   = 0;
   let totalFromBat   = 0;
   let totalCharged   = 0;
+  let offpeakRemaining = offpeakChargeKwh; // kWh still to add during 12am-6am
 
   const simSelfUse  = [];
   const simFromBat  = [];
@@ -1592,42 +1755,50 @@ function runBatterySimulation() {
 
   for (const key of labels) {
     const h = hourlyHistory[key];
+    const hr = parseInt(key.split(':')[0]);
     const pvW    = h.solar      || 0;
     const loadW  = h.consumption || (h.selfUse || 0) + (h.gridImport || 0);
     const pvKwh  = pvW    * intervalH / 1000;
     const loadKwh= loadW  * intervalH / 1000;
+
+    // ── Off-peak grid charging (12am–6am) ──────────────────────────
+    let offpeakThisSlot = 0;
+    if (offpeakEnabled && hr >= 0 && hr < 6 && offpeakRemaining > 0) {
+      const chargeRoom = BAT_CAPACITY_KWH - batKwh;
+      offpeakThisSlot  = Math.min(BAT_MAX_CHARGE_KW * intervalH, chargeRoom, offpeakRemaining);
+      offpeakThisSlot  = Math.max(0, offpeakThisSlot);
+      batKwh          += offpeakThisSlot * BAT_EFFICIENCY;
+      offpeakRemaining -= offpeakThisSlot;
+      totalOffpeakKwh += offpeakThisSlot;
+    }
 
     // Step 1: Solar covers load first
     const directSolar = Math.min(pvKwh, loadKwh);
     let remainLoad    = loadKwh - directSolar;
     let surplusSolar  = pvKwh   - directSolar;
 
-    // Step 2: Surplus charges battery (up to capacity & max rate)
-    const chargeRoom = BAT_CAPACITY_KWH - batKwh;
-    const maxCharge  = Math.min(BAT_MAX_CHARGE_KW * intervalH, chargeRoom, surplusSolar * BAT_EFFICIENCY);
-    const charged    = Math.max(0, maxCharge);
-    batKwh          += charged;
-    surplusSolar    -= charged / BAT_EFFICIENCY; // energy taken from solar
-    totalCharged    += charged;
+    // Step 2: Surplus solar charges battery
+    const chargeRoom2 = BAT_CAPACITY_KWH - batKwh;
+    const solarCharge = Math.max(0, Math.min(BAT_MAX_CHARGE_KW * intervalH, chargeRoom2, surplusSolar * BAT_EFFICIENCY));
+    batKwh           += solarCharge;
+    surplusSolar     -= solarCharge / BAT_EFFICIENCY;
+    totalCharged     += solarCharge;
 
     // Step 3: Remaining load → battery discharges
-    const maxDisch   = Math.min(BAT_MAX_DISCH_KW * intervalH, batKwh);
-    const fromBat    = Math.min(remainLoad, maxDisch);
-    batKwh          -= fromBat;
-    remainLoad      -= fromBat;
+    const maxDisch = Math.min(BAT_MAX_DISCH_KW * intervalH, batKwh);
+    const fromBat  = Math.min(remainLoad, maxDisch);
+    batKwh        -= fromBat;
+    remainLoad    -= fromBat;
 
-    // Step 4: Any remaining load → grid
-    const gridImp    = Math.max(0, remainLoad);
+    // Step 4: Remaining load → grid (peak rate or off-peak for the charging slot)
+    const gridImp  = Math.max(0, remainLoad) + offpeakThisSlot;
+    const exported = Math.max(0, surplusSolar);
 
-    // Step 5: Any remaining surplus → export
-    const exported   = Math.max(0, surplusSolar);
+    totalImportSim += gridImp;
+    totalExportSim += exported;
+    totalSelfUse   += directSolar;
+    totalFromBat   += fromBat;
 
-    totalImportSim  += gridImp;
-    totalExportSim  += exported;
-    totalSelfUse    += directSolar;
-    totalFromBat    += fromBat;
-
-    // Convert back to W for chart display (average W over interval)
     simSelfUse.push(Math.round(directSolar / intervalH * 1000));
     simFromBat.push(Math.round(fromBat     / intervalH * 1000));
     simGridImp.push(Math.round(gridImp     / intervalH * 1000));
@@ -1732,10 +1903,15 @@ function runBatterySimulation() {
   setText('sim-daily-export',  fmtKwh(totalExportSim)  + ' kWh');
   setText('sim-import-avoided',importAvoided.toFixed(2) + ' kWh');
 
-  // ── Savings ────────────────────────────────────────────────────────
-  const savedToday    = importAvoided * TARIFF.usage;
-  // Extrapolate from today's data for longer periods
-  const nowHour = new Date().getHours() + new Date().getMinutes()/60;
+  // ── Savings — net of off-peak charging cost ──────────────────────
+  const importAvoided   = Math.max(0, actualImport - (totalImportSim - totalOffpeakKwh));
+  const peakImportSim   = Math.max(0, totalImportSim - totalOffpeakKwh);
+  // Cost: peak grid at 26.53c, off-peak top-up at 8c, minus avoided peak import
+  const simGridCost     = peakImportSim * TARIFF.usage + totalOffpeakKwh * TARIFF.nightEV;
+  const actualGridCost  = actualImport  * TARIFF.usage;
+  const savedToday      = Math.max(0, actualGridCost - simGridCost);
+
+  const nowHour       = new Date().getHours() + new Date().getMinutes()/60;
   const dayFraction   = Math.max(nowHour / 24, 0.01);
   const savedDayFull  = savedToday / dayFraction;
   const savedWeek     = savedDayFull * 7;
@@ -1750,12 +1926,13 @@ function runBatterySimulation() {
   setText('sim-payback',      paybackYrs.toFixed(1) + ' years');
 
   // ── Comparison panel ───────────────────────────────────────────────
-  setText('comp-actual-import', actualImport.toFixed(2)   + ' kWh');
-  setText('comp-actual-export', actualExport.toFixed(2)   + ' kWh');
-  setText('comp-actual-cost',   '$' + (actualImport * TARIFF.usage).toFixed(2));
-  setText('comp-sim-import',    totalImportSim.toFixed(2) + ' kWh');
-  setText('comp-sim-export',    totalExportSim.toFixed(2) + ' kWh');
-  setText('comp-sim-cost',      '$' + (totalImportSim * TARIFF.usage).toFixed(2));
+  const offpeakNote = totalOffpeakKwh > 0 ? ` (incl. ${totalOffpeakKwh.toFixed(1)} kWh @8c)` : '';
+  setText('comp-actual-import', actualImport.toFixed(2)    + ' kWh');
+  setText('comp-actual-export', actualExport.toFixed(2)    + ' kWh');
+  setText('comp-actual-cost',   '$' + actualGridCost.toFixed(2));
+  setText('comp-sim-import',    totalImportSim.toFixed(2)  + ' kWh' + offpeakNote);
+  setText('comp-sim-export',    totalExportSim.toFixed(2)  + ' kWh');
+  setText('comp-sim-cost',      '$' + simGridCost.toFixed(2));
 
   // ── Hourly stacked bar chart ───────────────────────────────────────
   const ctx = document.getElementById('sim-bar-chart').getContext('2d');
@@ -1781,6 +1958,224 @@ function runBatterySimulation() {
 
 // Run battery sim on each data refresh if battery tab is active
 const _origRefreshAll = refreshAll;
+
+// ═══════════════════════════════════════════════════════════════════
+// iZONE CLIMATE INTEGRATION — Direct local API 192.168.1.208
+// ═══════════════════════════════════════════════════════════════════
+const IZONE_IP   = '192.168.1.208';
+const IZONE_URL  = `http://${IZONE_IP}`;
+const IZONE_REQ  = `${IZONE_URL}/iZoneRequestV2`;
+const IZONE_CMD  = `${IZONE_URL}/iZoneCommandV2`;
+
+const IZ_MODES = { 0:'Auto', 1:'Cool', 2:'Heat', 3:'Vent', 4:'Dry' };
+const IZ_FANS  = { 0:'Auto', 1:'Low', 2:'Med', 3:'High' };
+
+let izoneData   = null;  // last system response
+let izoneZones  = [];    // zone array
+let izCurrentSetpoint = 22;
+
+async function izPost(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(4000),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function fetchIzone() {
+  const dot    = document.getElementById('izone-dot');
+  const status = document.getElementById('izone-status');
+  const offMsg = document.getElementById('iz-offline-msg');
+
+  try {
+    // Query system info (Type 1)
+    const sysResp = await izPost(IZONE_REQ, { iZoneV2Request: { Type: 1, No: 0, No1: 0 } });
+    const sys = sysResp.SystemV2 || sysResp.iZone?.SysInfo || {};
+
+    izoneData = sys;
+    dot.style.background = '#00e5a0';
+    status.textContent   = 'Connected';
+    status.style.color   = 'var(--export)';
+    if (offMsg) offMsg.style.display = 'none';
+
+    // Parse system values (temps are x100)
+    const sysOn     = sys.SysOn  ?? 0;
+    const sysMode   = sys.SysMode ?? 0;
+    const sysFan    = sys.SysFan  ?? 0;
+    const setpoint  = (sys.Setpoint ?? 2200) / 100;
+    const returnTemp= (sys.Temp    ?? 0) / 100;
+    const supplyTemp= (sys.Supply  ?? 0) / 100;
+    const noOfZones = sys.NoOfZones ?? sys.ZoneCount ?? 6;
+
+    izCurrentSetpoint = setpoint;
+
+    // Update unit card
+    document.getElementById('izone-dot').style.background = sysOn ? '#00e5a0' : 'var(--muted)';
+    document.getElementById('iz-mode').textContent    = IZ_MODES[sysMode] || '—';
+    document.getElementById('iz-fan').textContent     = IZ_FANS[sysFan]   || '—';
+    document.getElementById('iz-setpoint').textContent= setpoint.toFixed(1) + '°C';
+    document.getElementById('iz-temp').textContent    = returnTemp > 0 ? returnTemp.toFixed(1) + '°C' : '—';
+    document.getElementById('iz-supply').textContent  = supplyTemp > 0 ? supplyTemp.toFixed(1) + '°C' : '—';
+
+    // Power toggle
+    const toggle = document.getElementById('iz-power-toggle');
+    if (toggle) toggle.checked = sysOn === 1;
+
+    // Mode buttons
+    document.querySelectorAll('.iz-mode-btn').forEach(b => b.classList.remove('active'));
+    const modeMap = { 1:'cool', 2:'heat', 3:'vent', 4:'dry' };
+    if (modeMap[sysMode]) {
+      const btn = document.getElementById('iz-btn-' + modeMap[sysMode]);
+      if (btn) btn.classList.add('active');
+    }
+
+    // Fetch zones (Type 2, fetch up to noOfZones)
+    izoneZones = [];
+    const zonePromises = [];
+    for (let i = 0; i < Math.min(noOfZones, 12); i++) {
+      zonePromises.push(
+        izPost(IZONE_REQ, { iZoneV2Request: { Type: 2, No: i, No1: 0 } })
+          .then(r => r.ZoneV2 || r.iZone?.ZoneInfo || {})
+          .catch(() => null)
+      );
+    }
+    const zoneResults = await Promise.all(zonePromises);
+    izoneZones = zoneResults.filter(Boolean);
+    renderIzoneZones(izoneZones, sysMode);
+
+    // Solar smart mode check
+    updateIzoneSolarBanner(sysOn, setpoint, sysMode);
+
+  } catch(e) {
+    dot.style.background   = 'var(--import)';
+    status.textContent     = 'Offline — home WiFi only';
+    status.style.color     = 'var(--import)';
+    if (offMsg) offMsg.style.display = 'block';
+    console.log('iZone fetch failed:', e.message);
+  }
+}
+
+function renderIzoneZones(zones, sysMode) {
+  const container = document.getElementById('iz-zones');
+  if (!zones.length) {
+    container.innerHTML = '<div style="color:var(--muted);font-size:0.75rem;padding:20px;text-align:center;">No zone data available</div>';
+    return;
+  }
+
+  const MODE_COLORS = { 1:'rgba(77,184,255,0.15)', 2:'rgba(255,100,60,0.15)', 3:'rgba(110,142,251,0.15)' };
+  const modeColor   = MODE_COLORS[sysMode] || 'var(--bg3)';
+
+  container.innerHTML = zones.map((z, i) => {
+    const name    = z.Name    || `Zone ${i+1}`;
+    const temp    = z.Temp    ? (z.Temp / 100).toFixed(1) + '°C' : '—';
+    const setpt   = z.Setpoint? (z.Setpoint / 100).toFixed(1) + '°C' : '—';
+    const mode    = z.Mode ?? 0; // 0=closed, 1=open, 2=const
+    const damper  = z.DmpPos  ?? z.MaxAir ?? 0;
+    const isOpen  = mode === 1 || mode === 2;
+    const hasSensor = z.Temp && z.Temp > 0;
+
+    return `<div style="background:${isOpen ? modeColor : 'var(--bg3)'};border:1px solid ${isOpen ? 'rgba(77,184,255,0.25)' : 'var(--border)'};border-radius:10px;padding:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-size:0.78rem;font-weight:600;">${name}</div>
+        <label class="toggle"><input type="checkbox" ${isOpen ? 'checked' : ''} onchange="izToggleZone(${i}, this.checked)"/><span class="toggle-slider"></span></label>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-end;">
+        <div>
+          <div style="font-size:0.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">Actual</div>
+          <div style="font-family:Syne,sans-serif;font-size:1.1rem;font-weight:700;color:${hasSensor ? 'var(--text)' : 'var(--muted)'};">${temp}</div>
+        </div>
+        <div>
+          <div style="font-size:0.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">Target</div>
+          <div style="font-size:0.85rem;font-weight:600;color:var(--battery);">${setpt}</div>
+        </div>
+        <div style="margin-left:auto;text-align:right;">
+          <div style="font-size:0.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">Damper</div>
+          <div style="font-size:0.85rem;font-weight:600;">${damper}%</div>
+        </div>
+      </div>
+      ${hasSensor ? '' : '<div style="font-size:0.6rem;color:var(--muted);margin-top:6px;">No room sensor installed</div>'}
+    </div>`;
+  }).join('');
+}
+
+function updateIzoneSolarBanner(sysOn, setpoint, sysMode) {
+  const banner = document.getElementById('iz-solar-banner');
+  const text   = document.getElementById('iz-solar-text');
+  if (!banner || !semsData) return;
+
+  const exportW = semsData.exportPower || 0;
+  const nowHour = new Date().getHours();
+  const isDaytime = nowHour >= 7 && nowHour <= 19;
+
+  if (!isDaytime || exportW < 1000) { banner.style.display = 'none'; return; }
+
+  // Suggest pre-cooling if exporting > 2kW and AC is off
+  if (exportW > 2000 && !sysOn) {
+    text.innerHTML = `You're exporting <strong>${fmtW(exportW)}</strong> of surplus solar. Turn on the AC now to pre-condition the house at no cost — using solar that would otherwise go to the grid at 1.5c/kWh.`;
+    banner.style.display = 'block';
+  }
+  // Suggest increasing cooling if exporting a lot
+  else if (exportW > 3000 && sysOn && sysMode === 1 && setpoint > 22) {
+    text.innerHTML = `<strong>${fmtW(exportW)}</strong> surplus available. Consider lowering the setpoint to ${(setpoint - 1).toFixed(1)}°C to use more free solar — pre-cooling saves grid energy tonight.`;
+    banner.style.display = 'block';
+  }
+  // Warn if import climbing
+  else if ((semsData.importPower || 0) > 1500 && sysOn) {
+    banner.style.borderColor = 'var(--import)';
+    banner.style.background  = 'rgba(255,77,109,0.06)';
+    text.innerHTML = `Grid import is <strong>${fmtW(semsData.importPower)}</strong> with AC running. Consider raising the setpoint by 1°C or closing less-used zones to reduce draw.`;
+    banner.style.display = 'block';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+// ── iZone Control Commands ────────────────────────────────────────
+async function izSetPower(on) {
+  try {
+    await izPost(IZONE_CMD, { iZoneCommandV2: { Command: 'SysOn', Value: on ? 1 : 0 } });
+    setTimeout(fetchIzone, 1500);
+  } catch(e) { console.error('iZone power cmd failed:', e.message); }
+}
+
+async function izSetMode(mode) {
+  try {
+    await izPost(IZONE_CMD, { iZoneCommandV2: { Command: 'SysMode', Value: mode } });
+    setTimeout(fetchIzone, 1500);
+  } catch(e) { console.error('iZone mode cmd failed:', e.message); }
+}
+
+async function izAdjustSetpoint(delta) {
+  const newSp = Math.round((izCurrentSetpoint + delta) * 2) / 2; // round to 0.5
+  const clamped = Math.max(16, Math.min(30, newSp));
+  try {
+    await izPost(IZONE_CMD, { iZoneCommandV2: { Command: 'Setpoint', Value: Math.round(clamped * 100) } });
+    izCurrentSetpoint = clamped;
+    document.getElementById('iz-setpoint').textContent = clamped.toFixed(1) + '°C';
+    setTimeout(fetchIzone, 1500);
+  } catch(e) { console.error('iZone setpoint cmd failed:', e.message); }
+}
+
+async function izToggleZone(index, open) {
+  try {
+    await izPost(IZONE_CMD, { iZoneCommandV2: { Command: 'ZoneMode', ZoneNo: index, Value: open ? 1 : 0 } });
+    setTimeout(fetchIzone, 1500);
+  } catch(e) { console.error('iZone zone cmd failed:', e.message); }
+}
+
+async function izActivateSolarMode() {
+  // Turn on AC in cool mode at 23°C to pre-condition using solar
+  try {
+    await izPost(IZONE_CMD, { iZoneCommandV2: { Command: 'SysOn',   Value: 1 } });
+    await izPost(IZONE_CMD, { iZoneCommandV2: { Command: 'SysMode', Value: 1 } }); // Cool
+    await izPost(IZONE_CMD, { iZoneCommandV2: { Command: 'Setpoint',Value: 2300 } }); // 23°C
+    setTimeout(fetchIzone, 2000);
+  } catch(e) { console.error('Solar mode activate failed:', e.message); }
+}
+
 </script>
 </body>
 </html>
