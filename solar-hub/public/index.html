@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Solar Hub — Mornington Peninsula</title>
-  <link rel="manifest" href="/manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -1393,19 +1392,33 @@ function getWeatherIcon(code,cloud){
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
-  const c=loadAlertConfig();
-  document.getElementById('toggle-export').checked = c.exportEnabled;
-  document.getElementById('toggle-import').checked = c.importEnabled;
-  if(document.getElementById('export-threshold-kw')) document.getElementById('export-threshold-kw').value = c.exportThreshKw || 3;
-  if(document.getElementById('export-duration-min')) document.getElementById('export-duration-min').value = c.exportDurMin   || 10;
-  if(document.getElementById('import-threshold-kw')) document.getElementById('import-threshold-kw').value = c.importThreshKw || 3;
-  if(document.getElementById('import-duration-min')) document.getElementById('import-duration-min').value = c.importDurMin   || 10;
-  if(document.getElementById('cooldown-min'))        document.getElementById('cooldown-min').value        = c.cooldownMin    || 30;
-  updateNotifBtn(Notification.permission);
+  // Wrap entire init in try/catch so no single failure blocks the page
+  try {
+    const c = loadAlertConfig();
+    const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+    const safeCheck = (id, val) => { const el = document.getElementById(id); if(el) el.checked = val; };
+    safeCheck('toggle-export', c.exportEnabled);
+    safeCheck('toggle-import', c.importEnabled);
+    safeSet('export-threshold-kw', c.exportThreshKw || 3);
+    safeSet('export-duration-min', c.exportDurMin   || 10);
+    safeSet('import-threshold-kw', c.importThreshKw || 3);
+    safeSet('import-duration-min', c.importDurMin   || 10);
+    safeSet('cooldown-min',        c.cooldownMin    || 30);
+  } catch(e) { console.warn('Alert config init failed:', e.message); }
+
+  // Notification permission — safe check
+  try {
+    if (typeof Notification !== 'undefined') updateNotifBtn(Notification.permission);
+  } catch(e) { console.warn('Notification init failed:', e.message); }
+
+  // Core data fetch — always runs
   refreshAll();
-  loadTodayFromSupabase();
-  setInterval(refreshAll,REFRESH_MS);
-  setInterval(loadTodayFromSupabase, 5*60*1000); // refresh AGL data every 5 min
+
+  // Supabase history — non-blocking, failures won't affect live tab
+  loadTodayFromSupabase().catch(e => console.warn('Supabase init skipped:', e.message));
+
+  setInterval(refreshAll, REFRESH_MS);
+  setInterval(() => loadTodayFromSupabase().catch(()=>{}), 5 * 60 * 1000);
 });
 
 // ── Supabase config ──────────────────────────────────────────────────────────
@@ -1895,16 +1908,14 @@ function runBatterySimulation() {
   const actualImport = semsData.dailyImport     || 0;
   const actualExport = semsData.dailyExport     || 0;
   const actualGen    = semsData.dailyGeneration || 0;
-  const importAvoided= Math.max(0, actualImport - totalImportSim);
-
   setText('sim-daily-gen',     fmtKwh(actualGen)       + ' kWh');
   setText('sim-daily-selfuse', fmtKwh(totalSelfUse)    + ' kWh');
   setText('sim-daily-import',  fmtKwh(totalImportSim)  + ' kWh');
   setText('sim-daily-export',  fmtKwh(totalExportSim)  + ' kWh');
-  setText('sim-import-avoided',importAvoided.toFixed(2) + ' kWh');
 
   // ── Savings — net of off-peak charging cost ──────────────────────
   const importAvoided   = Math.max(0, actualImport - (totalImportSim - totalOffpeakKwh));
+  setText('sim-import-avoided', importAvoided.toFixed(2) + ' kWh');
   const peakImportSim   = Math.max(0, totalImportSim - totalOffpeakKwh);
   // Cost: peak grid at 26.53c, off-peak top-up at 8c, minus avoided peak import
   const simGridCost     = peakImportSim * TARIFF.usage + totalOffpeakKwh * TARIFF.nightEV;
