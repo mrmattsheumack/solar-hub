@@ -128,8 +128,25 @@
     #notif-btn:disabled{opacity:0.5;cursor:default;}
     .log-entry{padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;}
     .update-ticker{text-align:center;font-size:0.6rem;color:var(--muted);margin-top:20px;letter-spacing:0.08em;}
+    @keyframes bat-shimmer{0%{left:-100%}100%{left:200%}}
+    .iz-mode-btn{padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-family:DM Mono,monospace;font-size:0.65rem;cursor:pointer;transition:all 0.2s;}
+    .iz-mode-btn:hover{border-color:var(--battery);color:var(--battery);}
+    .iz-mode-btn.active{background:rgba(77,184,255,0.15);border-color:var(--battery);color:var(--battery);}
+    .hist-btn{padding:6px 14px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-family:'DM Mono',monospace;font-size:0.7rem;cursor:pointer;transition:all 0.2s;}
+    .hist-btn:hover{border-color:var(--sun);color:var(--sun);}
+    .hist-btn.active{background:rgba(245,166,35,0.12);border-color:rgba(245,166,35,0.5);color:var(--sun);}
+    #custom-range{display:flex;}
     .tariff-banner{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:0.65rem;color:var(--muted);margin-bottom:14px;display:flex;gap:16px;flex-wrap:wrap;}
     .tariff-item span{color:var(--text);}
+    :root { --battery:#4db8ff; }
+    .live-stat{display:flex;align-items:center;gap:6px;}
+    .live-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+    .live-label{font-size:0.62rem;color:var(--muted);margin-right:2px;}
+    .live-val{font-family:'Syne',sans-serif;font-size:0.9rem;font-weight:700;color:var(--text);}
+    .power-bar{height:36px;border-radius:8px;overflow:hidden;display:flex;background:var(--bg3);margin-bottom:10px;}
+    .pb-seg{height:100%;min-width:0;transition:width 0.8s ease;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;}
+    .pb-empty{height:100%;flex:1;background:var(--bg3);}
+    .pb-legend{display:flex;gap:14px;flex-wrap:wrap;}
   </style>
 </head>
 <body>
@@ -154,6 +171,9 @@
     <div class="tabs">
       <button class="tab active" onclick="switchTab('live',this)">⚡ Live</button>
       <button class="tab" onclick="switchTab('forecast',this)">☁️ Forecast</button>
+      <button class="tab" onclick="switchTab('history',this)">📅 History</button>
+      <button class="tab" onclick="switchTab('battery',this)">🔋 Battery Sim</button>
+      <button class="tab" onclick="switchTab('climate',this)">🌡️ Climate</button>
       <button class="tab" onclick="switchTab('alerts',this)">🔔 Alerts</button>
     </div>
     <button class="btn" onclick="refreshAll()">↻ Refresh</button>
@@ -162,36 +182,43 @@
   <!-- ═══ LIVE TAB ═══ -->
   <div class="tab-panel active" id="tab-live">
 
-    <!-- Tariff banner -->
-    <div class="tariff-banner">
-      <span class="tariff-item">Plan: <span>Night Saver EV</span></span>
-      <span class="tariff-item">Usage: <span>26.53c/kWh</span></span>
-      <span class="tariff-item">Night EV (12am–6am): <span>8.0c/kWh</span></span>
-      <span class="tariff-item">Feed-in: <span>1.5c/kWh</span></span>
-      <span class="tariff-item">Supply: <span>$1.039/day</span></span>
+    <!-- Smart suggestion banner -->
+    <div id="suggestion-banner" style="display:none;margin-bottom:12px;padding:14px 18px;border-radius:12px;border-left:4px solid var(--export);background:rgba(0,229,160,0.07);font-size:0.82rem;line-height:1.6;">
+      <div style="font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--export);margin-bottom:4px;">💡 Smart suggestion</div>
+      <div id="suggestion-text" style="color:var(--text);"></div>
     </div>
 
-    <!-- Live power stats -->
-    <div class="stat-row">
-      <div class="stat-card solar">
-        <div class="stat-icon">☀️</div>
-        <div class="stat-label">Generating</div>
-        <div class="stat-value" id="pv-power">0<span class="stat-unit">W</span></div>
+    <!-- LIVE power bar -->
+    <div class="card" style="margin-bottom:8px;padding:14px 18px;">
+      <div style="font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">⚡ Live — right now</div>
+      <div class="power-bar" id="live-bar-wrap">
+        <div class="pb-seg" id="live-seg-selfuse" style="background:rgba(110,142,251,0.85);"></div>
+        <div class="pb-seg" id="live-seg-export"  style="background:rgba(0,229,160,0.85);"></div>
+        <div class="pb-seg" id="live-seg-import"  style="background:rgba(255,77,109,0.85);"></div>
+        <div class="pb-empty" id="live-bar-empty"></div>
       </div>
-      <div class="stat-card export">
-        <div class="stat-icon">⬆️</div>
-        <div class="stat-label">Exporting</div>
-        <div class="stat-value" id="export-power">0<span class="stat-unit">W</span></div>
-      </div>
-      <div class="stat-card import-card">
-        <div class="stat-icon">⬇️</div>
-        <div class="stat-label">Importing</div>
-        <div class="stat-value" id="import-power">0<span class="stat-unit">W</span></div>
-      </div>
-      <div class="stat-card home">
-        <div class="stat-icon">🏠</div>
-        <div class="stat-label">Consuming</div>
-        <div class="stat-value" id="home-power">0<span class="stat-unit">W</span></div>
+      <!-- Live stat cards -->
+      <div class="stat-row" style="margin-top:12px;margin-bottom:0;">
+        <div class="daily-card" style="border-color:rgba(245,166,35,0.3);">
+          <div class="daily-label" style="color:var(--sun)">Generating</div>
+          <div class="daily-value" id="pv-power" style="color:var(--sun)">— W</div>
+        </div>
+        <div class="daily-card" style="border-color:rgba(110,142,251,0.3);">
+          <div class="daily-label" style="color:var(--home)">Self-use</div>
+          <div class="daily-value" id="selfuse-power" style="color:var(--home)">— W</div>
+        </div>
+        <div class="daily-card" style="border-color:rgba(0,229,160,0.3);">
+          <div class="daily-label" style="color:var(--export)">Exporting</div>
+          <div class="daily-value" id="export-power" style="color:var(--export)">— W</div>
+        </div>
+        <div class="daily-card" style="border-color:rgba(255,77,109,0.3);">
+          <div class="daily-label" style="color:var(--import)">Importing</div>
+          <div class="daily-value" id="import-power" style="color:var(--import)">— W</div>
+        </div>
+        <div class="daily-card" style="border-color:rgba(110,142,251,0.2);">
+          <div class="daily-label">Total Consuming</div>
+          <div class="daily-value" id="home-power" style="color:var(--home)">— W</div>
+        </div>
       </div>
     </div>
 
@@ -215,71 +242,73 @@
       </div>
     </div>
 
-    <!-- Cost estimates -->
-    <div class="cost-row">
+    <!-- Cost estimates (3 cards only — no supply/net) -->
+    <div class="cost-row" style="grid-template-columns:repeat(3,1fr);">
       <div class="cost-card">
         <div class="cost-label">Grid cost today</div>
         <div class="cost-value" id="cost-grid" style="color:var(--import)">—</div>
         <div class="cost-note">at 26.53c/kWh</div>
       </div>
       <div class="cost-card">
-        <div class="cost-label">Solar savings today</div>
+        <div class="cost-label">Solar savings</div>
         <div class="cost-value" id="cost-savings" style="color:var(--export)">—</div>
         <div class="cost-note">avoided grid purchase</div>
       </div>
       <div class="cost-card">
-        <div class="cost-label">Feed-in credit today</div>
+        <div class="cost-label">Feed-in credit</div>
         <div class="cost-value" id="cost-feedin" style="color:var(--sun)">—</div>
         <div class="cost-note">at 1.5c/kWh export</div>
       </div>
-      <div class="cost-card">
-        <div class="cost-label">Supply charge today</div>
-        <div class="cost-value" id="cost-supply" style="color:var(--muted)">—</div>
-        <div class="cost-note">$1.039/day fixed</div>
-      </div>
-      <div class="cost-card">
-        <div class="cost-label">Net bill today</div>
-        <div class="cost-value" id="cost-net">—</div>
-        <div class="cost-note">grid + supply − feed-in</div>
-      </div>
     </div>
+    <div id="cost-supply" style="display:none"></div>
+    <div id="cost-net" style="display:none"></div>
 
-    <!-- Stacked bar + pie charts row -->
-    <div class="two-col">
-      <!-- Stacked bar chart -->
-      <div class="card" style="margin-bottom:0">
-        <div class="card-title">Hourly energy — today</div>
-        <div class="legend">
-          <div class="legend-item"><div class="legend-dot" style="background:rgba(110,142,251,0.85)"></div>Solar self-use</div>
-          <div class="legend-item"><div class="legend-dot" style="background:rgba(255,77,109,0.85)"></div>From grid</div>
-          <div class="legend-item"><div class="legend-dot" style="background:rgba(0,229,160,0.85)"></div>Excess export</div>
-        </div>
-        <div class="chart-wrap" style="height:220px"><canvas id="hourly-bar-chart"></canvas></div>
-      </div>
-
-      <!-- Pie charts stacked -->
-      <div style="display:flex;flex-direction:column;gap:14px;">
-        <div class="card" style="margin-bottom:0;flex:1">
-          <div class="card-title">Solar generated — destination</div>
-          <div class="chart-wrap" style="height:140px"><canvas id="pie-solar"></canvas></div>
-        </div>
-        <div class="card" style="margin-bottom:0;flex:1">
-          <div class="card-title">Home consumption — source</div>
-          <div class="chart-wrap" style="height:140px"><canvas id="pie-consumption"></canvas></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Day line chart -->
-    <div class="card" style="margin-top:14px">
-      <div class="card-title">Power throughout the day</div>
+    <!-- Full-width hourly stacked bar -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Hourly energy — today</div>
       <div class="legend">
-        <div class="legend-item"><div class="legend-dot" style="background:var(--home)"></div>Consumption</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--import)"></div>Grid import</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--export)"></div>Grid export</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--sun);opacity:0.6"></div>Forecast solar</div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(110,142,251,0.85)"></div>Solar self-use</div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(255,77,109,0.85)"></div>From grid</div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(0,229,160,0.85)"></div>Excess export</div>
       </div>
-      <div class="chart-wrap" style="height:200px"><canvas id="day-line-chart"></canvas></div>
+      <div class="chart-wrap" style="height:240px"><canvas id="hourly-bar-chart"></canvas></div>
+    </div>
+
+    <!-- LIVE pie charts -->
+    <div style="font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;padding-left:2px;">⚡ Live — right now</div>
+    <div class="two-col" style="margin-bottom:8px">
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Solar generated — destination</div>
+        <div class="chart-wrap" style="height:170px"><canvas id="pie-solar-live"></canvas></div>
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Home consumption — source</div>
+        <div class="chart-wrap" style="height:170px"><canvas id="pie-consumption-live"></canvas></div>
+      </div>
+    </div>
+
+    <!-- TODAY pie charts -->
+    <div style="font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;padding-left:2px;">☀️ Today — totals so far</div>
+    <div class="two-col" style="margin-bottom:14px">
+      <div class="card" id="pie-solar" style="margin-bottom:0">
+        <div class="card-title">Solar generated — destination</div>
+        <div class="chart-wrap" style="height:170px"><canvas id="pie-solar-today"></canvas></div>
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Home consumption — source</div>
+        <div class="chart-wrap" style="height:170px"><canvas id="pie-consumption-today"></canvas></div>
+      </div>
+    </div>
+
+
+
+    <!-- Tariff info moved to bottom -->
+    <div class="tariff-banner" style="margin-bottom:14px;">
+      <span class="tariff-item">Plan: <span>Night Saver EV</span></span>
+      <span class="tariff-item">Usage: <span>26.53c/kWh</span></span>
+      <span class="tariff-item">Night EV (12am–6am): <span>8.0c/kWh</span></span>
+      <span class="tariff-item">Feed-in: <span>1.5c/kWh</span></span>
+      <span class="tariff-item">Supply: <span>$1.039/day</span></span>
     </div>
 
     <!-- Weather + Battery -->
@@ -344,33 +373,462 @@
     </div>
   </div>
 
+  <!-- ═══ HISTORY TAB ═══ -->
+  <div class="tab-panel" id="tab-history">
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Date range</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <button class="hist-btn active" onclick="setHistRange('day',this)">Today</button>
+        <button class="hist-btn" onclick="setHistRange('week',this)">Week</button>
+        <button class="hist-btn" onclick="setHistRange('month',this)">Month</button>
+        <button class="hist-btn" onclick="setHistRange('year',this)">Year</button>
+        <button class="hist-btn" onclick="setHistRange('custom',this)">Custom</button>
+        <div id="custom-range" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input type="date" id="hist-from" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text);font-family:DM Mono,monospace;font-size:0.7rem;"/>
+          <span style="color:var(--muted);font-size:0.7rem;">to</span>
+          <input type="date" id="hist-to" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text);font-family:DM Mono,monospace;font-size:0.7rem;"/>
+          <button class="hist-btn" onclick="loadHistory()">Go</button>
+        </div>
+        <span id="hist-status" style="font-size:0.65rem;color:var(--muted);margin-left:auto;"></span>
+      </div>
+    </div>
+
+    <!-- History summary stats -->
+    <div class="daily-row" id="hist-stats" style="display:none">
+      <div class="daily-card">
+        <div class="daily-label">Generated</div>
+        <div class="daily-value" id="hist-gen" style="color:var(--sun)">—</div>
+      </div>
+      <div class="daily-card">
+        <div class="daily-label">Exported</div>
+        <div class="daily-value" id="hist-export" style="color:var(--export)">—</div>
+      </div>
+      <div class="daily-card">
+        <div class="daily-label">Imported</div>
+        <div class="daily-value" id="hist-import" style="color:var(--import)">—</div>
+      </div>
+      <div class="daily-card">
+        <div class="daily-label">Self-used</div>
+        <div class="daily-value" id="hist-selfuse" style="color:var(--home)">—</div>
+      </div>
+    </div>
+
+    <!-- History cost summary -->
+    <div class="cost-row" id="hist-costs" style="display:none;margin-bottom:14px;">
+      <div class="cost-card">
+        <div class="cost-label">Grid cost</div>
+        <div class="cost-value" id="hist-cost-grid" style="color:var(--import)">—</div>
+        <div class="cost-note">at 26.53c/kWh</div>
+      </div>
+      <div class="cost-card">
+        <div class="cost-label">Solar savings</div>
+        <div class="cost-value" id="hist-cost-savings" style="color:var(--export)">—</div>
+        <div class="cost-note">avoided grid purchase</div>
+      </div>
+      <div class="cost-card">
+        <div class="cost-label">Feed-in earned</div>
+        <div class="cost-value" id="hist-cost-feedin" style="color:var(--sun)">—</div>
+        <div class="cost-note">at 1.5c/kWh</div>
+      </div>
+      <div class="cost-card">
+        <div class="cost-label">Supply charges</div>
+        <div class="cost-value" id="hist-cost-supply" style="color:var(--muted)">—</div>
+        <div class="cost-note">$1.039/day</div>
+      </div>
+      <div class="cost-card">
+        <div class="cost-label">Net bill</div>
+        <div class="cost-value" id="hist-cost-net">—</div>
+        <div class="cost-note">grid + supply − feed-in</div>
+      </div>
+    </div>
+
+    <!-- History chart -->
+    <div class="card">
+      <div class="card-title" id="hist-chart-title">Energy history</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(110,142,251,0.85)"></div>Solar self-use</div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(255,77,109,0.85)"></div>From grid</div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(0,229,160,0.85)"></div>Exported to grid</div>
+      </div>
+      <div class="chart-wrap" style="height:280px"><canvas id="hist-chart"></canvas></div>
+      <div id="hist-empty" style="display:none;text-align:center;padding:40px;color:var(--muted);font-size:0.75rem;">
+        No data found for this range.<br/>
+        <a href="/upload.html" style="color:var(--sun);">Upload AGL CSV data →</a>
+      </div>
+    </div>
+
+    <!-- History pie charts -->
+    <div class="two-col" id="hist-pies" style="display:none;margin-top:0">
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Solar generated — destination</div>
+        <div class="chart-wrap" style="height:180px"><canvas id="hist-pie-solar"></canvas></div>
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Home consumption — source</div>
+        <div class="chart-wrap" style="height:180px"><canvas id="hist-pie-consumption"></canvas></div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;text-align:right;">
+      <a href="/upload.html" style="color:var(--muted);font-size:0.65rem;text-decoration:none;">⬆ Upload new AGL export →</a>
+    </div>
+  </div><!-- /history -->
+
   <!-- ═══ ALERTS TAB ═══ -->
   <div class="tab-panel" id="tab-alerts">
-    <div class="card">
-      <div class="card-title">Alert Configuration</div>
-      <div class="alert-config">
-        <div class="alert-row">
-          <div class="alert-desc"><strong style="color:var(--export)">☀️ Solar excess alert</strong><br/>Notify when exporting &gt;3kW for 10+ consecutive minutes</div>
-          <label class="toggle"><input type="checkbox" id="toggle-export" checked onchange="saveAlertConfig()"/><span class="toggle-slider"></span></label>
+
+    <!-- Push notification enable -->
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-title">Browser Push Notifications</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div style="font-size:0.72rem;color:var(--muted);line-height:1.6;flex:1;">
+          Enable browser push notifications to receive alerts even when Solar Hub is in the background.<br/>
+          <span style="font-size:0.65rem;">You must click Allow when the browser prompts you.</span>
         </div>
-        <div class="alert-row">
-          <div class="alert-desc"><strong style="color:var(--import)">🔴 Grid import alert</strong><br/>Notify when importing &gt;3kW during daylight for 10+ minutes</div>
-          <label class="toggle"><input type="checkbox" id="toggle-import" checked onchange="saveAlertConfig()"/><span class="toggle-slider"></span></label>
+        <button id="notif-btn" onclick="requestNotifPermission()" style="white-space:nowrap;">Enable Notifications</button>
+      </div>
+    </div>
+
+    <!-- Solar excess alert -->
+    <div class="card" style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="font-size:0.72rem;font-weight:500;color:var(--export);">☀️ Solar Excess Alert</div>
+        <label class="toggle"><input type="checkbox" id="toggle-export" checked onchange="saveAlertConfig()"/><span class="toggle-slider"></span></label>
+      </div>
+      <div style="font-size:0.68rem;color:var(--muted);margin-bottom:14px;">Notify when exporting more than the threshold to the grid — a signal to run appliances or charge the EV.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <div style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Export threshold (kW)</div>
+          <input type="number" id="export-threshold-kw" value="3" min="0.5" max="13" step="0.5"
+            style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:DM Mono,monospace;font-size:0.8rem;"
+            onchange="saveAlertConfig()"/>
         </div>
-        <div class="alert-row">
-          <div class="alert-desc"><strong style="color:var(--text)">🔔 Browser push notifications</strong></div>
-          <button id="notif-btn" onclick="requestNotifPermission()">Enable Notifications</button>
-        </div>
-        <div style="padding-top:12px;border-top:1px solid var(--border);font-size:0.68rem;color:var(--muted);line-height:1.7;">
-          Threshold: <strong style="color:var(--text)">3 kW</strong> for <strong style="color:var(--text)">10 min</strong> · Refresh: <strong style="color:var(--text)">60s</strong> · Cooldown: <strong style="color:var(--text)">30 min</strong>
+        <div>
+          <div style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Sustained for (minutes)</div>
+          <input type="number" id="export-duration-min" value="10" min="1" max="60" step="1"
+            style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:DM Mono,monospace;font-size:0.8rem;"
+            onchange="saveAlertConfig()"/>
         </div>
       </div>
     </div>
+
+    <!-- Grid import alert -->
+    <div class="card" style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="font-size:0.72rem;font-weight:500;color:var(--import);">🔴 Grid Import Alert</div>
+        <label class="toggle"><input type="checkbox" id="toggle-import" checked onchange="saveAlertConfig()"/><span class="toggle-slider"></span></label>
+      </div>
+      <div style="font-size:0.68rem;color:var(--muted);margin-bottom:14px;">Notify when importing more than the threshold during daylight hours — suggests turning off appliances.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <div style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Import threshold (kW)</div>
+          <input type="number" id="import-threshold-kw" value="3" min="0.5" max="13" step="0.5"
+            style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:DM Mono,monospace;font-size:0.8rem;"
+            onchange="saveAlertConfig()"/>
+        </div>
+        <div>
+          <div style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Sustained for (minutes)</div>
+          <input type="number" id="import-duration-min" value="10" min="1" max="60" step="1"
+            style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:DM Mono,monospace;font-size:0.8rem;"
+            onchange="saveAlertConfig()"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cooldown -->
+    <div class="card" style="margin-bottom:14px;">
+      <div style="font-size:0.72rem;font-weight:500;color:var(--text);margin-bottom:12px;">⏱ Alert Cooldown</div>
+      <div style="font-size:0.68rem;color:var(--muted);margin-bottom:10px;">Minimum time between repeated alerts of the same type.</div>
+      <div style="max-width:200px;">
+        <div style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Cooldown (minutes)</div>
+        <input type="number" id="cooldown-min" value="30" min="5" max="120" step="5"
+          style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:DM Mono,monospace;font-size:0.8rem;"
+          onchange="saveAlertConfig()"/>
+      </div>
+    </div>
+
+    <!-- Alert log -->
     <div class="card">
       <div class="card-title">Alert Log</div>
       <div id="alert-log" style="color:var(--muted);font-size:0.72rem;">No alerts fired yet this session.</div>
     </div>
   </div>
+
+
+  <!-- ═══ BATTERY SIM TAB ═══ -->
+  <div class="tab-panel" id="tab-battery">
+
+    <!-- Battery info banner -->
+    <div style="background:var(--bg3);border:1px solid rgba(77,184,255,0.2);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <div style="font-size:1.4rem;">🔋</div>
+      <div style="flex:1;">
+        <div style="font-family:Syne,sans-serif;font-size:0.85rem;font-weight:700;color:var(--battery);">Alpha ESS Smile T10</div>
+        <div style="font-size:0.65rem;color:var(--muted);margin-top:2px;">10.1 kWh · LFP · 10-yr warranty · Simulation based on today's actual solar & consumption data</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);">Simulated SOC</div>
+        <div style="font-family:Syne,sans-serif;font-size:1.4rem;font-weight:700;color:var(--battery);" id="sim-soc">—%</div>
+        <div style="font-size:0.65rem;color:var(--muted);" id="sim-soc-kwh">— / 10.1 kWh</div>
+      </div>
+    </div>
+
+    <!-- Off-peak charging schedule card -->
+    <div class="card" style="margin-bottom:14px;border-color:rgba(77,184,255,0.2);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div>
+          <div style="font-size:0.72rem;font-weight:500;color:var(--battery);">🌙 Off-peak Grid Charging Schedule</div>
+          <div style="font-size:0.64rem;color:var(--muted);margin-top:2px;">12:00 am – 6:00 am · 8c/kWh Night Saver EV rate</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="sim-offpeak-enabled" checked onchange="runBatterySimulation()"/><span class="toggle-slider"></span></label>
+      </div>
+      <div style="font-size:0.67rem;color:var(--muted);line-height:1.7;margin-bottom:10px;">
+        When enabled, the simulator will charge from the grid during off-peak hours if the battery won't cover tonight's expected load through to midnight — factoring in tomorrow's forecast solar generation plus a <strong style="color:var(--text)">20% buffer</strong>.
+      </div>
+      <div id="sim-offpeak-decision" style="font-size:0.7rem;padding:10px 12px;background:var(--bg3);border-radius:8px;border-left:3px solid var(--battery);color:var(--text);line-height:1.6;">
+        Calculating…
+      </div>
+    </div>
+
+    <!-- Savings summary row -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">
+      <div class="daily-card" style="border-color:rgba(0,229,160,0.2);">
+        <div class="daily-label" style="color:var(--export)">Saved today</div>
+        <div class="daily-value" id="sim-saved-today" style="color:var(--export)">—</div>
+      </div>
+      <div class="daily-card" style="border-color:rgba(0,229,160,0.15);">
+        <div class="daily-label" style="color:var(--export)">Saved this week</div>
+        <div class="daily-value" id="sim-saved-week" style="color:var(--export)">—</div>
+      </div>
+      <div class="daily-card" style="border-color:rgba(0,229,160,0.1);">
+        <div class="daily-label" style="color:var(--export)">Saved this month</div>
+        <div class="daily-value" id="sim-saved-month" style="color:var(--export)">—</div>
+      </div>
+      <div class="daily-card" style="border-color:rgba(0,229,160,0.08);">
+        <div class="daily-label" style="color:var(--export)">Est. annual saving</div>
+        <div class="daily-value" id="sim-saved-year" style="color:var(--export)">—</div>
+      </div>
+    </div>
+
+    <!-- Payback card -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:14px;display:flex;gap:20px;flex-wrap:wrap;">
+      <div style="flex:1;">
+        <div style="font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Battery cost estimate</div>
+        <div style="font-family:Syne,sans-serif;font-size:1.1rem;font-weight:700;">~$8,500 installed</div>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Est. payback period</div>
+        <div style="font-family:Syne,sans-serif;font-size:1.1rem;font-weight:700;" id="sim-payback">—</div>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Grid import avoided today</div>
+        <div style="font-family:Syne,sans-serif;font-size:1.1rem;font-weight:700;" id="sim-import-avoided">— kWh</div>
+      </div>
+    </div>
+
+    <!-- Battery SOC gauge — full width horizontal -->
+    <div class="card" style="margin-bottom:8px;padding:14px 18px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);">🔋 Battery state of charge</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:0.68rem;color:var(--muted);" id="sim-bat-status">Idle</span>
+          <span style="font-family:Syne,sans-serif;font-size:1rem;font-weight:700;color:var(--battery);" id="sim-soc-inline">—%</span>
+          <span style="font-size:0.68rem;color:var(--muted);" id="sim-soc-kwh-inline">— kWh</span>
+        </div>
+      </div>
+      <!-- Battery body -->
+      <div style="position:relative;display:flex;align-items:center;gap:0;">
+        <!-- Main battery cell -->
+        <div style="flex:1;height:44px;border:2px solid rgba(77,184,255,0.4);border-radius:8px 0 0 8px;overflow:hidden;background:var(--bg3);position:relative;">
+          <div id="sim-bat-fill" style="height:100%;width:0%;background:linear-gradient(90deg,rgba(77,184,255,0.9),rgba(110,210,255,0.7));border-radius:6px 0 0 6px;transition:width 1.2s ease;position:relative;overflow:hidden;">
+            <!-- Shimmer effect -->
+            <div style="position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent);animation:bat-shimmer 2s infinite;"></div>
+          </div>
+          <!-- SOC percentage text inside bar -->
+          <div id="sim-bat-pct-label" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:Syne,sans-serif;font-size:0.85rem;font-weight:700;color:rgba(255,255,255,0.9);text-shadow:0 1px 4px rgba(0,0,0,0.5);white-space:nowrap;">—</div>
+        </div>
+        <!-- Battery terminal nub -->
+        <div style="width:8px;height:22px;background:rgba(77,184,255,0.4);border-radius:0 3px 3px 0;flex-shrink:0;"></div>
+      </div>
+      <!-- Tick marks -->
+      <div style="display:flex;justify-content:space-between;margin-top:4px;padding:0 2px;">
+        <span style="font-size:0.55rem;color:var(--muted);">0%</span>
+        <span style="font-size:0.55rem;color:var(--muted);">25%</span>
+        <span style="font-size:0.55rem;color:var(--muted);">50%</span>
+        <span style="font-size:0.55rem;color:var(--muted);">75%</span>
+        <span style="font-size:0.55rem;color:var(--muted);">100% · 10.1 kWh</span>
+      </div>
+    </div>
+
+    <!-- Simulated live power bar -->
+    <div class="card" style="margin-bottom:8px;padding:14px 18px;">
+      <div style="font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">⚡ Simulated — right now with battery</div>
+      <div class="power-bar" id="sim-bar-wrap">
+        <div class="pb-seg" id="sim-seg-selfuse"  style="background:rgba(110,142,251,0.85);"></div>
+        <div class="pb-seg" id="sim-seg-battery"  style="background:rgba(77,184,255,0.85);"></div>
+        <div class="pb-seg" id="sim-seg-export"   style="background:rgba(0,229,160,0.85);"></div>
+        <div class="pb-seg" id="sim-seg-charging" style="background:rgba(77,184,255,0.4);"></div>
+        <div class="pb-seg" id="sim-seg-import"   style="background:rgba(255,77,109,0.85);"></div>
+        <div class="pb-empty"></div>
+      </div>
+      <div class="stat-row" style="margin-top:12px;margin-bottom:0;flex-wrap:wrap;">
+        <div class="daily-card" style="border-color:rgba(245,166,35,0.3);">
+          <div class="daily-label" style="color:var(--sun)">Generating</div>
+          <div class="daily-value" id="sim-pv" style="color:var(--sun)">— W</div>
+        </div>
+        <div class="daily-card" style="border-color:rgba(110,142,251,0.3);">
+          <div class="daily-label" style="color:var(--home)">Self-use</div>
+          <div class="daily-value" id="sim-selfuse" style="color:var(--home)">— W</div>
+        </div>
+        <div class="daily-card" style="border-color:rgba(77,184,255,0.4);">
+          <div class="daily-label" style="color:var(--battery)">From Battery</div>
+          <div class="daily-value" id="sim-from-bat" style="color:var(--battery)">— W</div>
+        </div>
+        <div class="daily-card" style="border-color:rgba(0,229,160,0.5);">
+          <div class="daily-label" style="color:var(--export)">Exporting to Grid</div>
+          <div class="daily-value" id="sim-export" style="color:var(--export)">— W</div>
+        </div>
+        <div class="daily-card" style="border-color:rgba(77,184,255,0.5);">
+          <div class="daily-label" style="color:var(--battery)">Charging Battery</div>
+          <div class="daily-value" id="sim-charging" style="color:var(--battery)">— W</div>
+        </div>
+        <div class="daily-card" style="border-color:rgba(255,77,109,0.2);">
+          <div class="daily-label" style="color:var(--import)">From Grid</div>
+          <div class="daily-value" id="sim-import" style="color:var(--import)">— W</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Simulated daily totals -->
+    <div class="daily-row">
+      <div class="daily-card">
+        <div class="daily-label">Sim generated</div>
+        <div class="daily-value" id="sim-daily-gen" style="color:var(--sun)">— kWh</div>
+      </div>
+      <div class="daily-card">
+        <div class="daily-label">Sim self-used</div>
+        <div class="daily-value" id="sim-daily-selfuse" style="color:var(--home)">— kWh</div>
+      </div>
+      <div class="daily-card">
+        <div class="daily-label">Sim from grid</div>
+        <div class="daily-value" id="sim-daily-import" style="color:var(--import)">— kWh</div>
+      </div>
+      <div class="daily-card">
+        <div class="daily-label">Sim exported</div>
+        <div class="daily-value" id="sim-daily-export" style="color:var(--export)">— kWh</div>
+      </div>
+    </div>
+
+    <!-- Simulated hourly bar chart -->
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-title">Simulated hourly energy — today with battery</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(110,142,251,0.85)"></div>Solar self-use</div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(77,184,255,0.85)"></div>From battery</div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(255,77,109,0.85)"></div>From grid (sim)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(0,229,160,0.85)"></div>Excess export</div>
+      </div>
+      <div class="chart-wrap" style="height:240px"><canvas id="sim-bar-chart"></canvas></div>
+    </div>
+
+    <!-- Comparison vs actual -->
+    <div class="two-col" style="margin-bottom:14px;">
+      <div class="card" style="margin-bottom:0;">
+        <div class="card-title">Without battery (actual)</div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:0.75rem;">
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted)">Grid import today</span><span id="comp-actual-import" style="color:var(--import);font-weight:600;">—</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted)">Solar exported</span><span id="comp-actual-export" style="color:var(--export);font-weight:600;">—</span></div>
+          <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border);"><span style="color:var(--muted)">Grid cost today</span><span id="comp-actual-cost" style="color:var(--import);font-weight:600;">—</span></div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:0;border-color:rgba(77,184,255,0.25);">
+        <div class="card-title" style="color:var(--battery)">With Alpha ESS T10 (sim)</div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:0.75rem;">
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted)">Grid import today</span><span id="comp-sim-import" style="color:var(--battery);font-weight:600;">—</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted)">Solar exported</span><span id="comp-sim-export" style="color:var(--export);font-weight:600;">—</span></div>
+          <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border);"><span style="color:var(--muted)">Grid cost today</span><span id="comp-sim-cost" style="color:var(--battery);font-weight:600;">—</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /battery -->
+
+
+  <!-- ═══ CLIMATE TAB ═══ -->
+  <div class="tab-panel" id="tab-climate">
+
+    <!-- Connection status -->
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div>
+        <div style="font-family:Syne,sans-serif;font-size:0.85rem;font-weight:700;">iZone Climate Control</div>
+        <div style="font-size:0.65rem;color:var(--muted);margin-top:2px;">Direct local connection · 192.168.1.208 · Only works on home WiFi</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div id="izone-dot" style="width:8px;height:8px;border-radius:50%;background:var(--muted);"></div>
+          <span id="izone-status" style="font-size:0.65rem;color:var(--muted);">Not connected</span>
+        </div>
+        <button onclick="fetchIzone()" style="padding:6px 14px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:DM Mono,monospace;font-size:0.7rem;cursor:pointer;">↻ Refresh</button>
+      </div>
+    </div>
+
+    <!-- AC unit control -->
+    <div class="card" style="margin-bottom:14px;" id="izone-unit-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div class="card-title" style="margin-bottom:4px;">AC Unit</div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;">
+            <div><div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;">Mode</div><div style="font-size:0.85rem;font-weight:600;" id="iz-mode">—</div></div>
+            <div><div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;">Fan</div><div style="font-size:0.85rem;font-weight:600;" id="iz-fan">—</div></div>
+            <div><div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;">Setpoint</div><div style="font-size:0.85rem;font-weight:600;" id="iz-setpoint">—</div></div>
+            <div><div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;">Return Air</div><div style="font-size:0.85rem;font-weight:600;" id="iz-temp">—</div></div>
+            <div><div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;">Supply Air</div><div style="font-size:0.85rem;font-weight:600;" id="iz-supply">—</div></div>
+          </div>
+        </div>
+        <!-- On/off + mode controls -->
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:0.7rem;color:var(--muted);">Power</span>
+            <label class="toggle"><input type="checkbox" id="iz-power-toggle" onchange="izSetPower(this.checked)"/><span class="toggle-slider"></span></label>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="iz-mode-btn" onclick="izSetMode(1)" id="iz-btn-cool">❄ Cool</button>
+            <button class="iz-mode-btn" onclick="izSetMode(2)" id="iz-btn-heat">🔥 Heat</button>
+            <button class="iz-mode-btn" onclick="izSetMode(3)" id="iz-btn-vent">💨 Fan</button>
+            <button class="iz-mode-btn" onclick="izSetMode(4)" id="iz-btn-dry">💧 Dry</button>
+          </div>
+          <!-- Setpoint control -->
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button onclick="izAdjustSetpoint(-0.5)" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
+            <span style="font-size:0.8rem;color:var(--muted);">Setpoint</span>
+            <button onclick="izAdjustSetpoint(0.5)" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Solar smart mode banner -->
+    <div id="iz-solar-banner" style="display:none;margin-bottom:14px;padding:14px 18px;border-radius:12px;border-left:4px solid var(--export);background:rgba(0,229,160,0.07);">
+      <div style="font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--export);margin-bottom:4px;">☀️ Solar Smart Mode available</div>
+      <div id="iz-solar-text" style="font-size:0.78rem;color:var(--text);line-height:1.6;"></div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="izActivateSolarMode()" style="padding:7px 14px;border-radius:7px;border:none;background:rgba(0,229,160,0.2);color:var(--export);font-family:DM Mono,monospace;font-size:0.7rem;cursor:pointer;border:1px solid rgba(0,229,160,0.3);">Activate Solar Pre-conditioning</button>
+      </div>
+    </div>
+
+    <!-- Zone cards -->
+    <div class="card-title" style="margin-bottom:10px;">Zones</div>
+    <div id="iz-zones" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:14px;">
+      <div style="color:var(--muted);font-size:0.75rem;padding:20px;text-align:center;">Loading zones…</div>
+    </div>
+
+    <!-- Not on home network message -->
+    <div id="iz-offline-msg" style="display:none;text-align:center;padding:40px;color:var(--muted);font-size:0.75rem;line-height:1.8;">
+      ⚠️ Cannot reach iZone controller.<br/>
+      Make sure you're connected to your home WiFi network.<br/>
+      <span style="font-size:0.65rem;">192.168.1.208 is only accessible on your local network.</span>
+    </div>
+
+  </div><!-- /climate -->
 
   <div class="update-ticker" id="update-ticker">Last updated: —</div>
 </div>
@@ -401,18 +859,27 @@ let exportAlertStart=null, importAlertStart=null;
 let lastExportAlert=0, lastImportAlert=0;
 let alertLog=[];
 let hourlyBarChart=null, dayLineChart=null, ghiChart=null, dayDetailChart=null;
-let pieSolarChart=null, pieConsumptionChart=null;
-let hourlyHistory={};
 let selectedDayEl=null;
 
-// ── Tabs ──────────────────────────────────────────────────────────────────────
-function switchTab(tab,el){
-  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById('tab-'+tab).classList.add('active');
-  el.classList.add('active');
-  if(tab==='forecast'&&forecastData) renderForecast(forecastData);
+// ── Persist hourlyHistory across page reloads (keyed by date) ────────────────
+const TODAY_KEY = 'solarHistory_' + new Date().toISOString().slice(0,10);
+function loadHourlyHistory() {
+  try {
+    const saved = localStorage.getItem(TODAY_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch(e) { return {}; }
 }
+function saveHourlyHistory() {
+  try { localStorage.setItem(TODAY_KEY, JSON.stringify(hourlyHistory)); } catch(e) {}
+  // Clean up old days (keep only last 3)
+  try {
+    const keys = Object.keys(localStorage).filter(k=>k.startsWith('solarHistory_')).sort();
+    while(keys.length > 3) { localStorage.removeItem(keys.shift()); }
+  } catch(e) {}
+}
+let hourlyHistory = loadHourlyHistory();
+
+// ── Tabs (see history JS below) ─────────────────────────────────────────────
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 async function fetchSems()    {const r=await fetch('/.netlify/functions/sems');    if(!r.ok)throw new Error('SEMS '+r.status);    return r.json();}
@@ -430,44 +897,95 @@ async function refreshAll(){
   if(fc.status==='fulfilled') forecastData=fc.value;
   else console.error('FC:',fc.reason);
   renderHourlyBarChart();
-  renderDayLineChart();
-  renderPieCharts();
   const activeTab=document.querySelector('.tab-panel.active')?.id;
   if(activeTab==='tab-forecast'&&forecastData) renderForecast(forecastData);
   checkAlerts(semsData,forecastData);
   setStatus(sems.status==='fulfilled'?'live':'error');
   document.getElementById('update-ticker').textContent='Last updated: '+new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  // Update battery sim if that tab is active
+  if(document.getElementById('tab-battery')?.classList.contains('active')) runBatterySimulation();
+  if(document.getElementById('tab-climate')?.classList.contains('active')) fetchIzone();
 }
 
 // ── History ───────────────────────────────────────────────────────────────────
 function recordHistory(d){
   if(!d) return;
-  // Prefer SEMS hourlyChart for full day coverage
-  if(d.hourlyChart && d.hourlyChart.length > 2){
-    hourlyHistory = {};
-    d.hourlyChart.forEach(pt=>{
-      if(pt.time) hourlyHistory[pt.time]={
-        consumption:pt.homePower||0, gridImport:pt.gridImport||0,
-        gridExport:pt.gridExport||0, solar:pt.pvPower||0,
-      };
-    });
-    return;
-  }
-  // Fallback: live reading
-  const key=new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:false});
-  hourlyHistory[key]={consumption:d.homePower||0,gridImport:d.importPower||0,gridExport:d.exportPower||0,solar:d.pvPower||0};
+  // Add current live reading — always accumulate, never wipe existing data
+  const key = new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:false});
+  const pvPow   = d.pvPower    || 0;
+  const expPow  = d.exportPower || 0;
+  const impPow  = d.importPower || 0;
+  const homePow = d.homePower   || 0;
+  const selfUse = Math.max(0, pvPow - expPow);
+
+  hourlyHistory[key] = {
+    solar:       pvPow,
+    selfUse:     selfUse,
+    gridExport:  expPow,
+    gridImport:  impPow,
+    consumption: homePow,
+  };
+  saveHourlyHistory();
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 function renderStats(d){
-  setVal('pv-power',    fmtW(d.pvPower)    +'<span class="stat-unit">W</span>');
-  setVal('export-power',fmtW(d.exportPower) +'<span class="stat-unit">W</span>');
-  setVal('import-power',fmtW(d.importPower) +'<span class="stat-unit">W</span>');
-  setVal('home-power',  fmtW(d.homePower)   +'<span class="stat-unit">W</span>');
-  setVal('daily-gen',   fmtKwh(d.dailyGeneration)+' kWh');
-  setVal('daily-export',fmtKwh(d.dailyExport)+' kWh');
-  setVal('daily-import',fmtKwh(d.dailyImport)+' kWh');
-  setVal('daily-home',  fmtKwh(d.dailyConsumption)+' kWh');
+  const pvPower    = d.pvPower    || 0;
+  const exportPow  = d.exportPower || 0;
+  const importPow  = d.importPower || 0;
+  const homePow    = d.homePower   || 0;
+  const selfUsePow = Math.max(0, pvPower - exportPow);
+
+  // Live value labels
+  setText('pv-power',      fmtW(pvPower));
+  setText('selfuse-power', fmtW(selfUsePow));
+  setText('export-power',  fmtW(exportPow));
+  setText('import-power',  fmtW(importPow));
+  setText('home-power',    fmtW(homePow));
+
+  // LIVE power bar: self-use | export | import, scaled to total energy moving
+  const liveTotal = Math.max(selfUsePow + exportPow + importPow, 100);
+  renderPowerBar('live-seg-selfuse', selfUsePow, liveTotal);
+  renderPowerBar('live-seg-export',  exportPow,  liveTotal);
+  renderPowerBar('live-seg-import',  importPow,  liveTotal);
+
+  // LIVE pie charts
+  renderMiniPie('pie-solar-live',
+    ['Self-used','Exported'],
+    [selfUsePow, exportPow],
+    ['rgba(110,142,251,0.85)','rgba(0,229,160,0.85)'],
+    'W'
+  );
+  renderMiniPie('pie-consumption-live',
+    ['From solar','From grid'],
+    [selfUsePow, importPow],
+    ['rgba(110,142,251,0.85)','rgba(255,77,109,0.85)'],
+    'W'
+  );
+
+  // TODAY totals
+  const gen  = d.dailyGeneration  || 0;
+  const exp  = d.dailyExport      || 0;
+  const imp  = d.dailyImport      || 0;
+  const cons = d.dailyConsumption || 0;
+  const selfUseKwh = Math.max(0, gen - exp);
+
+  setVal('daily-gen',    fmtKwh(gen)  + ' kWh');
+  setVal('daily-export', fmtKwh(exp)  + ' kWh');
+  setVal('daily-import', fmtKwh(imp)  + ' kWh');
+  setVal('daily-home',   fmtKwh(cons) + ' kWh');
+
+  // TODAY pie charts
+  renderMiniPie('pie-solar-today',
+    ['Self-used','Exported'],
+    [+selfUseKwh.toFixed(2), +exp.toFixed(2)],
+    ['rgba(110,142,251,0.85)','rgba(0,229,160,0.85)'], 'kWh');
+  renderMiniPie('pie-consumption-today',
+    ['From solar','From grid'],
+    [+selfUseKwh.toFixed(2), +imp.toFixed(2)],
+    ['rgba(110,142,251,0.85)','rgba(255,77,109,0.85)'], 'kWh');
+
+  // Battery
   const soc=d.batterySoc||0, bat=d.batteryPower||0, hasBat=soc>0||bat!==0;
   document.getElementById('battery-section').style.display=hasBat?'flex':'none';
   document.getElementById('no-battery').style.display=hasBat?'none':'block';
@@ -477,6 +995,37 @@ function renderStats(d){
     setVal('bat-power',Math.abs(bat)+' W');
     document.getElementById('bat-dir').textContent=bat>0?'⬆ Charging':bat<0?'⬇ Discharging':'Idle';
   }
+}
+
+// ── Power bar helper ─────────────────────────────────────────────────────────
+function renderPowerBar(id, value, total) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const pct = total > 0 ? Math.max(0, (value / total) * 100) : 0;
+  el.style.width = pct.toFixed(1) + '%';
+  // Show label if segment is wide enough
+  const label = value >= 1000 ? (value/1000).toFixed(1)+'kW' : Math.round(value)+'W';
+  el.innerHTML = pct > 10 ? `<span style="font-size:0.58rem;font-weight:500;color:rgba(0,0,0,0.8);white-space:nowrap;padding:0 5px;">${label}</span>` : '';
+}
+
+// ── Mini pie/donut helper ─────────────────────────────────────────────────────
+let _pieCharts = {};
+function renderMiniPie(canvasId, labels, data, colors, unit) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  if (_pieCharts[canvasId]) { _pieCharts[canvasId].destroy(); }
+  const total = data.reduce((a,b)=>a+b,0);
+  _pieCharts[canvasId] = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '65%',
+      plugins: {
+        legend: { display: true, position: 'bottom', labels: { font:{size:10}, boxWidth:10, padding:6, color:'#5a6478' } },
+        tooltip: { callbacks: { label: c => c.label + ': ' + c.raw + ' ' + unit + (total>0?' ('+(c.raw/total*100).toFixed(0)+'%)':'') } }
+      }
+    }
+  });
 }
 
 // ── Cost calculations ─────────────────────────────────────────────────────────
@@ -505,80 +1054,38 @@ function renderCosts(d){
 
 // ── Hourly stacked bar ────────────────────────────────────────────────────────
 function renderHourlyBarChart(){
-  const labels=Object.keys(hourlyHistory).sort();
-  if(!labels.length){
-    // Show placeholder message
-    const ctx=document.getElementById('hourly-bar-chart').getContext('2d');
-    if(hourlyBarChart) hourlyBarChart.destroy();
-    ctx.fillStyle='rgba(90,100,120,0.5)';
-    ctx.font='12px DM Mono, monospace';
-    ctx.textAlign='center';
-    ctx.fillText('Hourly data loading — check back after first full day',ctx.canvas.offsetWidth/2,100);
-    return;
-  }
-  // selfUse = solar generated minus what was exported (what was actually consumed from solar)
-  const selfUse = labels.map(k=>Math.round(Math.max(0, hourlyHistory[k].solar - hourlyHistory[k].gridExport)));
-  const gridImp = labels.map(k=>Math.round(hourlyHistory[k].gridImport));
-  const excess  = labels.map(k=>Math.round(hourlyHistory[k].gridExport));
-  // Filter to only hours with any activity
-  const hasData = labels.some(k=>hourlyHistory[k].solar>0||hourlyHistory[k].gridImport>0||hourlyHistory[k].gridExport>0);
-  if(!hasData) return;
-  const ctx=document.getElementById('hourly-bar-chart').getContext('2d');
-  if(hourlyBarChart) hourlyBarChart.destroy();
-  hourlyBarChart=new Chart(ctx,{
-    type:'bar',
-    data:{labels,datasets:[
-      {label:'Solar self-use', data:selfUse, backgroundColor:'rgba(110,142,251,0.85)', borderRadius:2, stack:'consumption'},
-      {label:'From grid',      data:gridImp, backgroundColor:'rgba(255,77,109,0.85)',  borderRadius:2, stack:'consumption'},
-      {label:'Excess export',  data:excess,  backgroundColor:'rgba(0,229,160,0.85)',   borderRadius:2, stack:'consumption'},
+  const labels = Object.keys(hourlyHistory).sort();
+  if (!labels.length) return;
+
+  // Use stored selfUse if available, else derive from solar - export
+  const selfUse = labels.map(k => {
+    const h = hourlyHistory[k];
+    return Math.round(h.selfUse != null ? h.selfUse : Math.max(0, (h.solar||0) - (h.gridExport||0)));
+  });
+  const gridImp = labels.map(k => Math.round(hourlyHistory[k].gridImport || 0));
+  const excess  = labels.map(k => Math.round(hourlyHistory[k].gridExport  || 0));
+
+  const ctx = document.getElementById('hourly-bar-chart').getContext('2d');
+  if (hourlyBarChart) hourlyBarChart.destroy();
+  hourlyBarChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label:'Solar self-use', data:selfUse, backgroundColor:'rgba(110,142,251,0.85)', borderRadius:2, stack:'s' },
+      { label:'From grid',      data:gridImp, backgroundColor:'rgba(255,77,109,0.85)',  borderRadius:2, stack:'s' },
+      { label:'Excess export',  data:excess,  backgroundColor:'rgba(0,229,160,0.85)',   borderRadius:2, stack:'s' },
     ]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,callbacks:{label:c=>c.dataset.label+': '+Math.round(c.raw)+'W'}}},
-      scales:{
-        x:{stacked:true,grid:{display:false},ticks:{maxRotation:0,maxTicksLimit:16,font:{size:9}}},
-        y:{stacked:false,grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v>=1000?(v/1000).toFixed(1)+'kW':v+'W',font:{size:9}},min:0}
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{display:false}, tooltip:{mode:'index',intersect:false,callbacks:{label:c=>c.dataset.label+': '+Math.round(c.raw)+'W'}} },
+      scales: {
+        x: { stacked:true, grid:{display:false}, ticks:{maxRotation:0,maxTicksLimit:24,font:{size:9}} },
+        y: { stacked:true, grid:{color:'rgba(255,255,255,0.04)'}, ticks:{callback:v=>v>=1000?(v/1000).toFixed(1)+'kW':v+'W',font:{size:9}}, min:0 }
       }
     }
   });
 }
 
-// ── Pie charts ────────────────────────────────────────────────────────────────
-function renderPieCharts(){
-  if(!semsData) return;
-  const gen    = semsData.dailyGeneration  || 0;
-  const exp    = semsData.dailyExport      || 0;
-  const imp    = semsData.dailyImport      || 0;
-  const cons   = semsData.dailyConsumption || 0;
-  const selfUse= Math.max(0, gen - exp);
-
-  // Pie 1: Solar destination (self-use vs exported)
-  const p1ctx=document.getElementById('pie-solar').getContext('2d');
-  if(pieSolarChart) pieSolarChart.destroy();
-  pieSolarChart=new Chart(p1ctx,{
-    type:'doughnut',
-    data:{
-      labels:['Self-used at home','Exported to grid'],
-      datasets:[{data:[+selfUse.toFixed(2),+exp.toFixed(2)],backgroundColor:['rgba(110,142,251,0.85)','rgba(0,229,160,0.85)'],borderWidth:0,hoverOffset:4}]
-    },
-    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
-      plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10},boxWidth:10,padding:6,color:'#5a6478'}},
-      tooltip:{callbacks:{label:c=>c.label+': '+c.raw+' kWh'}}}}
-  });
-
-  // Pie 2: Consumption source (solar vs grid)
-  const p2ctx=document.getElementById('pie-consumption').getContext('2d');
-  if(pieConsumptionChart) pieConsumptionChart.destroy();
-  pieConsumptionChart=new Chart(p2ctx,{
-    type:'doughnut',
-    data:{
-      labels:['From solar','From grid'],
-      datasets:[{data:[+selfUse.toFixed(2),+imp.toFixed(2)],backgroundColor:['rgba(110,142,251,0.85)','rgba(255,77,109,0.85)'],borderWidth:0,hoverOffset:4}]
-    },
-    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
-      plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10},boxWidth:10,padding:6,color:'#5a6478'}},
-      tooltip:{callbacks:{label:c=>c.label+': '+c.raw+' kWh'}}}}
-  });
-}
+// renderPieCharts replaced by renderMiniPie calls in renderStats
 
 // ── Day line chart ────────────────────────────────────────────────────────────
 function renderDayLineChart(){
@@ -667,16 +1174,57 @@ function renderForecast(data){
   }).join('');
 }
 
-function renderGhiChart(hours,sunriseH,sunsetH){
-  const ctx=document.getElementById('ghi-chart').getContext('2d');
-  if(ghiChart) ghiChart.destroy();
-  const labels=hours.map(h=>String(parseInt(h.time.slice(11,13))).padStart(2,'0')+':00');
-  const ghiData=hours.map(h=>{const hr=parseInt(h.time.slice(11,13));return(hr<sunriseH||hr>sunsetH)?0:h.ghi;});
-  const bgColors=hours.map(h=>{const hr=parseInt(h.time.slice(11,13));return(hr<sunriseH||hr>sunsetH)?'rgba(90,100,120,0.25)':'rgba(245,166,35,0.65)';});
-  ghiChart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:ghiData,backgroundColor:bgColors,borderRadius:3,label:'GHI W/m²'}]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw+' W/m²'}}},
-      scales:{x:{grid:{display:false},ticks:{maxRotation:0,maxTicksLimit:12}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v+'W'}}}}
+function renderGhiChart(hours, sunriseH, sunsetH){
+  const ctx = document.getElementById('ghi-chart').getContext('2d');
+  if (ghiChart) ghiChart.destroy();
+
+  const nowHr = new Date().getHours();
+
+  const labels = hours.map(h => String(parseInt(h.time.slice(11,13))).padStart(2,'0') + ':00');
+
+  // For each hour: use actual recorded generation if past, forecast if future
+  const chartData = hours.map(h => {
+    const hr = parseInt(h.time.slice(11,13));
+    if (hr < sunriseH || hr > sunsetH) return 0;
+    if (hr < nowHr) {
+      // Past hour — use actual data from hourlyHistory if available (solar field = pvW)
+      const key = String(hr).padStart(2,'0') + ':00';
+      const hist = hourlyHistory[key];
+      if (hist && (hist.solar > 0 || hist.gridExport > 0)) {
+        // Convert W back to W/m² equivalent for display consistency
+        // Or just show the actual W output directly
+        return Math.round(hist.solar || hist.gridExport || 0);
+      }
+    }
+    return h.ghi; // forecast
+  });
+
+  const bgColors = hours.map(h => {
+    const hr = parseInt(h.time.slice(11,13));
+    if (hr < sunriseH || hr > sunsetH) return 'rgba(90,100,120,0.20)'; // night
+    if (hr === nowHr) return 'rgba(0,229,160,0.85)';                    // current hour = green
+    if (hr < nowHr)  return 'rgba(245,166,35,0.90)';                    // past = solid amber
+    return 'rgba(245,166,35,0.35)';                                      // future = faded amber
+  });
+
+  const tooltipLabels = hours.map(h => {
+    const hr = parseInt(h.time.slice(11,13));
+    if (hr === nowHr) return 'Now';
+    if (hr < nowHr)   return 'Actual';
+    return 'Forecast';
+  });
+
+  ghiChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ data: chartData, backgroundColor: bgColors, borderRadius: 3, label: 'W/m²' }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{display:false}, tooltip:{ callbacks:{ label: (c,i) => tooltipLabels[c.dataIndex] + ': ' + c.raw + ' W' } } },
+      scales: {
+        x: { grid:{display:false}, ticks:{maxRotation:0, maxTicksLimit:12} },
+        y: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{callback:v=>v+'W'}, min:0 }
+      }
+    }
   });
 }
 
@@ -708,28 +1256,89 @@ function selectDay(date,el){
 // ── Alerts ────────────────────────────────────────────────────────────────────
 function checkAlerts(sems,forecast){
   if(!sems) return;
-  const now=Date.now(),cfg=loadAlertConfig();
-  let sunriseMs=0,sunsetMs=Infinity;
+  const now=Date.now(), cfg=loadAlertConfig();
+  const exportThreshW  = (cfg.exportThreshKw || 3) * 1000;
+  const importThreshW  = (cfg.importThreshKw || 3) * 1000;
+  const exportDurMs    = (cfg.exportDurMin   || 10) * 60000;
+  const importDurMs    = (cfg.importDurMin   || 10) * 60000;
+  const cooldownMs     = (cfg.cooldownMin    || 30) * 60000;
+
+  let sunriseMs=0, sunsetMs=Infinity;
   if(forecast?.daily?.length){const t=forecast.daily[0];if(t.sunrise)sunriseMs=new Date(t.sunrise).getTime()+3600000;if(t.sunset)sunsetMs=new Date(t.sunset).getTime()-3600000;}
-  const inDay=now>=sunriseMs&&now<=sunsetMs;
-  if(cfg.exportEnabled&&sems.exportPower>ALERT_THRESHOLD_W){
-    if(!exportAlertStart)exportAlertStart=now;
-    if(now-exportAlertStart>=ALERT_DURATION_MS&&now-lastExportAlert>ALERT_COOLDOWN_MS){fireAlert('export',`☀️ Solar excess: exporting ${fmtW(sems.exportPower)}W to grid for 10+ min. Plug in the IONIQ 5 or run appliances.`);lastExportAlert=now;}
-  } else {exportAlertStart=null;}
-  if(cfg.importEnabled&&inDay&&sems.importPower>ALERT_THRESHOLD_W){
-    if(!importAlertStart)importAlertStart=now;
-    if(now-importAlertStart>=ALERT_DURATION_MS&&now-lastImportAlert>ALERT_COOLDOWN_MS){fireAlert('import',`🔴 High grid import: drawing ${fmtW(sems.importPower)}W from grid during daylight for 10+ min.`);lastImportAlert=now;}
-  } else {importAlertStart=null;}
+  const inDay = now>=sunriseMs && now<=sunsetMs;
+
+  // Export alert
+  if(cfg.exportEnabled && sems.exportPower > exportThreshW){
+    if(!exportAlertStart) exportAlertStart=now;
+    if(now-exportAlertStart>=exportDurMs && now-lastExportAlert>cooldownMs){
+      fireAlert('export',`☀️ Solar excess: exporting ${fmtW(sems.exportPower)}W to grid. Consider charging the IONIQ 5, running the washing machine or dryer.`);
+      lastExportAlert=now;
+    }
+  } else { exportAlertStart=null; }
+
+  // Import alert
+  if(cfg.importEnabled && inDay && sems.importPower > importThreshW){
+    if(!importAlertStart) importAlertStart=now;
+    if(now-importAlertStart>=importDurMs && now-lastImportAlert>cooldownMs){
+      fireAlert('import',`🔴 High grid import: drawing ${fmtW(sems.importPower)}W from grid. Turn off dryer, oven, or other high-draw appliances.`);
+      lastImportAlert=now;
+    }
+  } else { importAlertStart=null; }
+
+  // Alert banner
   const banner=document.getElementById('alert-banner');
-  if(sems.exportPower>ALERT_THRESHOLD_W&&exportAlertStart){
-    const rem=Math.max(0,Math.ceil((ALERT_DURATION_MS-(now-exportAlertStart))/1000));
-    banner.style.display='block';banner.className='export-alert';
+  if(sems.exportPower>exportThreshW && exportAlertStart){
+    const rem=Math.max(0,Math.ceil((exportDurMs-(now-exportAlertStart))/1000));
+    banner.style.display='block'; banner.className='export-alert';
     banner.textContent=rem>0?`☀️ Exporting ${fmtW(sems.exportPower)}W — alert fires in ${rem}s`:`☀️ Solar excess alert — exporting ${fmtW(sems.exportPower)}W to grid`;
-  } else if(inDay&&sems.importPower>ALERT_THRESHOLD_W&&importAlertStart){
-    const rem=Math.max(0,Math.ceil((ALERT_DURATION_MS-(now-importAlertStart))/1000));
-    banner.style.display='block';banner.className='import-alert';
-    banner.textContent=rem>0?`🔴 Importing ${fmtW(sems.importPower)}W — alert fires in ${rem}s`:`🔴 High grid import alert — drawing ${fmtW(sems.importPower)}W`;
-  } else {banner.style.display='none';}
+  } else if(inDay && sems.importPower>importThreshW && importAlertStart){
+    const rem=Math.max(0,Math.ceil((importDurMs-(now-importAlertStart))/1000));
+    banner.style.display='block'; banner.className='import-alert';
+    banner.textContent=rem>0?`🔴 Importing ${fmtW(sems.importPower)}W — alert fires in ${rem}s`:`🔴 High grid import alert`;
+  } else { banner.style.display='none'; }
+
+  // Smart suggestion banner
+  renderSuggestion(sems, exportThreshW, importThreshW, inDay);
+}
+
+function renderSuggestion(sems, exportThreshW, importThreshW, inDay) {
+  const banner = document.getElementById('suggestion-banner');
+  const text   = document.getElementById('suggestion-text');
+  if (!banner || !text) return;
+
+  const exp = sems.exportPower || 0;
+  const imp = sems.importPower || 0;
+  const pv  = sems.pvPower    || 0;
+
+  // Large excess — encourage usage
+  if (exp > 5000) {
+    banner.style.borderColor = 'var(--export)';
+    banner.style.background  = 'rgba(0,229,160,0.07)';
+    banner.querySelector('div').style.color = 'var(--export)';
+    text.innerHTML = `<strong>You're generating ${fmtW(exp)} of surplus solar.</strong> Great time to charge the IONIQ 5 (plugging in now could add ~${Math.round(exp/7400*60)} km/hr), run the dishwasher, washing machine, or dryer simultaneously.`;
+    banner.style.display = 'block';
+  } else if (exp > 2000) {
+    banner.style.borderColor = 'var(--export)';
+    banner.style.background  = 'rgba(0,229,160,0.07)';
+    text.innerHTML = `<strong>${fmtW(exp)} surplus solar available.</strong> Good time to run one heavy appliance — washing machine, dishwasher, or start an EV charge session.`;
+    banner.style.display = 'block';
+  } else if (exp > 500) {
+    banner.style.borderColor = 'var(--sun)';
+    banner.style.background  = 'rgba(245,166,35,0.06)';
+    text.innerHTML = `<strong>${fmtW(exp)} surplus.</strong> Enough for lighting, phone charging, or a slow EV top-up. Avoid adding the oven or dryer.`;
+    banner.style.display = 'block';
+  } else if (inDay && imp > importThreshW * 0.7) {
+    // Approaching import threshold
+    banner.style.borderColor = 'var(--import)';
+    banner.style.background  = 'rgba(255,77,109,0.06)';
+    banner.querySelector('div').style.color = 'var(--import)';
+    text.innerHTML = `<strong>Grid import rising (${fmtW(imp)}).</strong> Consider turning off the dryer, oven, or EV charger to avoid drawing heavily from the grid.`;
+    banner.style.display = 'block';
+  } else if (!inDay || pv === 0) {
+    banner.style.display = 'none';
+  } else {
+    banner.style.display = 'none';
+  }
 }
 
 function fireAlert(type,msg){
@@ -753,8 +1362,23 @@ function updateNotifBtn(p){
   else if(p==='denied'){b.textContent='✗ Blocked — allow in browser settings';b.disabled=true;}
   else{b.textContent='Enable Notifications';b.disabled=false;}
 }
-function saveAlertConfig(){try{localStorage.setItem('solarHubAlerts',JSON.stringify({exportEnabled:document.getElementById('toggle-export').checked,importEnabled:document.getElementById('toggle-import').checked}));}catch(e){}}
-function loadAlertConfig(){try{const s=localStorage.getItem('solarHubAlerts');if(s)return JSON.parse(s);}catch(e){}return{exportEnabled:true,importEnabled:true};}
+function saveAlertConfig(){
+  try{
+    localStorage.setItem('solarHubAlerts', JSON.stringify({
+      exportEnabled:  document.getElementById('toggle-export').checked,
+      importEnabled:  document.getElementById('toggle-import').checked,
+      exportThreshKw: parseFloat(document.getElementById('export-threshold-kw').value) || 3,
+      exportDurMin:   parseInt(document.getElementById('export-duration-min').value)    || 10,
+      importThreshKw: parseFloat(document.getElementById('import-threshold-kw').value) || 3,
+      importDurMin:   parseInt(document.getElementById('import-duration-min').value)    || 10,
+      cooldownMin:    parseInt(document.getElementById('cooldown-min').value)           || 30,
+    }));
+  }catch(e){}
+}
+function loadAlertConfig(){
+  try{const s=localStorage.getItem('solarHubAlerts');if(s)return JSON.parse(s);}catch(e){}
+  return{exportEnabled:true,importEnabled:true,exportThreshKw:3,exportDurMin:10,importThreshKw:3,importDurMin:10,cooldownMin:30};
+}
 
 function setVal(id,html){const e=document.getElementById(id);if(e)e.innerHTML=html;}
 function setText(id,txt){const e=document.getElementById(id);if(e)e.textContent=txt;}
@@ -770,12 +1394,788 @@ function getWeatherIcon(code,cloud){
 
 document.addEventListener('DOMContentLoaded',()=>{
   const c=loadAlertConfig();
-  document.getElementById('toggle-export').checked=c.exportEnabled;
-  document.getElementById('toggle-import').checked=c.importEnabled;
+  document.getElementById('toggle-export').checked = c.exportEnabled;
+  document.getElementById('toggle-import').checked = c.importEnabled;
+  if(document.getElementById('export-threshold-kw')) document.getElementById('export-threshold-kw').value = c.exportThreshKw || 3;
+  if(document.getElementById('export-duration-min')) document.getElementById('export-duration-min').value = c.exportDurMin   || 10;
+  if(document.getElementById('import-threshold-kw')) document.getElementById('import-threshold-kw').value = c.importThreshKw || 3;
+  if(document.getElementById('import-duration-min')) document.getElementById('import-duration-min').value = c.importDurMin   || 10;
+  if(document.getElementById('cooldown-min'))        document.getElementById('cooldown-min').value        = c.cooldownMin    || 30;
   updateNotifBtn(Notification.permission);
   refreshAll();
+  loadTodayFromSupabase();
   setInterval(refreshAll,REFRESH_MS);
+  setInterval(loadTodayFromSupabase, 5*60*1000); // refresh AGL data every 5 min
 });
+
+// ── Supabase config ──────────────────────────────────────────────────────────
+const SUPABASE_URL = "https://uzdfjlddgeoelltnprpb.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6ZGZqbGRkZ2VvZWxsdG5wcnBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyODc3NzIsImV4cCI6MjA4OTg2Mzc3Mn0.mqs_ho9NP3Igwls4tI1CV2LqGYNBD1MgDvSGfOx2xZc";
+
+// ── History tab state ─────────────────────────────────────────────────────────
+let histRange = 'day';
+let histChart = null, histPieSolar = null, histPieConsumption = null;
+
+function switchTab(tab, el) {
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  el.classList.add('active');
+  if(tab==='forecast'&&forecastData) renderForecast(forecastData);
+  if(tab==='history') loadHistory();
+  if(tab==='battery') runBatterySimulation();
+  if(tab==='climate') fetchIzone();
+}
+
+function setHistRange(range, el) {
+  histRange = range;
+  document.querySelectorAll('.hist-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  const customDiv = document.getElementById('custom-range');
+  customDiv.style.display = range === 'custom' ? 'flex' : 'none';
+  if (range !== 'custom') loadHistory();
+}
+
+function getDateRange() {
+  const now = new Date();
+  const today = now.toISOString().slice(0,10);
+  if (histRange === 'day') return { from: today, to: today, granularity: '30min', days: 1 };
+  if (histRange === 'week') {
+    const d = new Date(now); d.setDate(d.getDate()-6);
+    return { from: d.toISOString().slice(0,10), to: today, granularity: 'day', days: 7 };
+  }
+  if (histRange === 'month') {
+    const d = new Date(now); d.setDate(d.getDate()-29);
+    return { from: d.toISOString().slice(0,10), to: today, granularity: 'day', days: 30 };
+  }
+  if (histRange === 'year') {
+    const d = new Date(now); d.setFullYear(d.getFullYear()-1);
+    return { from: d.toISOString().slice(0,10), to: today, granularity: 'year', days: 365 };
+  }
+  if (histRange === 'custom') {
+    const from = document.getElementById('hist-from').value;
+    const to   = document.getElementById('hist-to').value;
+    if (!from || !to) return null;
+    const days = Math.ceil((new Date(to)-new Date(from))/(1000*60*60*24))+1;
+    const granularity = days <= 2 ? '30min' : days <= 60 ? 'day' : 'year';
+    return { from, to, granularity, days };
+  }
+  return null;
+}
+
+async function loadHistory() {
+  const range = getDateRange();
+  if (!range) return;
+  const status = document.getElementById('hist-status');
+  status.textContent = 'Loading…';
+
+  try {
+    const url = `/.netlify/functions/usage?from=${range.from}&to=${range.to}&granularity=${range.granularity}`;
+    const res = await fetch(url);
+    const json = await res.json();
+    if (!json.data) throw new Error(json.error || 'No data');
+
+    // Table not created yet
+    if (json.tableError) {
+      status.textContent = 'Table not set up yet';
+      document.getElementById('hist-empty').style.display = 'block';
+      document.getElementById('hist-empty').innerHTML =
+        '⚠️ Supabase table not created yet.<br/><br/>' +
+        'Go to <a href="https://supabase.com/dashboard/project/uzdfjlddgeoelltnprpb/sql" target="_blank" style="color:var(--sun)">Supabase SQL Editor ↗</a> and run the CREATE TABLE script from <a href="/upload.html" style="color:var(--sun)">/upload.html</a>, then upload your AGL CSV.';
+      document.getElementById('hist-stats').style.display = 'none';
+      document.getElementById('hist-costs').style.display = 'none';
+      document.getElementById('hist-pies').style.display = 'none';
+      if (histChart) { histChart.destroy(); histChart = null; }
+      return;
+    }
+
+    status.textContent = `${json.rows.toLocaleString()} intervals · ${range.from} → ${range.to}`;
+
+    if (json.data.length === 0) {
+      document.getElementById('hist-empty').style.display = 'block';
+      document.getElementById('hist-empty').innerHTML = 'No data found for this range.<br/><a href="/upload.html" style="color:var(--sun);">Upload AGL CSV data →</a>';
+      document.getElementById('hist-chart-title').textContent = 'Energy history';
+      document.getElementById('hist-stats').style.display = 'none';
+      document.getElementById('hist-costs').style.display = 'none';
+      document.getElementById('hist-pies').style.display = 'none';
+      if (histChart) { histChart.destroy(); histChart = null; }
+      return;
+    }
+
+    document.getElementById('hist-empty').style.display = 'none';
+    document.getElementById('hist-stats').style.display = 'grid';
+    document.getElementById('hist-costs').style.display = 'grid';
+    document.getElementById('hist-pies').style.display = 'grid';
+
+    // Calculate totals
+    let totalSolar=0, totalGrid=0, totalExport=0;
+    json.data.forEach(d => {
+      totalSolar  += d.solarKwh;
+      totalGrid   += d.gridKwh;
+      // For AGL CSV: Solar = exported to grid, Generalusage = imported from grid
+      // Self-use = estimated as totalGeneration - exported (not available directly from AGL meter)
+    });
+    // AGL Solar register = energy exported to grid
+    // AGL Generalusage  = energy imported from grid
+    // We don't have direct self-use from smart meter — estimate from SEMS daily totals
+    const exported = totalSolar; // Solar register IS export
+    const imported = totalGrid;  // Generalusage IS import
+
+    // Update title
+    const titles = { day:'Today — 30-min intervals', week:'Last 7 days', month:'Last 30 days', year:'Last 12 months', custom:'Custom range' };
+    document.getElementById('hist-chart-title').textContent = titles[histRange] || 'Energy history';
+
+    // Summary stats
+    document.getElementById('hist-export').textContent  = exported.toFixed(1)+' kWh';
+    document.getElementById('hist-import').textContent  = imported.toFixed(1)+' kWh';
+    document.getElementById('hist-gen').textContent     = '— kWh'; // not available from AGL meter alone
+    document.getElementById('hist-selfuse').textContent = '— kWh';
+
+    // Cost calcs
+    const days = range.days || 1;
+    const gridCost     = imported * TARIFF.usage;
+    const feedInCredit = exported * TARIFF.feedIn;
+    const supplyTotal  = days * TARIFF.supply;
+    const netBill      = gridCost + supplyTotal - feedInCredit;
+    document.getElementById('hist-cost-grid').textContent    = '$'+gridCost.toFixed(2);
+    document.getElementById('hist-cost-savings').textContent = '—';
+    document.getElementById('hist-cost-feedin').textContent  = '$'+feedInCredit.toFixed(2);
+    document.getElementById('hist-cost-supply').textContent  = '$'+supplyTotal.toFixed(2);
+    const netEl = document.getElementById('hist-cost-net');
+    netEl.textContent = '$'+netBill.toFixed(2);
+    netEl.style.color = netBill < 0 ? 'var(--export)' : 'var(--import)';
+
+    // Render bar chart
+    renderHistChart(json.data, range.granularity);
+    renderHistPies(exported, imported);
+
+  } catch(e) {
+    status.textContent = 'Error: '+e.message;
+    console.error(e);
+  }
+}
+
+function renderHistChart(data, granularity) {
+  const labels  = data.map(d => d.time);
+  const exported = data.map(d => +d.solarKwh.toFixed(3));
+  const imported = data.map(d => +d.gridKwh.toFixed(3));
+
+  const ctx = document.getElementById('hist-chart').getContext('2d');
+  if (histChart) histChart.destroy();
+
+  const tickLimit = granularity === '30min' ? 13 : granularity === 'year' ? 12 : Math.min(labels.length, 31);
+
+  histChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label:'Exported to grid', data:exported, backgroundColor:'rgba(0,229,160,0.8)',  borderRadius:2, stack:'s' },
+      { label:'From grid',        data:imported, backgroundColor:'rgba(255,77,109,0.8)', borderRadius:2, stack:'s' },
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{display:false}, tooltip:{mode:'index',intersect:false,callbacks:{label:c=>c.dataset.label+': '+c.raw+' kWh'}} },
+      scales: {
+        x: { stacked:true, grid:{display:false}, ticks:{maxRotation:45,maxTicksLimit:tickLimit,font:{size:9}} },
+        y: { stacked:true, grid:{color:'rgba(255,255,255,0.04)'}, ticks:{callback:v=>v+' kWh',font:{size:9}}, min:0 }
+      }
+    }
+  });
+}
+
+function renderHistPies(exported, imported) {
+  // Pie 1: Solar exported vs unknown self-use
+  const p1ctx = document.getElementById('hist-pie-solar').getContext('2d');
+  if (histPieSolar) histPieSolar.destroy();
+  histPieSolar = new Chart(p1ctx, {
+    type:'doughnut',
+    data:{ labels:['Exported to grid'], datasets:[{data:[+exported.toFixed(2)],backgroundColor:['rgba(0,229,160,0.85)'],borderWidth:0,hoverOffset:4}] },
+    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10},boxWidth:10,padding:6,color:'#5a6478'}},tooltip:{callbacks:{label:c=>c.label+': '+c.raw+' kWh'}}}}
+  });
+
+  // Pie 2: Imported vs unknown self-use from solar
+  const p2ctx = document.getElementById('hist-pie-consumption').getContext('2d');
+  if (histPieConsumption) histPieConsumption.destroy();
+  histPieConsumption = new Chart(p2ctx, {
+    type:'doughnut',
+    data:{ labels:['From grid'], datasets:[{data:[+imported.toFixed(2)],backgroundColor:['rgba(255,77,109,0.85)'],borderWidth:0,hoverOffset:4}] },
+    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10},boxWidth:10,padding:6,color:'#5a6478'}},tooltip:{callbacks:{label:c=>c.label+': '+c.raw+' kWh'}}}}
+  });
+}
+
+// ── Also load today from Supabase for live bar chart ──────────────────────────
+async function loadTodayFromSupabase() {
+  const today = new Date().toISOString().slice(0,10);
+  try {
+    const res = await fetch(`/.netlify/functions/usage?from=${today}&to=${today}&granularity=30min`);
+    const json = await res.json();
+    if (!json.data || json.data.length === 0) return;
+
+    // AGL meter: solarKwh = exported to grid, gridKwh = imported from grid
+    // Self-use = generation - export. We get total generation from SEMS (dailyGeneration).
+    // Distribute self-use proportionally across intervals based on export pattern.
+    const totalExportKwh = json.data.reduce((s,d) => s+d.solarKwh, 0);
+    const totalGenKwh    = semsData?.dailyGeneration || totalExportKwh;
+    const totalSelfUse   = Math.max(0, totalGenKwh - totalExportKwh);
+
+    // Build a new history object from AGL data — this is the source of truth for the day
+    // Only replace slots that are in the past (don't overwrite live current-minute readings)
+    const nowKey = new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:false});
+
+    json.data.forEach(d => {
+      if (d.time === nowKey) return; // keep live reading for current slot
+      const exportW  = Math.round(d.solarKwh * 2 * 1000); // kWh/30min → avg W
+      const importW  = Math.round(d.gridKwh  * 2 * 1000);
+      // Distribute self-use proportionally: slots with more export got more sun → more self-use too
+      const exportFraction = totalExportKwh > 0 ? d.solarKwh / totalExportKwh : 0;
+      const selfUseW = Math.round(totalSelfUse * exportFraction * 2 * 1000);
+      const pvW      = exportW + selfUseW;
+
+      hourlyHistory[d.time] = {
+        gridExport:  exportW,
+        gridImport:  importW,
+        solar:       pvW,
+        selfUse:     selfUseW,
+        consumption: selfUseW + importW,
+      };
+    });
+
+    saveHourlyHistory();
+    renderHourlyBarChart();
+    } catch(e) {
+    console.log('Supabase today load skipped (CSV not uploaded yet):', e.message);
+  }
+}
+
+
+
+// ═══════════════════════════════════════════════════════════════════
+// BATTERY SIMULATOR — Alpha ESS Smile T10
+// ═══════════════════════════════════════════════════════════════════
+const BAT_CAPACITY_KWH  = 10.1;   // usable kWh
+const BAT_COST          = 8500;   // installed cost $
+const BAT_EFFICIENCY    = 0.90;   // round-trip 90%
+const BAT_MAX_CHARGE_KW = 5.0;    // max charge rate kW
+const BAT_MAX_DISCH_KW  = 5.0;    // max discharge rate kW
+
+let simBarChart = null;
+let simBatterySoc = 0; // live running SOC in kWh (persists within session)
+
+// ── Estimate tomorrow's solar generation from forecast ────────────
+function estimateTomorrowSolarKwh() {
+  if (!forecastData?.daily || forecastData.daily.length < 2) return 8; // default 8 kWh
+  const tomorrow = forecastData.daily[1]; // index 0 = today, 1 = tomorrow
+  return tomorrow?.energy_kwh || tomorrow?.pv_estimate || 8;
+}
+
+// ── Estimate remaining night load (now → midnight) ────────────────
+function estimateNightLoadKwh() {
+  // Use average consumption from history to estimate rest of night
+  const nowH = new Date().getHours() + new Date().getMinutes()/60;
+  const labels = Object.keys(hourlyHistory).sort();
+  if (!labels.length) return 3; // default 3 kWh
+  const totalLoad = labels.reduce((s,k) => s + (hourlyHistory[k].consumption || 0), 0);
+  const avgLoadW  = totalLoad / Math.max(labels.length, 1);
+  const hoursLeft = Math.max(0, 24 - nowH); // hours to midnight
+  return avgLoadW * hoursLeft / 1000;
+}
+
+// ── Run simulation over today's hourly history ────────────────────
+function runBatterySimulation() {
+  if (!semsData) return;
+
+  const labels  = Object.keys(hourlyHistory).sort();
+  if (!labels.length) {
+    document.getElementById('sim-soc').textContent = '—%';
+    return;
+  }
+
+  const offpeakEnabled = document.getElementById('sim-offpeak-enabled')?.checked ?? true;
+
+  // Detect interval size
+  const isMinute = labels.length > 1 &&
+    (parseInt(labels[1].split(':')[1]) - parseInt(labels[0].split(':')[1]) + 60) % 60 === 1;
+  const intervalH = isMinute ? (1/60) : 0.5;
+
+  // ── Off-peak charging decision ────────────────────────────────────
+  // Calculate target SOC needed: cover tonight's remaining load + next morning load
+  // minus expected solar generation tomorrow (solar self-use), + 20% buffer
+  const tomorrowSolarKwh  = estimateTomorrowSolarKwh();
+  const nightLoadKwh      = estimateNightLoadKwh();
+  // Morning load before solar kicks in (assume 6am–10am = 4hrs at avg load)
+  const labels2 = Object.keys(hourlyHistory).sort();
+  const totalLoad2 = labels2.reduce((s,k) => s + (hourlyHistory[k].consumption || 0), 0);
+  const avgLoadW2  = totalLoad2 / Math.max(labels2.length, 1);
+  const morningLoadKwh = avgLoadW2 * 4 / 1000; // 4hrs pre-solar
+  // Total need before next day's solar covers things
+  const totalNeedKwh    = nightLoadKwh + morningLoadKwh;
+  // Expected solar self-use tomorrow (solar minus typical export fraction)
+  const actualExportFrac = semsData.dailyExport > 0 && semsData.dailyGeneration > 0
+    ? semsData.dailyExport / semsData.dailyGeneration : 0.3;
+  const tomorrowSelfUse = tomorrowSolarKwh * (1 - actualExportFrac);
+  // Gap = what battery needs to cover that solar won't
+  const rawGap   = Math.max(0, totalNeedKwh - tomorrowSelfUse);
+  const targetKwh = Math.min(BAT_CAPACITY_KWH, rawGap * 1.20); // +20% buffer
+  const shouldOffpeakCharge = offpeakEnabled && targetKwh > 1.0; // only if >1 kWh needed
+  const offpeakChargeKwh = shouldOffpeakCharge ? targetKwh : 0;
+
+  // Update decision explanation
+  const decEl = document.getElementById('sim-offpeak-decision');
+  if (decEl) {
+    if (!offpeakEnabled) {
+      decEl.style.borderColor = 'var(--muted)';
+      decEl.innerHTML = '⏸ Off-peak grid charging is disabled.';
+    } else if (shouldOffpeakCharge) {
+      decEl.style.borderColor = 'var(--battery)';
+      decEl.innerHTML =
+        `✅ <strong>Will charge tonight.</strong> Est. night + morning load: <strong>${totalNeedKwh.toFixed(1)} kWh</strong> · ` +
+        `Tomorrow's solar self-use: <strong>${tomorrowSelfUse.toFixed(1)} kWh</strong> · ` +
+        `Gap + 20% buffer: <strong>${targetKwh.toFixed(1)} kWh</strong> needed from grid at <strong>8c/kWh</strong> between 12am–6am.`;
+    } else {
+      decEl.style.borderColor = 'var(--export)';
+      decEl.innerHTML =
+        `☀️ <strong>No off-peak charge needed.</strong> Tomorrow's forecast solar (<strong>${tomorrowSolarKwh.toFixed(1)} kWh</strong>) ` +
+        `covers expected load. Battery will be sufficient without grid top-up.`;
+    }
+  }
+
+  let batKwh         = 0;
+  let totalImportSim = 0;
+  let totalExportSim = 0;
+  let totalOffpeakKwh= 0;  // how much was charged off-peak from grid
+  let totalSelfUse   = 0;
+  let totalFromBat   = 0;
+  let totalCharged   = 0;
+  let offpeakRemaining = offpeakChargeKwh; // kWh still to add during 12am-6am
+
+  const simSelfUse  = [];
+  const simFromBat  = [];
+  const simGridImp  = [];
+  const simExcess   = [];
+  const simSocPct   = [];
+
+  for (const key of labels) {
+    const h = hourlyHistory[key];
+    const hr = parseInt(key.split(':')[0]);
+    const pvW    = h.solar      || 0;
+    const loadW  = h.consumption || (h.selfUse || 0) + (h.gridImport || 0);
+    const pvKwh  = pvW    * intervalH / 1000;
+    const loadKwh= loadW  * intervalH / 1000;
+
+    // ── Off-peak grid charging (12am–6am) ──────────────────────────
+    let offpeakThisSlot = 0;
+    if (offpeakEnabled && hr >= 0 && hr < 6 && offpeakRemaining > 0) {
+      const chargeRoom = BAT_CAPACITY_KWH - batKwh;
+      offpeakThisSlot  = Math.min(BAT_MAX_CHARGE_KW * intervalH, chargeRoom, offpeakRemaining);
+      offpeakThisSlot  = Math.max(0, offpeakThisSlot);
+      batKwh          += offpeakThisSlot * BAT_EFFICIENCY;
+      offpeakRemaining -= offpeakThisSlot;
+      totalOffpeakKwh += offpeakThisSlot;
+    }
+
+    // Step 1: Solar covers load first
+    const directSolar = Math.min(pvKwh, loadKwh);
+    let remainLoad    = loadKwh - directSolar;
+    let surplusSolar  = pvKwh   - directSolar;
+
+    // Step 2: Surplus solar charges battery
+    const chargeRoom2 = BAT_CAPACITY_KWH - batKwh;
+    const solarCharge = Math.max(0, Math.min(BAT_MAX_CHARGE_KW * intervalH, chargeRoom2, surplusSolar * BAT_EFFICIENCY));
+    batKwh           += solarCharge;
+    surplusSolar     -= solarCharge / BAT_EFFICIENCY;
+    totalCharged     += solarCharge;
+
+    // Step 3: Remaining load → battery discharges
+    const maxDisch = Math.min(BAT_MAX_DISCH_KW * intervalH, batKwh);
+    const fromBat  = Math.min(remainLoad, maxDisch);
+    batKwh        -= fromBat;
+    remainLoad    -= fromBat;
+
+    // Step 4: Remaining load → grid (peak rate or off-peak for the charging slot)
+    const gridImp  = Math.max(0, remainLoad) + offpeakThisSlot;
+    const exported = Math.max(0, surplusSolar);
+
+    totalImportSim += gridImp;
+    totalExportSim += exported;
+    totalSelfUse   += directSolar;
+    totalFromBat   += fromBat;
+
+    simSelfUse.push(Math.round(directSolar / intervalH * 1000));
+    simFromBat.push(Math.round(fromBat     / intervalH * 1000));
+    simGridImp.push(Math.round(gridImp     / intervalH * 1000));
+    simExcess.push( Math.round(exported    / intervalH * 1000));
+    simSocPct.push( Math.round(batKwh / BAT_CAPACITY_KWH * 100));
+  }
+
+  // Save SOC for live display
+  simBatterySoc = batKwh;
+
+  // ── Update live sim stats (using current semsData) ────────────────
+  const pvNow      = semsData.pvPower     || 0;
+  const loadNow    = semsData.homePower   || 0;
+  const exportNow  = semsData.exportPower || 0;
+
+  const selfUseNow = Math.min(pvNow, loadNow);
+  let   remLoadNow = loadNow - selfUseNow;
+  let   surplusNow = pvNow   - selfUseNow;
+
+  // Battery behaviour right now
+  const chargeRoomNow = BAT_CAPACITY_KWH - batKwh;
+  let   fromBatNow    = 0;
+  let   chargingNow   = 0;
+  let   importNow     = 0;
+  let   exportSimNow  = 0;
+
+  if (surplusNow > 0 && chargeRoomNow > 0) {
+    chargingNow  = Math.min(surplusNow, BAT_MAX_CHARGE_KW * 1000, chargeRoomNow * 1000 / 1);
+    exportSimNow = Math.max(0, surplusNow - chargingNow);
+  } else if (surplusNow > 0) {
+    exportSimNow = surplusNow; // battery full, export
+  }
+  if (remLoadNow > 0) {
+    fromBatNow = Math.min(remLoadNow, batKwh * 1000, BAT_MAX_DISCH_KW * 1000);
+    importNow  = Math.max(0, remLoadNow - fromBatNow);
+  }
+
+  setText('sim-pv',       fmtW(pvNow));
+  setText('sim-selfuse',  fmtW(selfUseNow));
+  setText('sim-from-bat', fmtW(fromBatNow));
+  setText('sim-export',   fmtW(exportSimNow));
+  setText('sim-charging', fmtW(chargingNow));
+  setText('sim-import',   fmtW(importNow));
+
+  // SOC values
+  const socPct = Math.round(batKwh / BAT_CAPACITY_KWH * 100);
+  const socKwh = batKwh.toFixed(1);
+
+  // Header SOC (in battery info banner)
+  const socEl = document.getElementById('sim-soc');
+  if (socEl) socEl.textContent = socPct + '%';
+  const socKwhEl = document.getElementById('sim-soc-kwh');
+  if (socKwhEl) socKwhEl.textContent = socKwh + ' / ' + BAT_CAPACITY_KWH + ' kWh';
+
+  // Inline SOC in gauge card
+  const socInline = document.getElementById('sim-soc-inline');
+  if (socInline) socInline.textContent = socPct + '%';
+  const socKwhInline = document.getElementById('sim-soc-kwh-inline');
+  if (socKwhInline) socKwhInline.textContent = socKwh + ' kWh';
+
+  // Battery fill bar
+  const fillEl = document.getElementById('sim-bat-fill');
+  if (fillEl) {
+    fillEl.style.width = socPct + '%';
+    // Colour: red <20%, amber <50%, green-blue >=50%
+    if (socPct < 20) {
+      fillEl.style.background = 'linear-gradient(90deg,rgba(255,77,109,0.9),rgba(255,120,120,0.7))';
+    } else if (socPct < 50) {
+      fillEl.style.background = 'linear-gradient(90deg,rgba(245,166,35,0.9),rgba(255,200,80,0.7))';
+    } else {
+      fillEl.style.background = 'linear-gradient(90deg,rgba(77,184,255,0.9),rgba(110,210,255,0.7))';
+    }
+  }
+  const pctLabel = document.getElementById('sim-bat-pct-label');
+  if (pctLabel) pctLabel.textContent = socPct + '% · ' + socKwh + ' kWh';
+
+  // Battery status text
+  const statusEl = document.getElementById('sim-bat-status');
+  if (statusEl) {
+    if (chargingNow > 50)  statusEl.textContent = '⬆ Charging ' + fmtW(chargingNow);
+    else if (fromBatNow > 50) statusEl.textContent = '⬇ Discharging ' + fmtW(fromBatNow);
+    else statusEl.textContent = 'Idle';
+  }
+
+  // Live sim power bar
+  const simTotal = Math.max(selfUseNow + fromBatNow + exportSimNow + importNow, 100);
+  renderPowerBar('sim-seg-selfuse',  selfUseNow,  simTotal);
+  renderPowerBar('sim-seg-battery',  fromBatNow,  simTotal);
+  renderPowerBar('sim-seg-export',   exportSimNow,simTotal);
+  renderPowerBar('sim-seg-import',   importNow,   simTotal);
+  renderPowerBar('sim-seg-charging', chargingNow, simTotal);
+
+  // ── Daily totals ───────────────────────────────────────────────────
+  const actualImport = semsData.dailyImport     || 0;
+  const actualExport = semsData.dailyExport     || 0;
+  const actualGen    = semsData.dailyGeneration || 0;
+  const importAvoided= Math.max(0, actualImport - totalImportSim);
+
+  setText('sim-daily-gen',     fmtKwh(actualGen)       + ' kWh');
+  setText('sim-daily-selfuse', fmtKwh(totalSelfUse)    + ' kWh');
+  setText('sim-daily-import',  fmtKwh(totalImportSim)  + ' kWh');
+  setText('sim-daily-export',  fmtKwh(totalExportSim)  + ' kWh');
+  setText('sim-import-avoided',importAvoided.toFixed(2) + ' kWh');
+
+  // ── Savings — net of off-peak charging cost ──────────────────────
+  const importAvoided   = Math.max(0, actualImport - (totalImportSim - totalOffpeakKwh));
+  const peakImportSim   = Math.max(0, totalImportSim - totalOffpeakKwh);
+  // Cost: peak grid at 26.53c, off-peak top-up at 8c, minus avoided peak import
+  const simGridCost     = peakImportSim * TARIFF.usage + totalOffpeakKwh * TARIFF.nightEV;
+  const actualGridCost  = actualImport  * TARIFF.usage;
+  const savedToday      = Math.max(0, actualGridCost - simGridCost);
+
+  const nowHour       = new Date().getHours() + new Date().getMinutes()/60;
+  const dayFraction   = Math.max(nowHour / 24, 0.01);
+  const savedDayFull  = savedToday / dayFraction;
+  const savedWeek     = savedDayFull * 7;
+  const savedMonth    = savedDayFull * 30;
+  const savedYear     = savedDayFull * 365;
+  const paybackYrs    = BAT_COST / Math.max(savedYear, 1);
+
+  setText('sim-saved-today',  '$' + savedToday.toFixed(2));
+  setText('sim-saved-week',   '$' + savedWeek.toFixed(2));
+  setText('sim-saved-month',  '$' + savedMonth.toFixed(2));
+  setText('sim-saved-year',   '$' + savedYear.toFixed(0));
+  setText('sim-payback',      paybackYrs.toFixed(1) + ' years');
+
+  // ── Comparison panel ───────────────────────────────────────────────
+  const offpeakNote = totalOffpeakKwh > 0 ? ` (incl. ${totalOffpeakKwh.toFixed(1)} kWh @8c)` : '';
+  setText('comp-actual-import', actualImport.toFixed(2)    + ' kWh');
+  setText('comp-actual-export', actualExport.toFixed(2)    + ' kWh');
+  setText('comp-actual-cost',   '$' + actualGridCost.toFixed(2));
+  setText('comp-sim-import',    totalImportSim.toFixed(2)  + ' kWh' + offpeakNote);
+  setText('comp-sim-export',    totalExportSim.toFixed(2)  + ' kWh');
+  setText('comp-sim-cost',      '$' + simGridCost.toFixed(2));
+
+  // ── Hourly stacked bar chart ───────────────────────────────────────
+  const ctx = document.getElementById('sim-bar-chart').getContext('2d');
+  if (simBarChart) simBarChart.destroy();
+  simBarChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label:'Solar self-use', data:simSelfUse, backgroundColor:'rgba(110,142,251,0.85)', borderRadius:2, stack:'s' },
+      { label:'From battery',   data:simFromBat, backgroundColor:'rgba(77,184,255,0.85)',  borderRadius:2, stack:'s' },
+      { label:'From grid',      data:simGridImp, backgroundColor:'rgba(255,77,109,0.75)',  borderRadius:2, stack:'s' },
+      { label:'Excess export',  data:simExcess,  backgroundColor:'rgba(0,229,160,0.75)',   borderRadius:2, stack:'s' },
+    ]},
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false,callbacks:{label:c=>c.dataset.label+': '+Math.round(c.raw)+'W'}} },
+      scales:{
+        x:{stacked:true, grid:{display:false}, ticks:{maxRotation:0, maxTicksLimit:24, font:{size:9}}},
+        y:{stacked:true, grid:{color:'rgba(255,255,255,0.04)'}, ticks:{callback:v=>v>=1000?(v/1000).toFixed(1)+'kW':v+'W',font:{size:9}}, min:0}
+      }
+    }
+  });
+}
+
+// Run battery sim on each data refresh if battery tab is active
+const _origRefreshAll = refreshAll;
+
+// ═══════════════════════════════════════════════════════════════════
+// iZONE CLIMATE INTEGRATION — Direct local API 192.168.1.208
+// ═══════════════════════════════════════════════════════════════════
+const IZONE_IP   = '192.168.1.208';
+const IZONE_URL  = `http://${IZONE_IP}`;
+const IZONE_REQ  = `${IZONE_URL}/iZoneRequestV2`;
+const IZONE_CMD  = `${IZONE_URL}/iZoneCommandV2`;
+
+const IZ_MODES = { 0:'Auto', 1:'Cool', 2:'Heat', 3:'Vent', 4:'Dry' };
+const IZ_FANS  = { 0:'Auto', 1:'Low', 2:'Med', 3:'High' };
+
+let izoneData   = null;  // last system response
+let izoneZones  = [];    // zone array
+let izCurrentSetpoint = 22;
+
+async function izPost(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(4000),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function fetchIzone() {
+  const dot    = document.getElementById('izone-dot');
+  const status = document.getElementById('izone-status');
+  const offMsg = document.getElementById('iz-offline-msg');
+
+  try {
+    // Query system info (Type 1)
+    const sysResp = await izPost(IZONE_REQ, { iZoneV2Request: { Type: 1, No: 0, No1: 0 } });
+    const sys = sysResp.SystemV2 || sysResp.iZone?.SysInfo || {};
+
+    izoneData = sys;
+    dot.style.background = '#00e5a0';
+    status.textContent   = 'Connected';
+    status.style.color   = 'var(--export)';
+    if (offMsg) offMsg.style.display = 'none';
+
+    // Parse system values (temps are x100)
+    const sysOn     = sys.SysOn  ?? 0;
+    const sysMode   = sys.SysMode ?? 0;
+    const sysFan    = sys.SysFan  ?? 0;
+    const setpoint  = (sys.Setpoint ?? 2200) / 100;
+    const returnTemp= (sys.Temp    ?? 0) / 100;
+    const supplyTemp= (sys.Supply  ?? 0) / 100;
+    const noOfZones = sys.NoOfZones ?? sys.ZoneCount ?? 6;
+
+    izCurrentSetpoint = setpoint;
+
+    // Update unit card
+    document.getElementById('izone-dot').style.background = sysOn ? '#00e5a0' : 'var(--muted)';
+    document.getElementById('iz-mode').textContent    = IZ_MODES[sysMode] || '—';
+    document.getElementById('iz-fan').textContent     = IZ_FANS[sysFan]   || '—';
+    document.getElementById('iz-setpoint').textContent= setpoint.toFixed(1) + '°C';
+    document.getElementById('iz-temp').textContent    = returnTemp > 0 ? returnTemp.toFixed(1) + '°C' : '—';
+    document.getElementById('iz-supply').textContent  = supplyTemp > 0 ? supplyTemp.toFixed(1) + '°C' : '—';
+
+    // Power toggle
+    const toggle = document.getElementById('iz-power-toggle');
+    if (toggle) toggle.checked = sysOn === 1;
+
+    // Mode buttons
+    document.querySelectorAll('.iz-mode-btn').forEach(b => b.classList.remove('active'));
+    const modeMap = { 1:'cool', 2:'heat', 3:'vent', 4:'dry' };
+    if (modeMap[sysMode]) {
+      const btn = document.getElementById('iz-btn-' + modeMap[sysMode]);
+      if (btn) btn.classList.add('active');
+    }
+
+    // Fetch zones (Type 2, fetch up to noOfZones)
+    izoneZones = [];
+    const zonePromises = [];
+    for (let i = 0; i < Math.min(noOfZones, 12); i++) {
+      zonePromises.push(
+        izPost(IZONE_REQ, { iZoneV2Request: { Type: 2, No: i, No1: 0 } })
+          .then(r => r.ZoneV2 || r.iZone?.ZoneInfo || {})
+          .catch(() => null)
+      );
+    }
+    const zoneResults = await Promise.all(zonePromises);
+    izoneZones = zoneResults.filter(Boolean);
+    renderIzoneZones(izoneZones, sysMode);
+
+    // Solar smart mode check
+    updateIzoneSolarBanner(sysOn, setpoint, sysMode);
+
+  } catch(e) {
+    dot.style.background   = 'var(--import)';
+    status.textContent     = 'Offline — home WiFi only';
+    status.style.color     = 'var(--import)';
+    if (offMsg) offMsg.style.display = 'block';
+    console.log('iZone fetch failed:', e.message);
+  }
+}
+
+function renderIzoneZones(zones, sysMode) {
+  const container = document.getElementById('iz-zones');
+  if (!zones.length) {
+    container.innerHTML = '<div style="color:var(--muted);font-size:0.75rem;padding:20px;text-align:center;">No zone data available</div>';
+    return;
+  }
+
+  const MODE_COLORS = { 1:'rgba(77,184,255,0.15)', 2:'rgba(255,100,60,0.15)', 3:'rgba(110,142,251,0.15)' };
+  const modeColor   = MODE_COLORS[sysMode] || 'var(--bg3)';
+
+  container.innerHTML = zones.map((z, i) => {
+    const name    = z.Name    || `Zone ${i+1}`;
+    const temp    = z.Temp    ? (z.Temp / 100).toFixed(1) + '°C' : '—';
+    const setpt   = z.Setpoint? (z.Setpoint / 100).toFixed(1) + '°C' : '—';
+    const mode    = z.Mode ?? 0; // 0=closed, 1=open, 2=const
+    const damper  = z.DmpPos  ?? z.MaxAir ?? 0;
+    const isOpen  = mode === 1 || mode === 2;
+    const hasSensor = z.Temp && z.Temp > 0;
+
+    return `<div style="background:${isOpen ? modeColor : 'var(--bg3)'};border:1px solid ${isOpen ? 'rgba(77,184,255,0.25)' : 'var(--border)'};border-radius:10px;padding:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-size:0.78rem;font-weight:600;">${name}</div>
+        <label class="toggle"><input type="checkbox" ${isOpen ? 'checked' : ''} onchange="izToggleZone(${i}, this.checked)"/><span class="toggle-slider"></span></label>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-end;">
+        <div>
+          <div style="font-size:0.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">Actual</div>
+          <div style="font-family:Syne,sans-serif;font-size:1.1rem;font-weight:700;color:${hasSensor ? 'var(--text)' : 'var(--muted)'};">${temp}</div>
+        </div>
+        <div>
+          <div style="font-size:0.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">Target</div>
+          <div style="font-size:0.85rem;font-weight:600;color:var(--battery);">${setpt}</div>
+        </div>
+        <div style="margin-left:auto;text-align:right;">
+          <div style="font-size:0.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">Damper</div>
+          <div style="font-size:0.85rem;font-weight:600;">${damper}%</div>
+        </div>
+      </div>
+      ${hasSensor ? '' : '<div style="font-size:0.6rem;color:var(--muted);margin-top:6px;">No room sensor installed</div>'}
+    </div>`;
+  }).join('');
+}
+
+function updateIzoneSolarBanner(sysOn, setpoint, sysMode) {
+  const banner = document.getElementById('iz-solar-banner');
+  const text   = document.getElementById('iz-solar-text');
+  if (!banner || !semsData) return;
+
+  const exportW = semsData.exportPower || 0;
+  const nowHour = new Date().getHours();
+  const isDaytime = nowHour >= 7 && nowHour <= 19;
+
+  if (!isDaytime || exportW < 1000) { banner.style.display = 'none'; return; }
+
+  // Suggest pre-cooling if exporting > 2kW and AC is off
+  if (exportW > 2000 && !sysOn) {
+    text.innerHTML = `You're exporting <strong>${fmtW(exportW)}</strong> of surplus solar. Turn on the AC now to pre-condition the house at no cost — using solar that would otherwise go to the grid at 1.5c/kWh.`;
+    banner.style.display = 'block';
+  }
+  // Suggest increasing cooling if exporting a lot
+  else if (exportW > 3000 && sysOn && sysMode === 1 && setpoint > 22) {
+    text.innerHTML = `<strong>${fmtW(exportW)}</strong> surplus available. Consider lowering the setpoint to ${(setpoint - 1).toFixed(1)}°C to use more free solar — pre-cooling saves grid energy tonight.`;
+    banner.style.display = 'block';
+  }
+  // Warn if import climbing
+  else if ((semsData.importPower || 0) > 1500 && sysOn) {
+    banner.style.borderColor = 'var(--import)';
+    banner.style.background  = 'rgba(255,77,109,0.06)';
+    text.innerHTML = `Grid import is <strong>${fmtW(semsData.importPower)}</strong> with AC running. Consider raising the setpoint by 1°C or closing less-used zones to reduce draw.`;
+    banner.style.display = 'block';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+// ── iZone Control Commands ────────────────────────────────────────
+async function izSetPower(on) {
+  try {
+    await izPost(IZONE_CMD, { iZoneCommandV2: { Command: 'SysOn', Value: on ? 1 : 0 } });
+    setTimeout(fetchIzone, 1500);
+  } catch(e) { console.error('iZone power cmd failed:', e.message); }
+}
+
+async function izSetMode(mode) {
+  try {
+    await izPost(IZONE_CMD, { iZoneCommandV2: { Command: 'SysMode', Value: mode } });
+    setTimeout(fetchIzone, 1500);
+  } catch(e) { console.error('iZone mode cmd failed:', e.message); }
+}
+
+async function izAdjustSetpoint(delta) {
+  const newSp = Math.round((izCurrentSetpoint + delta) * 2) / 2; // round to 0.5
+  const clamped = Math.max(16, Math.min(30, newSp));
+  try {
+    await izPost(IZONE_CMD, { iZoneCommandV2: { Command: 'Setpoint', Value: Math.round(clamped * 100) } });
+    izCurrentSetpoint = clamped;
+    document.getElementById('iz-setpoint').textContent = clamped.toFixed(1) + '°C';
+    setTimeout(fetchIzone, 1500);
+  } catch(e) { console.error('iZone setpoint cmd failed:', e.message); }
+}
+
+async function izToggleZone(index, open) {
+  try {
+    await izPost(IZONE_CMD, { iZoneCommandV2: { Command: 'ZoneMode', ZoneNo: index, Value: open ? 1 : 0 } });
+    setTimeout(fetchIzone, 1500);
+  } catch(e) { console.error('iZone zone cmd failed:', e.message); }
+}
+
+async function izActivateSolarMode() {
+  // Turn on AC in cool mode at 23°C to pre-condition using solar
+  try {
+    await izPost(IZONE_CMD, { iZoneCommandV2: { Command: 'SysOn',   Value: 1 } });
+    await izPost(IZONE_CMD, { iZoneCommandV2: { Command: 'SysMode', Value: 1 } }); // Cool
+    await izPost(IZONE_CMD, { iZoneCommandV2: { Command: 'Setpoint',Value: 2300 } }); // 23°C
+    setTimeout(fetchIzone, 2000);
+  } catch(e) { console.error('Solar mode activate failed:', e.message); }
+}
+
 </script>
 </body>
 </html>
