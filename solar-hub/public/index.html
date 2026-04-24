@@ -3179,7 +3179,7 @@ function toggleMasterPower() {
   saveClimate();
   renderMasterAC();
   logClimate(`AC Unit ${newState ? 'turned on' : 'turned off'}`);
-  sendIzoneCommand('SysOn', { Value: newState ? 1 : 0 });
+  sendIzoneCommand({ SysOn: newState ? 1 : 0 });
 }
 
 /* ── Master control drawer (bottom sheet) ──────────────────────── */
@@ -3237,8 +3237,8 @@ function adjustMasterSetpoint(delta) {
   if (v) v.textContent = newSp.toFixed(1);
   renderMasterAC();
   logClimate(`AC setpoint → ${newSp}°`);
-  // iZone expects temperature × 100 (e.g. 22.5°C = 2250)
-  sendIzoneCommand('Setpoint', { Value: Math.round(newSp * 100) });
+  // iZone expects temperature × 100 (e.g. 22.5°C = 2250), command is SysSetpoint
+  sendIzoneCommand({ SysSetpoint: Math.round(newSp * 100) });
 }
 
 function setMasterFan(level) {
@@ -3249,7 +3249,7 @@ function setMasterFan(level) {
   if (lbl) lbl.textContent = FAN_META[level]?.label || '—';
   renderMasterAC();
   logClimate(`Fan speed → ${FAN_META[level].label}`);
-  sendIzoneCommand('SysFan', { Value: IZONE_FAN_STR_TO_INT[level] ?? 1 });
+  sendIzoneCommand({ SysFan: IZONE_FAN_STR_TO_INT[level] ?? 1 });
 }
 
 function setMasterMode(mode) {
@@ -3258,7 +3258,7 @@ function setMasterMode(mode) {
   document.querySelectorAll('.drawer-mode-tile').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
   renderMasterAC();
   logClimate(`AC mode → ${MODE_META[mode].label}`);
-  sendIzoneCommand('SysMode', { Value: IZONE_MODE_STR_TO_INT[mode] ?? 3 });
+  sendIzoneCommand({ SysMode: IZONE_MODE_STR_TO_INT[mode] ?? 3 });
   // Auto-close after tap (like iZone)
   setTimeout(closeMasterControl, 300);
 }
@@ -3698,15 +3698,14 @@ function renderClimateBanner() {
 
   if (climate.mode === 'auto' && sug.key !== climate.lastBannerKey) {
     climate.lastBannerKey = sug.key;
-    setTimeout(() => { sug.apply(); renderFocusRoom(); renderRoomGrid(); }, 500);
+    setTimeout(() => { sug.apply(); if (typeof renderThermostats === 'function') renderThermostats(); }, 500);
   }
 }
 function applyClimateSuggestion() {
   const banner = $('home-banner');
   if (banner?._suggestion) {
     banner._suggestion.apply();
-    renderFocusRoom();
-    renderRoomGrid();
+    if (typeof renderThermostats === 'function') renderThermostats();
     banner.classList.add('hidden');
   }
 }
@@ -4197,10 +4196,13 @@ function updateBridgeStatusDot() {
   if (lbl) lbl.textContent = label;
 }
 /* iZone command vocabulary ────────────────────────────────────── */
-const IZONE_MODE_STR_TO_INT = { auto: 0, cool: 1, heat: 2, vent: 3, dry: 4 };
-const IZONE_MODE_INT_TO_STR = { 0: 'auto', 1: 'cool', 2: 'heat', 3: 'vent', 4: 'dry' };
-const IZONE_FAN_STR_TO_INT  = { auto: 0, low: 1, med: 2, high: 3 };
-const IZONE_FAN_INT_TO_STR  = { 0: 'auto', 1: 'low', 2: 'med', 3: 'high' };
+/* iZone v2 enum values per official spec (developer.izone.com.au):
+   SysMode:  Cool=1, Heat=2, Vent=3, Dry=4, Auto=5, Exhaust=6, PumpOnly=7
+   SysFan:   Low=1,  Med=2,  High=3, Auto=4, Top=5 */
+const IZONE_MODE_STR_TO_INT = { cool: 1, heat: 2, vent: 3, dry: 4, auto: 5 };
+const IZONE_MODE_INT_TO_STR = { 1: 'cool', 2: 'heat', 3: 'vent', 4: 'dry', 5: 'auto' };
+const IZONE_FAN_STR_TO_INT  = { low: 1, med: 2, high: 3, auto: 4 };
+const IZONE_FAN_INT_TO_STR  = { 1: 'low', 2: 'med', 3: 'high', 4: 'auto' };
 
 /* Sync local master AC state from a real iZone system payload.
    Called from inside fetchIzone() whenever we get fresh data.
@@ -4217,16 +4219,24 @@ function syncMasterACFromIzone(sys) {
 
 /* Send an iZone command through the bridge. Returns true on success.
    Shows a transient toast on failure and reverts the optimistic UI. */
-async function sendIzoneCommand(cmd, extra = {}) {
+/* Send an iZone command through the bridge.
+   Accepts a simple key/value payload matching iZone v2 spec directly at root.
+   Examples:
+     sendIzoneCommand({ SysOn: 1 })
+     sendIzoneCommand({ SysMode: 1 })         // 1=Cool
+     sendIzoneCommand({ SysFan: 2 })          // 2=Med
+     sendIzoneCommand({ SysSetpoint: 2250 })  // 22.5°C
+   Bridge forwards the body unchanged to iZone's /iZoneCommandV2 endpoint. */
+async function sendIzoneCommand(payload) {
+  const summary = Object.keys(payload).join(',');
   try {
-    await izPost('/iZoneCommandV2', { iZoneCommandV2: { Command: cmd, ...extra } });
+    await izPost('/iZoneCommandV2', payload);
     // Refresh from iZone ~1.2s later so UI reflects what iZone actually accepted
     setTimeout(() => { fetchIzone().catch(()=>{}); }, 1200);
     return true;
   } catch(e) {
-    console.error('iZone command failed:', cmd, e.message);
-    showToast('Command failed: ' + cmd + ' (' + e.message.slice(0, 60) + ')', 'error');
-    // Immediate refresh to snap UI back to reality
+    console.error('iZone command failed:', summary, e.message);
+    showToast('Command failed: ' + summary + ' (' + e.message.slice(0, 60) + ')', 'error');
     setTimeout(() => { fetchIzone().catch(()=>{}); }, 300);
     return false;
   }
