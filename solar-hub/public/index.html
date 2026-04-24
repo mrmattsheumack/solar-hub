@@ -3173,10 +3173,13 @@ function renderMasterAC() {
 }
 
 function toggleMasterPower() {
-  climate.acOn = !climate.acOn;
+  // Optimistic — flip UI immediately, then send command
+  const newState = !climate.acOn;
+  climate.acOn = newState;
   saveClimate();
   renderMasterAC();
-  logClimate(`AC Unit ${climate.acOn ? 'turned on' : 'turned off'}`);
+  logClimate(`AC Unit ${newState ? 'turned on' : 'turned off'}`);
+  sendIzoneCommand('SysOn', { Value: newState ? 1 : 0 });
 }
 
 /* ── Master control drawer (bottom sheet) ──────────────────────── */
@@ -3234,6 +3237,8 @@ function adjustMasterSetpoint(delta) {
   if (v) v.textContent = newSp.toFixed(1);
   renderMasterAC();
   logClimate(`AC setpoint → ${newSp}°`);
+  // iZone expects temperature × 100 (e.g. 22.5°C = 2250)
+  sendIzoneCommand('Setpoint', { Value: Math.round(newSp * 100) });
 }
 
 function setMasterFan(level) {
@@ -3244,6 +3249,7 @@ function setMasterFan(level) {
   if (lbl) lbl.textContent = FAN_META[level]?.label || '—';
   renderMasterAC();
   logClimate(`Fan speed → ${FAN_META[level].label}`);
+  sendIzoneCommand('SysFan', { Value: IZONE_FAN_STR_TO_INT[level] ?? 1 });
 }
 
 function setMasterMode(mode) {
@@ -3252,6 +3258,7 @@ function setMasterMode(mode) {
   document.querySelectorAll('.drawer-mode-tile').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
   renderMasterAC();
   logClimate(`AC mode → ${MODE_META[mode].label}`);
+  sendIzoneCommand('SysMode', { Value: IZONE_MODE_STR_TO_INT[mode] ?? 3 });
   // Auto-close after tap (like iZone)
   setTimeout(closeMasterControl, 300);
 }
@@ -4189,6 +4196,64 @@ function updateBridgeStatusDot() {
   dot.style.background = color;
   if (lbl) lbl.textContent = label;
 }
+/* iZone command vocabulary ────────────────────────────────────── */
+const IZONE_MODE_STR_TO_INT = { auto: 0, cool: 1, heat: 2, vent: 3, dry: 4 };
+const IZONE_MODE_INT_TO_STR = { 0: 'auto', 1: 'cool', 2: 'heat', 3: 'vent', 4: 'dry' };
+const IZONE_FAN_STR_TO_INT  = { auto: 0, low: 1, med: 2, high: 3 };
+const IZONE_FAN_INT_TO_STR  = { 0: 'auto', 1: 'low', 2: 'med', 3: 'high' };
+
+/* Sync local master AC state from a real iZone system payload.
+   Called from inside fetchIzone() whenever we get fresh data.
+   This keeps the Home tab master AC card reflecting reality rather than stale local state. */
+function syncMasterACFromIzone(sys) {
+  if (!sys) return;
+  climate.acOn       = (sys.SysOn === 1);
+  climate.acMode     = IZONE_MODE_INT_TO_STR[sys.SysMode] || 'vent';
+  climate.acFan      = IZONE_FAN_INT_TO_STR[sys.SysFan] || 'low';
+  climate.acSetpoint = (sys.Setpoint ?? 2200) / 100;
+  saveClimate();
+  if (typeof renderMasterAC === 'function') renderMasterAC();
+}
+
+/* Send an iZone command through the bridge. Returns true on success.
+   Shows a transient toast on failure and reverts the optimistic UI. */
+async function sendIzoneCommand(cmd, extra = {}) {
+  try {
+    await izPost('/iZoneCommandV2', { iZoneCommandV2: { Command: cmd, ...extra } });
+    // Refresh from iZone ~1.2s later so UI reflects what iZone actually accepted
+    setTimeout(() => { fetchIzone().catch(()=>{}); }, 1200);
+    return true;
+  } catch(e) {
+    console.error('iZone command failed:', cmd, e.message);
+    showToast('Command failed: ' + cmd + ' (' + e.message.slice(0, 60) + ')', 'error');
+    // Immediate refresh to snap UI back to reality
+    setTimeout(() => { fetchIzone().catch(()=>{}); }, 300);
+    return false;
+  }
+}
+
+/* Toast helper — tiny ephemeral message at the top of the viewport */
+function showToast(msg, type) {
+  let host = document.getElementById('toast-host');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'toast-host';
+    host.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;flex-direction:column;gap:8px;pointer-events:none;';
+    document.body.appendChild(host);
+  }
+  const toast = document.createElement('div');
+  const bg = type === 'error' ? 'var(--import)' : type === 'success' ? 'var(--export)' : 'var(--surface-2)';
+  toast.style.cssText = `background:${bg};color:#0b0f1a;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:var(--shadow-md);max-width:90vw;animation:fadeIn 200ms var(--ease);`;
+  toast.textContent = msg;
+  host.appendChild(toast);
+  setTimeout(() => {
+    toast.style.transition = 'opacity 300ms, transform 300ms';
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(-10px)';
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
+
 async function fetchIzone() {
   const pill = $('izone-status-pill');
   const off = $('iz-offline-msg');
@@ -4205,6 +4270,9 @@ async function fetchIzone() {
     setText('iz-temp', ((d.Temp ?? 0)/100).toFixed(1) + '°');
     setText('iz-supply', ((d.Supply ?? 0)/100).toFixed(1) + '°');
     $('iz-power-toggle').checked = d.SysOn === 1;
+
+    // Sync master AC state on Home tab to match real iZone state
+    syncMasterACFromIzone(d);
 
     // Fetch zones
     const zones = [];
