@@ -828,13 +828,19 @@ img { display: block; max-width: 100%; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 8px 12px;
-  min-width: 70px;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 14px;
+  min-width: 88px;
+  flex-shrink: 0;
   border-radius: var(--r-md);
   background: var(--surface-2);
   border: 1px solid var(--border);
   transition: all var(--dur) var(--ease);
+  cursor: pointer;
+}
+@media (max-width: 520px) {
+  .master-power-btn { min-width: 76px; padding: 10px 12px; }
 }
 .master-power-btn:active { transform: scale(0.96); }
 .master-power-icon {
