@@ -4278,9 +4278,10 @@ function syncMasterACFromIzone(sys) {
 }
 
 /* Sync per-room zone state from iZone's ZoneV2 array.
-   Real iZone payload uses: Index (0-indexed), Setpoint (×100), DmpPos (0-100).
+   Real iZone payload uses: Index (0-indexed), Mode (1=on, 2=off), Setpoint (×100).
    Temp is always 0 (no sensors installed, SensorFault=1) so we don't sync it.
-   A zone is "open" when DmpPos > 0 (damper has any opening). */
+   A zone is "on" when Mode === 1 (user-intent). DmpPos fluctuates with airflow
+   balancing and is not a reliable signal of user-facing on/off state. */
 function syncRoomsFromIzone(zones) {
   if (!Array.isArray(zones)) return;
   zones.forEach(z => {
@@ -4290,8 +4291,9 @@ function syncRoomsFromIzone(zones) {
     if (!cfg) return;  // skip placeholder zones not in our config
     const room = climate.rooms[cfg.id];
     if (!room) return;
-    // Open when damper has any position (0 = fully closed, >0 = open)
-    room.isOpen = (z.DmpPos !== undefined && z.DmpPos > 0);
+    // Mode 1 = zone enabled (open by setpoint); Mode 2 = user turned it off.
+    // DmpPos fluctuates regardless and is misleading for "is zone on".
+    room.isOpen = (z.Mode === 1);
     // Setpoint comes through as integer × 100 (e.g. 2300 = 23.00°C)
     if (z.Setpoint !== undefined && z.Setpoint > 0) room.target = z.Setpoint / 100;
     // Temp NOT synced — iZone returns 0 for all zones (no physical sensors)
@@ -4404,7 +4406,7 @@ function renderIzoneZones(zones) {
   host.innerHTML = zones.map((z, i) => {
     const temp = z.Temp ? (z.Temp/100).toFixed(1) + '°' : '—';
     const setp = z.Setpoint ? (z.Setpoint/100).toFixed(1) + '°' : '—';
-    const open = z.Mode === 1 || z.Mode === 2;
+    const open = z.Mode === 1;
     return `<div class="card card-compact">
       <div class="flex items-center justify-between" style="margin-bottom: 8px;">
         <div style="font-weight: 600; font-size: 13px;">${z.Name || 'Zone ' + (i+1)}</div>
