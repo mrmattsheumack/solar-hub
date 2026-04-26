@@ -2946,7 +2946,7 @@ const CLIMATE_ROOMS = [
 const DEFAULT_TARGETS = { master: 20, lounge: 22, charlie: 21, mila: 21, office: 22, bath: 22 };
 
 const climate = {
-  mode: localStorage.getItem('climateMode') || 'auto',     // auto / suggest / manual
+  mode: localStorage.getItem('climateMode') || 'manual',   // manual / suggest / auto (auto is deprecated, retained for old saves)
   systemMode: localStorage.getItem('systemMode') || 'off', // off / cool / heat / fan
   focusedRoomId: localStorage.getItem('focusedRoom') || 'lounge',
   // Master AC state
@@ -3756,10 +3756,8 @@ function renderClimateBanner() {
   banner.classList.remove('hidden');
   banner._suggestion = sug;
 
-  if (climate.mode === 'auto' && sug.key !== climate.lastBannerKey) {
-    climate.lastBannerKey = sug.key;
-    setTimeout(() => { sug.apply(); if (typeof renderThermostats === 'function') renderThermostats(); }, 500);
-  }
+  /* Auto-apply removed: it overrode iZone-synced state.
+     Suggestions are now informational only — user must click Apply. */
 }
 function applyClimateSuggestion() {
   const banner = $('home-banner');
