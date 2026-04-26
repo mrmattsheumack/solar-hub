@@ -844,7 +844,11 @@ img { display: block; max-width: 100%; }
 }
 .master-power-btn:active { transform: scale(0.96); }
 .master-power-icon {
-  font-size: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   color: var(--import);
   transition: color var(--dur) var(--ease);
   line-height: 1;
@@ -2043,7 +2047,12 @@ img { display: block; max-width: 100%; }
             <div class="master-ac-sub">319 Boundary Road Dromana</div>
           </div>
           <button class="master-power-btn" id="master-power-btn" onclick="toggleMasterPower()" aria-label="AC Power">
-            <span class="master-power-icon">⏻</span>
+            <span class="master-power-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                <line x1="12" y1="2" x2="12" y2="12"/>
+              </svg>
+            </span>
             <span class="master-power-label" id="master-power-label">AC Off</span>
           </button>
         </div>
@@ -2143,7 +2152,7 @@ img { display: block; max-width: 100%; }
           <div class="rd-title" id="rd-title">—</div>
           <div class="rd-title-sub" id="rd-title-sub">—</div>
         </div>
-        <button class="rd-power" id="rd-power" onclick="toggleRoomPowerFromDetail()" aria-label="Power">⏻</button>
+        <button class="rd-power" id="rd-power" onclick="toggleRoomPowerFromDetail()" aria-label="Power"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></button>
       </div>
       <div class="rd-body">
         <!-- Hero dial + target -->
@@ -3573,7 +3582,7 @@ function buildThermoCard(cfg) {
         </div>
         <div class="dial-humidity">${r.humidity}% humidity</div>
       </div>
-      <button class="power-btn" onclick="event.stopPropagation(); toggleRoomPower('${cfg.id}')" aria-label="Toggle zone">⏻</button>
+      <button class="power-btn" onclick="event.stopPropagation(); toggleRoomPower('${cfg.id}')" aria-label="Toggle zone"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></button>
     </div>
 
     <div class="target-ctrl">
