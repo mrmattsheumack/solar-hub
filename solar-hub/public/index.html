@@ -4232,6 +4232,18 @@ function syncMasterACFromIzone(sys) {
   if (typeof renderMasterAC === 'function') renderMasterAC();
 }
 
+/* Fast system-only refresh used after a master AC command.
+   Single bridge call, no zone iteration, no full fetchIzone overhead.
+   Updates climate.acOn/acMode/acFan/acSetpoint and re-renders master AC card. */
+async function refreshMasterACFromIzone() {
+  try {
+    const sys = await izPost(IZONE_URL + '/iZoneRequestV2', { iZoneV2Request: { Type: 1, No: 0, No1: 0 } });
+    if (sys && sys.SystemV2) syncMasterACFromIzone(sys.SystemV2);
+  } catch(e) {
+    /* swallow — if it fails, next regular fetchIzone will catch up */
+  }
+}
+
 /* Send an iZone command through the bridge. Returns true on success.
    Shows a transient toast on failure and reverts the optimistic UI. */
 /* Send an iZone command through the bridge.
@@ -4246,13 +4258,15 @@ async function sendIzoneCommand(payload) {
   const summary = Object.keys(payload).join(',');
   try {
     await izPost('/iZoneCommandV2', payload);
-    // Refresh from iZone ~1.2s later so UI reflects what iZone actually accepted
-    setTimeout(() => { fetchIzone().catch(()=>{}); }, 1200);
+    /* Wait long enough for iZone's internal state to settle, then do a fast system-only re-sync.
+       Avoids the green→red→green flicker that happens when iZone reports stale state too soon. */
+    setTimeout(() => { refreshMasterACFromIzone(); }, 4000);
     return true;
   } catch(e) {
     console.error('iZone command failed:', summary, e.message);
     showToast('Command failed: ' + summary + ' (' + e.message.slice(0, 60) + ')', 'error');
-    setTimeout(() => { fetchIzone().catch(()=>{}); }, 300);
+    /* Command failed — snap UI back to reality fast */
+    setTimeout(() => { refreshMasterACFromIzone(); }, 300);
     return false;
   }
 }
