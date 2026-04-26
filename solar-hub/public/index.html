@@ -4277,6 +4277,28 @@ function syncMasterACFromIzone(sys) {
   if (typeof renderMasterAC === 'function') renderMasterAC();
 }
 
+/* Sync per-room zone state from iZone's ZoneV2 array.
+   Each room in CLIMATE_ROOMS has a zone number (1-indexed in config).
+   iZone returns zones 0-indexed via Index field.
+   Updates climate.rooms[].isOpen, .temp, .target from real iZone data. */
+function syncRoomsFromIzone(zones) {
+  if (!Array.isArray(zones)) return;
+  zones.forEach(z => {
+    if (!z || z.Index === undefined) return;
+    const izoneZoneNum = z.Index + 1;  // iZone 0-indexed -> our 1-indexed config
+    const cfg = CLIMATE_ROOMS.find(r => r.zone === izoneZoneNum);
+    if (!cfg) return;
+    const room = climate.rooms[cfg.id];
+    if (!room) return;
+    // Mode: 0 = closed, 1 = open by setpoint, 2 = open by airflow %, 3 = constant on
+    room.isOpen = (z.Mode !== undefined && z.Mode > 0);
+    if (z.Temp !== undefined && z.Temp > 0)         room.temp   = z.Temp / 100;
+    if (z.SetPoint !== undefined && z.SetPoint > 0) room.target = z.SetPoint / 100;
+  });
+  saveClimate();
+  if (typeof renderThermostats === 'function') renderThermostats();
+}
+
 /* Fast system-only refresh used after a master AC command.
    Single bridge call, no zone iteration, no full fetchIzone overhead.
    Updates climate.acOn/acMode/acFan/acSetpoint and re-renders master AC card. */
@@ -4366,6 +4388,7 @@ async function fetchIzone() {
         if (z.ZoneV2) zones.push(z.ZoneV2);
       } catch(e) { break; }
     }
+    syncRoomsFromIzone(zones);
     renderIzoneZones(zones);
   } catch(e) {
     pill.classList.remove('live'); pill.classList.add('error');
