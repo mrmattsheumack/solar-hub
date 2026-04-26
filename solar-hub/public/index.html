@@ -4278,22 +4278,23 @@ function syncMasterACFromIzone(sys) {
 }
 
 /* Sync per-room zone state from iZone's ZoneV2 array.
-   Each room in CLIMATE_ROOMS has a zone number (1-indexed in config).
-   iZone returns zones 0-indexed via Index field.
-   Updates climate.rooms[].isOpen, .temp, .target from real iZone data. */
+   Real iZone payload uses: Index (0-indexed), Setpoint (×100), DmpPos (0-100).
+   Temp is always 0 (no sensors installed, SensorFault=1) so we don't sync it.
+   A zone is "open" when DmpPos > 0 (damper has any opening). */
 function syncRoomsFromIzone(zones) {
   if (!Array.isArray(zones)) return;
   zones.forEach(z => {
     if (!z || z.Index === undefined) return;
     const izoneZoneNum = z.Index + 1;  // iZone 0-indexed -> our 1-indexed config
     const cfg = CLIMATE_ROOMS.find(r => r.zone === izoneZoneNum);
-    if (!cfg) return;
+    if (!cfg) return;  // skip placeholder zones not in our config
     const room = climate.rooms[cfg.id];
     if (!room) return;
-    // Mode: 0 = closed, 1 = open by setpoint, 2 = open by airflow %, 3 = constant on
-    room.isOpen = (z.Mode !== undefined && z.Mode > 0);
-    if (z.Temp !== undefined && z.Temp > 0)         room.temp   = z.Temp / 100;
-    if (z.SetPoint !== undefined && z.SetPoint > 0) room.target = z.SetPoint / 100;
+    // Open when damper has any position (0 = fully closed, >0 = open)
+    room.isOpen = (z.DmpPos !== undefined && z.DmpPos > 0);
+    // Setpoint comes through as integer × 100 (e.g. 2300 = 23.00°C)
+    if (z.Setpoint !== undefined && z.Setpoint > 0) room.target = z.Setpoint / 100;
+    // Temp NOT synced — iZone returns 0 for all zones (no physical sensors)
   });
   saveClimate();
   if (typeof renderThermostats === 'function') renderThermostats();
@@ -4385,7 +4386,7 @@ async function fetchIzone() {
     for (let i = 0; i < 12; i++) {
       try {
         const z = await izPost(IZONE_URL + '/iZoneRequestV2', { iZoneV2Request: { Type: 2, No: i, No1: 0 } });
-        if (z.ZoneV2) zones.push(z.ZoneV2);
+        if (z.ZonesV2) zones.push(z.ZonesV2);
       } catch(e) { break; }
     }
     syncRoomsFromIzone(zones);
