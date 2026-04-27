@@ -3369,7 +3369,7 @@ function renderRoomDetail() {
     fillSvg.setAttribute('stroke-dashoffset', dashOffset);
   }
 
-  setText('rd-hero-temp', r.hasSensor ? r.temp.toFixed(1) : '—');
+  setText('rd-hero-temp', typeof r.sensorTemp === 'number' ? r.sensorTemp.toFixed(1) : '—');
   setText('rd-hero-humidity', r.humidity + '% humidity');
   setText('rd-target-val', r.target.toFixed(1) + '°');
 
@@ -3586,7 +3586,9 @@ function buildThermoCard(cfg) {
   const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
   const arcLength = CIRCUMFERENCE * 0.75;
   const minTemp = 16, maxTemp = 28;
-  const tempPct = Math.max(0, Math.min(1, (r.temp - minTemp) / (maxTemp - minTemp)));
+  // Dial fill follows sensor reading when available; otherwise sits at the user's target.
+  const dialTemp = (typeof r.sensorTemp === 'number') ? r.sensorTemp : r.target;
+  const tempPct = Math.max(0, Math.min(1, (dialTemp - minTemp) / (maxTemp - minTemp)));
   const dashOffset = arcLength - (arcLength * tempPct);
 
   const stateLabel = ({
@@ -3622,10 +3624,10 @@ function buildThermoCard(cfg) {
       <div class="dial-trend ${trendCls}">${trendIcon}</div>
       <div class="dial-center">
         <div class="dial-temp-wrap">
-          <span class="dial-temp">${r.hasSensor ? r.temp.toFixed(1) : '—'}</span>
+          <span class="dial-temp">${typeof r.sensorTemp === 'number' ? r.sensorTemp.toFixed(1) : '—'}</span>
           <span class="dial-temp-deg">°</span>
         </div>
-        <div class="dial-humidity">${r.humidity}% humidity</div>
+        <div class="dial-humidity">${typeof r.sensorHumidity === 'number' ? r.sensorHumidity.toFixed(0) + '% humidity' : 'No sensor'}</div>
       </div>
       <button class="power-btn" onclick="event.stopPropagation(); toggleRoomPower('${cfg.id}')" aria-label="Toggle zone"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></button>
     </div>
@@ -4275,6 +4277,47 @@ async function izBulkZones() {
   }
 }
 
+/* Fetch current room sensor readings via the bridge.
+   Today returns rooms = {} (no sensors connected). When sensors come online,
+   each entry has { temp: float, humidity: float, last_update_iso: str }.
+   Returns { rooms: {...}, expectedRooms: [...] }. */
+async function fetchSensors() {
+  try {
+    const r = await fetch(BRIDGE_URL + '/api/sensors/temps', {
+      method: 'GET',
+      headers: { 'Authorization': 'Bearer ' + BRIDGE_TOKEN },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!r.ok) throw new Error('Sensors HTTP ' + r.status);
+    return await r.json();
+  } catch(e) {
+    console.warn('Sensor fetch failed:', e.message);
+    return { rooms: {}, expectedRooms: [] };
+  }
+}
+
+/* Merge sensor data into climate.rooms[roomId].sensorTemp / sensorHumidity.
+   Rooms not in sensorData.rooms are marked sensorTemp = null so the UI
+   can show "no sensor" indicators. */
+function applySensorData(sensorData) {
+  if (!sensorData || !climate.rooms) return;
+  const rooms = sensorData.rooms || {};
+  Object.keys(climate.rooms).forEach(roomId => {
+    const r = climate.rooms[roomId];
+    const s = rooms[roomId];
+    if (s && typeof s.temp === 'number') {
+      r.sensorTemp = s.temp;
+      r.sensorHumidity = s.humidity;
+      r.sensorLastUpdate = s.last_update_iso;
+    } else {
+      r.sensorTemp = null;
+      r.sensorHumidity = null;
+      r.sensorLastUpdate = null;
+    }
+  });
+  renderThermostats();
+}
+
 /* Bridge health check — fires every 60s independent of iZone polling.
    Keeps the status dot accurate even when the user is on a tab that doesn't call iZone. */
 async function checkBridgeHealth() {
@@ -4444,6 +4487,9 @@ async function fetchIzone() {
     }
     syncRoomsFromIzone(zones);
     renderIzoneZones(zones);
+    // Pull sensor data alongside iZone — fire and forget if it fails (helper swallows errors)
+    const sensorData = await fetchSensors();
+    applySensorData(sensorData);
   } catch(e) {
     pill.classList.remove('live'); pill.classList.add('error');
     setText('izone-status-text', 'Offline');

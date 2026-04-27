@@ -68,9 +68,19 @@ When Solar Hub is ready for sensors:
 
 ## Pending decisions (as of 2026-04-27)
 
-- [ ] Specific sensor product to buy (Sonoff Zigbee SNZB-02P? Govee BLE? Other?)
-- [ ] Hub/dongle on the Pi (Sonoff Zigbee USB Dongle Plus? Bluetooth-only?)
-- [ ] Order sequence (Master + Lounge first as a test, or all 6 at once)
+- [x] Specific sensor product: ESP32-C3 Super Mini + AHT20 (temp + humidity). Pilot 2 units before scaling to 6.
+- [x] Hub/dongle on the Pi: ESPHome service + Mosquitto MQTT broker on existing eaglecam Pi. WiFi-based — no Zigbee/BLE dongle needed.
+- [x] Order sequence: Pilot Master + Office first (~$55 from Core Electronics), validate end-to-end, then bulk order remaining 4.
+
+## Pilot scope agreed (sensors)
+
+- 2 sensors first — Master and Office — to validate end-to-end before scaling
+- Hardware: ESP32-C3 Super Mini + AHT20 module per sensor (~$22 each from Core Electronics)
+- AC powered via USB-C (every room has power points)
+- ESP32 connects to home WiFi → MQTT broker on Pi → bridge exposes data via /api/sensors/temps endpoint → Solar Hub displays per-room temp/humidity
+- Future expansion: same ESP32 board can later add motion sensors (PIR or LD2410 mmWave), air quality (BME680), CO2, etc. via spare GPIO pins
+- 3D printed case with airflow holes is the chosen housing approach (Thingiverse 7263708 — purpose-built for this hardware combo)
+- Pilot rooms (Master + Office) chosen to test WiFi range across the house
 
 ## Done as of 2026-04-27
 
