@@ -4228,6 +4228,37 @@ async function izPost(url, body) {
   }
 }
 
+/* Bulk fetch all zones via the bridge's /api/izone/zones endpoint.
+   The bridge handles sequencing, retries with backoff, and a stale-cache fallback,
+   so the browser can replace its 6-call loop with a single request.
+   Returns { zones: [...], missing: [int], stale: [int] }.
+   Timeout 15s — bridge worst case is ~5s (3 retry passes + base sweep). */
+async function izBulkZones() {
+  try {
+    const r = await fetch(BRIDGE_URL + '/api/izone/zones', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + BRIDGE_TOKEN,
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!r.ok) {
+      const txt = await r.text().catch(() => '');
+      throw new Error('Bridge HTTP ' + r.status + (txt ? ': ' + txt.slice(0, 120) : ''));
+    }
+    bridgeOnline = true;
+    updateBridgeStatusDot();
+    return await r.json();
+  } catch(e) {
+    if (e.name === 'AbortError' || e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+      bridgeOnline = false;
+      updateBridgeStatusDot();
+    }
+    throw e;
+  }
+}
+
 /* Bridge health check — fires every 60s independent of iZone polling.
    Keeps the status dot accurate even when the user is on a tab that doesn't call iZone. */
 async function checkBridgeHealth() {
@@ -4384,14 +4415,16 @@ async function fetchIzone() {
     // Sync master AC state on Home tab to match real iZone state
     syncMasterACFromIzone(d);
 
-    // Fetch zones
-    const zones = [];
-    for (let i = 0; i < 6; i++) {
-      try {
-        const z = await izPost(IZONE_URL + '/iZoneRequestV2', { iZoneV2Request: { Type: 2, No: i, No1: 0 } });
-        if (z.ZonesV2) zones.push(z.ZonesV2);
-      } catch(e) { /* continue past errors instead of breaking */ }
-      if (i < 5) await new Promise(r => setTimeout(r, 250));
+    // Fetch all 6 zones via bridge bulk endpoint.
+    // Bridge handles retries + stale fallback, so this is now a single call.
+    let zones = [];
+    try {
+      const r = await izBulkZones();
+      zones = r.zones || [];
+      if (r.stale?.length)   console.warn('iZone zones served from cache:', r.stale);
+      if (r.missing?.length) console.warn('iZone zones unavailable:', r.missing);
+    } catch(e) {
+      console.error('iZone bulk fetch failed:', e.message);
     }
     syncRoomsFromIzone(zones);
     renderIzoneZones(zones);
