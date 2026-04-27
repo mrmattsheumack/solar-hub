@@ -3021,7 +3021,7 @@ function generateMockRooms() {
       temp: +temp.toFixed(1),
       humidity: Math.round(45 + Math.sin(seed * 1.3) * 8),
       damper: Math.round(30 + Math.sin(seed * 0.7) * 50),
-      isOpen: Math.abs(temp - target) > 0.5,
+      isOpen: false,  // overwritten on first iZone sync; default off avoids startup flicker
       trend: +(temp - prev).toFixed(2),
       target,
       hasSensor: true,
