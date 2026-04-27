@@ -4390,7 +4390,8 @@ async function fetchIzone() {
       try {
         const z = await izPost(IZONE_URL + '/iZoneRequestV2', { iZoneV2Request: { Type: 2, No: i, No1: 0 } });
         if (z.ZonesV2) zones.push(z.ZonesV2);
-      } catch(e) { break; }
+      } catch(e) { /* continue past errors instead of breaking */ }
+      if (i < 5) await new Promise(r => setTimeout(r, 250));
     }
     syncRoomsFromIzone(zones);
     renderIzoneZones(zones);
