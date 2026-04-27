@@ -3652,9 +3652,14 @@ function buildThermoCard(cfg) {
 function toggleRoomPower(id) {
   const r = climate.rooms[id];
   if (!r) return;
+  const cfg = CLIMATE_ROOMS.find(x => x.id === id);
+  if (!cfg) return;
   r.isOpen = !r.isOpen;
+  saveClimate();
   renderThermostats();
-  logClimate(`${CLIMATE_ROOMS.find(x=>x.id===id).name} ${r.isOpen ? 'powered on' : 'powered off'}`);
+  // Send command to iZone — Index is 0-based, cfg.zone is 1-based
+  izToggleZone(cfg.zone - 1, r.isOpen);
+  logClimate(`${cfg.name} ${r.isOpen ? 'powered on' : 'powered off'}`);
 }
 
 function adjustRoomTarget(id, delta) {
@@ -3684,7 +3689,18 @@ function setDamperFromClick(e, id) {
 /* Legacy compat for banner apply callbacks */
 function focusRoom(id) { climate.focusedRoomId = id; saveClimate(); }
 function adjustTarget(delta) { adjustRoomTarget(climate.focusedRoomId, delta); }
-function toggleFocusZone(open) { if (climate.rooms[climate.focusedRoomId]) { climate.rooms[climate.focusedRoomId].isOpen = open; renderThermostats(); } }
+function toggleFocusZone(open) {
+  const roomId = climate.focusedRoomId;
+  const r = climate.rooms[roomId];
+  if (!r) return;
+  const cfg = CLIMATE_ROOMS.find(c => c.id === roomId);
+  if (!cfg) return;
+  r.isOpen = open;
+  saveClimate();
+  renderThermostats();
+  izToggleZone(cfg.zone - 1, open);
+  logClimate(`${cfg.name} ${open ? 'powered on' : 'powered off'}`);
+}
 function toggleAcPower() { /* placeholder — AC master power is per-zone in this UI */ }
 
 function buildClimateSuggestion() {
@@ -4460,9 +4476,16 @@ async function izSetPower(on) {
   try { await izPost(IZONE_URL + '/iZoneCommandV2', { iZoneCommandV2: { Command: 'SysOn', Value: on ? 1 : 0 } }); setTimeout(fetchIzone, 1500); }
   catch(e) { console.error('iZone:', e.message); }
 }
+/* Open or close a zone in iZone via bridge.
+   i = iZone's 0-indexed zone (0=Lounge, 1=Master, 2=Charlie's, 3=Mila's, 4=Office, 5=Bathroom)
+   open = true to open zone (Mode 1), false to close (Mode 2) */
 async function izToggleZone(i, open) {
-  try { await izPost(IZONE_URL + '/iZoneCommandV2', { iZoneCommandV2: { Command: 'ZoneMode', ZoneNo: i, Value: open ? 1 : 0 } }); setTimeout(fetchIzone, 1500); }
-  catch(e) { console.error('iZone:', e.message); }
+  try {
+    await izPost(IZONE_URL + '/iZoneCommandV2', { ZoneMode: { Index: i, Mode: open ? 1 : 2 } });
+    setTimeout(fetchIzone, 1500);
+  } catch(e) {
+    console.error('izToggleZone:', e.message);
+  }
 }
 
 /* ── 14. INIT ──────────────────────────────────────────────────── */
