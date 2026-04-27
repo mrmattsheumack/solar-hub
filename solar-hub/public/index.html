@@ -4281,21 +4281,24 @@ function syncMasterACFromIzone(sys) {
    A zone is "on" when Mode === 1 (user-intent). DmpPos fluctuates with airflow
    balancing and is not a reliable signal of user-facing on/off state. */
 function syncRoomsFromIzone(zones) {
-  if (!Array.isArray(zones)) return;
-  zones.forEach(z => {
-    if (!z || z.Index === undefined) return;
-    const izoneZoneNum = z.Index + 1;  // iZone 0-indexed -> our 1-indexed config
-    const cfg = CLIMATE_ROOMS.find(r => r.zone === izoneZoneNum);
-    if (!cfg) return;  // skip placeholder zones not in our config
+  if (!zones || !Array.isArray(zones)) return;
+  const missing = [];
+  CLIMATE_ROOMS.forEach(cfg => {
+    const z = zones.find(zz => zz.Index + 1 === cfg.zone);
     const room = climate.rooms[cfg.id];
     if (!room) return;
+    if (!z) {
+      missing.push(cfg.name);
+      return;  // keep last known state for this room
+    }
     // Mode 1 = zone enabled (open by setpoint); Mode 2 = user turned it off.
     // DmpPos fluctuates regardless and is misleading for "is zone on".
     room.isOpen = (z.Mode === 1);
     // Setpoint comes through as integer × 100 (e.g. 2300 = 23.00°C)
-    if (z.Setpoint !== undefined && z.Setpoint > 0) room.target = z.Setpoint / 100;
+    if (z.Setpoint > 0) room.target = z.Setpoint / 100;
     // Temp NOT synced — iZone returns 0 for all zones (no physical sensors)
   });
+  if (missing.length) console.warn('iZone sync: missing zones', missing.join(', '));
   saveClimate();
   if (typeof renderThermostats === 'function') renderThermostats();
 }
@@ -4383,7 +4386,7 @@ async function fetchIzone() {
 
     // Fetch zones
     const zones = [];
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 6; i++) {
       try {
         const z = await izPost(IZONE_URL + '/iZoneRequestV2', { iZoneV2Request: { Type: 2, No: i, No1: 0 } });
         if (z.ZonesV2) zones.push(z.ZonesV2);
