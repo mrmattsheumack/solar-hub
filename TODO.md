@@ -15,31 +15,6 @@ Touchpoint: `buildThermoCard` in `solar-hub/public/index.html`. The detail overl
 - The control needs to write to climate.rooms[id].damper AND send the corresponding command to iZone (likely a SysSetpoint-style command on the zone — verify this is supported on Matt's hardware before wiring; iZone Genius accepts MaxAir per zone via ZoneMode override but may not accept per-zone setpoint adjustments — same constraint as setpoint)
 - Quick gotcha: if iZone returns {ERROR} on the command (per the per-zone setpoint constraint we already documented), then this becomes "local only" — store in localStorage but don't send to iZone, until a real test confirms. Verify on the Pi before wiring up.
 
-### Slow first-load — rooms appear off for up to 20 seconds before iZone state syncs
-**Reported:** 2026-04-27
-**Status:** Open — needs diagnosis
-
-After deploying the isOpen=false flicker fix (commit 70e46c4), Matt observed that on a fresh page load (incognito), rooms remain off for up to 20 seconds before the actual iZone-on rooms light up. Expected sync time after the fix is 2-5 seconds, so 20s indicates something is slower than it should be.
-
-**Suspected causes:**
-1. fetchSensors call (added in eb0c8a8) is in series with the iZone fetch inside fetchIzone — adds latency to room render
-2. Bridge cold start — Tailscale Funnel and bridge requests session may take longer on first request
-3. iZone returning {ERROR} on first call, triggering retry chain (400+800+1600ms = 2.8s extra delay)
-4. Some part of the page-load chain is blocking on a slow non-essential request
-
-**How to diagnose next session:**
-1. Open Solar Hub in incognito Chrome
-2. Open dev console BEFORE page settles (or paste timing trace immediately)
-3. Trace fetchIzone start-to-end timing using performance.now()
-4. Identify whether iZone fetch, sensors fetch, or bridge round-trip is the bottleneck
-
-**Possible fixes (apply after diagnosis confirms cause):**
-- Run fetchSensors in parallel with iZone fetch instead of sequential (Promise.all)
-- Skip fetchSensors entirely on the first sync — only run it from sync-2 onward
-- Render rooms immediately on first iZone success without waiting for sensor fetch
-
-Touchpoint: `fetchIzone` and `fetchSensors` in `solar-hub/public/index.html` (around lines 4395 and 4282).
-
 ### Negative airflow value displayed on room cards
 **Reported:** 2026-04-28
 **Status:** Open
@@ -66,6 +41,42 @@ Investigation steps:
 - Verify the timezone in use — should be `Australia/Melbourne` to handle AEST/AEDT switching automatically
 - Use `toLocaleTimeString('en-AU', { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hour12: false })` if not already
 
+## Performance
+
+### Remove [PERF] instrumentation
+**Reported:** 2026-04-28
+**Status:** Open
+
+The [PERF] console.log markers added in commit `7b0c5d4` for slow-load diagnosis are still in the code. They served their purpose (data captured, root not-reproducible) and should be removed to clean up production console noise.
+
+Touchpoints in `solar-hub/public/index.html`:
+- DOMContentLoaded handler (~line 4539): "[PERF] page init"
+- Before fetchIzone() poll setup (~line 4582): "[PERF] fetchIzone start"
+- fetchIzone sysQuery bracket (~lines 4461-4465): "[PERF] sysQuery request/done"
+- fetchIzone izBulkZones bracket (~lines 4485-4489): "[PERF] izBulkZones request/done"
+- fetchIzone fetchSensors bracket (~lines 4499-4503): "[PERF] fetchSensors request/done"
+- fetchIzone first-render flag (~lines 4505-4508): "[PERF] first render done"
+- syncRoomsFromIzone bracket (~lines 4375-4376, 4396-4397): "[PERF] sync start/done"
+
+All can be removed cleanly with a search for "[PERF]" and deleting those lines plus the t0_/t1_ const lines that fed them.
+
+### Adaptive iZone polling frequency
+**Reported:** 2026-04-28
+**Status:** Open
+
+The 30-second background poll runs constantly regardless of whether the user is looking at the page or whether anything is changing. Each poll costs 3-6 seconds of network on 4G and ~2 seconds on WiFi.
+
+Improvements to consider:
+1. **Pause polling when tab hidden**: Use `document.visibilityState === 'hidden'` to skip the interval. Resume on visibility change. Easy win.
+2. **Adaptive frequency**: Poll every 30s when AC system is active (any zone open), every 90s or 120s when system is off. Lower-priority polish.
+3. **Skip poll when no recent user interaction**: After 5 minutes of no interaction, drop to slow poll (60-90s). User sees fresh state when they come back via on-focus poll.
+
+Touchpoint: `setInterval(() => fetchIzone()...)` in the DOMContentLoaded handler around line 4585.
+
+Investigation steps:
+- Add a single `document.addEventListener('visibilitychange', ...)` handler that pauses/resumes the interval
+- Verify polling resumes immediately on tab refocus by triggering a one-shot fetchIzone() on visibilitychange to "visible"
+
 ## Done
 
 ### Room card power button — rotate 90° clockwise
@@ -73,3 +84,19 @@ Investigation steps:
 **Done:** 2026-04-28 — root cause identified and fixed in commit `dd890a3` (after several superseded attempts in 13da34c, 5d6ac46, fdc716d, d4b4c5c)
 
 Root cause was a descendant selector on line 1171: `.dial svg { transform: rotate(-90deg); }` was matching both the dial gauge SVG (intentional) and the per-zone power button SVG (unintentional). Fix was changing to direct-child combinator `.dial > svg` so only the gauge gets rotated. All previous inline rotation experiments were fighting this rule. Per-zone SVG inline style attribute was already removed in d4b4c5c so no further change there.
+
+### Diagnose 20s slow first-load
+**Reported:** 2026-04-27
+**Done:** 2026-04-28 — instrumented and measured in commit `7b0c5d4`, closed as not reproducible
+
+Added [PERF] markers across the page-load chain (sysQuery, izBulkZones, fetchSensors, syncRoomsFromIzone, first-render) and measured actual load times:
+
+- WiFi cold load: 2.4-2.9 seconds total
+- 4G cold load: 4.95 seconds total
+- 30-second background poll on 4G: 3-6 seconds per cycle (variable)
+
+Dominant cost is izBulkZones (1.8s WiFi, 2.8-5s on 4G) which is the 6-zone sequential fetch with intentional inter-zone delay (commit 976be97) to prevent iZone overload. Tradeoff is correct.
+
+The original "20 second" perception could not be reproduced. Likely was a worst-case combination of cold Pi + cold Tailscale Funnel + cellular handshake + iZone retry chain on a particular day. Closing this entry.
+
+[PERF] markers should be removed in a follow-up cleanup since they served their purpose and add console noise in production.
