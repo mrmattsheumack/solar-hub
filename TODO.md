@@ -46,4 +46,4 @@ Touchpoint: `fetchIzone` and `fetchSensors` in `solar-hub/public/index.html` (ar
 **Reported:** 2026-04-27
 **Done:** 2026-04-28 — commit `13da34c`
 
-Removed all rotation transforms (path data was already upright, multiple rotation attempts were a perception artefact). Bumped SVG size from 16 to 20 for better legibility inside the circular power-btn container.
+Root cause was a descendant selector on line 1171: `.dial svg { transform: rotate(-90deg); }` was matching both the dial gauge SVG (intentional) and the per-zone power button SVG (unintentional). Fix was changing to direct-child combinator `.dial > svg` so only the gauge gets rotated. All previous inline rotation experiments were fighting this rule. Per-zone SVG inline style attribute was already removed in d4b4c5c so no further change there.
