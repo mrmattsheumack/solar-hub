@@ -40,6 +40,32 @@ After deploying the isOpen=false flicker fix (commit 70e46c4), Matt observed tha
 
 Touchpoint: `fetchIzone` and `fetchSensors` in `solar-hub/public/index.html` (around lines 4395 and 4282).
 
+### Negative airflow value displayed on room cards
+**Reported:** 2026-04-28
+**Status:** Open
+
+Lounge zone card was observed showing "AIRFLOW -15%". Negative airflow values shouldn't be possible — airflow percentage should be clamped to 0-100. Likely a calculation or rendering bug where a delta or signed value is being shown instead of the absolute airflow percentage.
+
+Touchpoint: airflow rendering inside `buildThermoCard` in `solar-hub/public/index.html`. Search for "AIRFLOW" or the airflow percentage display logic.
+
+Investigation steps:
+- Confirm what value the bridge returns for that zone (should be 0-100)
+- Check if Solar Hub is computing a delta or applying any transformation before display
+- Add clamping `Math.max(0, Math.min(100, value))` at the render site as a safety net
+
+### Time in dashboard header doesn't match local Melbourne time
+**Reported:** 2026-04-28
+**Status:** Open
+
+Dashboard header shows e.g. "DROMANA · 13:56" when actual local time was approximately 11:50. Roughly 2 hours ahead, which suggests UTC offset handling is wrong (UTC+10 AEST vs being interpreted differently) or DST handling is off.
+
+Touchpoint: clock rendering in `solar-hub/public/index.html`. Search for the time format string under the DROMANA header.
+
+Investigation steps:
+- Check whether time uses `new Date()` directly or applies a manual offset
+- Verify the timezone in use — should be `Australia/Melbourne` to handle AEST/AEDT switching automatically
+- Use `toLocaleTimeString('en-AU', { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hour12: false })` if not already
+
 ## Done
 
 ### Room card power button — rotate 90° clockwise
