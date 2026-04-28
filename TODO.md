@@ -46,4 +46,4 @@ Touchpoint: `fetchIzone` and `fetchSensors` in `solar-hub/public/index.html` (ar
 **Reported:** 2026-04-27
 **Done:** 2026-04-28 — commit `13da34c`
 
-Per-zone card SVG (in `buildThermoCard`) had its rotation removed entirely to match the master AC button which renders the path data upright natively. After cycling through 90° / -90° / 180° rotations, the no-transform version (matching master) was the correct one.
+Removed all rotation transforms (path data was already upright, multiple rotation attempts were a perception artefact). Bumped SVG size from 16 to 20 for better legibility inside the circular power-btn container.
