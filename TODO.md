@@ -70,6 +70,6 @@ Investigation steps:
 
 ### Room card power button — rotate 90° clockwise
 **Reported:** 2026-04-27
-**Done:** 2026-04-28 — commit `13da34c`
+**Done:** 2026-04-28 — root cause identified and fixed in commit `dd890a3` (after several superseded attempts in 13da34c, 5d6ac46, fdc716d, d4b4c5c)
 
 Root cause was a descendant selector on line 1171: `.dial svg { transform: rotate(-90deg); }` was matching both the dial gauge SVG (intentional) and the per-zone power button SVG (unintentional). Fix was changing to direct-child combinator `.dial > svg` so only the gauge gets rotated. All previous inline rotation experiments were fighting this rule. Per-zone SVG inline style attribute was already removed in d4b4c5c so no further change there.
