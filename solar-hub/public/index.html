@@ -4372,6 +4372,8 @@ function syncMasterACFromIzone(sys) {
    balancing and is not a reliable signal of user-facing on/off state. */
 function syncRoomsFromIzone(zones) {
   if (!zones || !Array.isArray(zones)) return;
+  const t0_sync = performance.now();
+  console.log('[PERF] sync start t=' + t0_sync.toFixed(1));
   const missing = [];
   CLIMATE_ROOMS.forEach(cfg => {
     const z = zones.find(zz => zz.Index + 1 === cfg.zone);
@@ -4391,6 +4393,8 @@ function syncRoomsFromIzone(zones) {
   if (missing.length) console.warn('iZone sync: missing zones', missing.join(', '));
   saveClimate();
   if (typeof renderThermostats === 'function') renderThermostats();
+  const t1_sync = performance.now();
+  console.log('[PERF] sync done t=' + t1_sync.toFixed(1) + ' duration=' + (t1_sync - t0_sync).toFixed(1) + 'ms');
 }
 
 /* Fast system-only refresh used after a master AC command.
@@ -4458,7 +4462,11 @@ async function fetchIzone() {
   const pill = $('izone-status-pill');
   const off = $('iz-offline-msg');
   try {
+    const t0_sys = performance.now();
+    console.log('[PERF] sysQuery request t=' + t0_sys.toFixed(1));
     const sys = await izPost(IZONE_URL + '/iZoneRequestV2', { iZoneV2Request: { Type: 1, No: 0, No1: 0 } });
+    const t1_sys = performance.now();
+    console.log('[PERF] sysQuery done t=' + t1_sys.toFixed(1) + ' duration=' + (t1_sys - t0_sys).toFixed(1) + 'ms');
     const d = sys.SystemV2 || {};
     pill.classList.add('live'); pill.classList.remove('error');
     setText('izone-status-text', 'Connected');
@@ -4478,7 +4486,11 @@ async function fetchIzone() {
     // Bridge handles retries + stale fallback, so this is now a single call.
     let zones = [];
     try {
+      const t0_bulk = performance.now();
+      console.log('[PERF] izBulkZones request t=' + t0_bulk.toFixed(1));
       const r = await izBulkZones();
+      const t1_bulk = performance.now();
+      console.log('[PERF] izBulkZones done t=' + t1_bulk.toFixed(1) + ' duration=' + (t1_bulk - t0_bulk).toFixed(1) + 'ms');
       zones = r.zones || [];
       if (r.stale?.length)   console.warn('iZone zones served from cache:', r.stale);
       if (r.missing?.length) console.warn('iZone zones unavailable:', r.missing);
@@ -4488,8 +4500,16 @@ async function fetchIzone() {
     syncRoomsFromIzone(zones);
     renderIzoneZones(zones);
     // Pull sensor data alongside iZone — fire and forget if it fails (helper swallows errors)
+    const t0_sens = performance.now();
+    console.log('[PERF] fetchSensors request t=' + t0_sens.toFixed(1));
     const sensorData = await fetchSensors();
+    const t1_sens = performance.now();
+    console.log('[PERF] fetchSensors done t=' + t1_sens.toFixed(1) + ' duration=' + (t1_sens - t0_sens).toFixed(1) + 'ms');
     applySensorData(sensorData);
+    if (!window._perfFirstRenderLogged) {
+      window._perfFirstRenderLogged = true;
+      console.log('[PERF] first render done t=' + performance.now().toFixed(1));
+    }
   } catch(e) {
     pill.classList.remove('live'); pill.classList.add('error');
     setText('izone-status-text', 'Offline');
@@ -4536,6 +4556,7 @@ async function izToggleZone(i, open) {
 
 /* ── 14. INIT ──────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('[PERF] page init t=' + performance.now().toFixed(1));
   // Alert config
   try {
     const c = loadAlertConfig();
@@ -4578,6 +4599,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // iZone background poll — every 30s regardless of active tab
   // so Home/iZone tabs show fresh data immediately on tab switch
+  console.log('[PERF] fetchIzone start t=' + performance.now().toFixed(1));
   fetchIzone().catch(()=>{});
   setInterval(() => fetchIzone().catch(()=>{}), 30 * 1000);
 
