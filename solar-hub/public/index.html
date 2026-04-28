@@ -3629,7 +3629,7 @@ function buildThermoCard(cfg) {
         </div>
         <div class="dial-humidity">${typeof r.sensorHumidity === 'number' ? r.sensorHumidity.toFixed(0) + '% humidity' : 'No sensor'}</div>
       </div>
-      <button class="power-btn" onclick="event.stopPropagation(); toggleRoomPower('${cfg.id}')" aria-label="Toggle zone"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(180deg);"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></button>
+      <button class="power-btn" onclick="event.stopPropagation(); toggleRoomPower('${cfg.id}')" aria-label="Toggle zone"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></button>
     </div>
 
     <div class="target-ctrl">

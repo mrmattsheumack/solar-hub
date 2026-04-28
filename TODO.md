@@ -46,4 +46,4 @@ Touchpoint: `fetchIzone` and `fetchSensors` in `solar-hub/public/index.html` (ar
 **Reported:** 2026-04-27
 **Done:** 2026-04-28 — commit `13da34c`
 
-Per-zone card SVG (in `buildThermoCard`) now has `style="transform: rotate(180deg);"` so the glyph reads as a standard upright power symbol. Master AC button and `rd-power` overlay button were intentionally left untouched (same path data, but different visual context).
+Per-zone card SVG (in `buildThermoCard`) had its rotation removed entirely to match the master AC button which renders the path data upright natively. After cycling through 90° / -90° / 180° rotations, the no-transform version (matching master) was the correct one.
