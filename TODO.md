@@ -43,23 +43,6 @@ Investigation steps:
 
 ## Performance
 
-### Remove [PERF] instrumentation
-**Reported:** 2026-04-28
-**Status:** Open
-
-The [PERF] console.log markers added in commit `7b0c5d4` for slow-load diagnosis are still in the code. They served their purpose (data captured, root not-reproducible) and should be removed to clean up production console noise.
-
-Touchpoints in `solar-hub/public/index.html`:
-- DOMContentLoaded handler (~line 4539): "[PERF] page init"
-- Before fetchIzone() poll setup (~line 4582): "[PERF] fetchIzone start"
-- fetchIzone sysQuery bracket (~lines 4461-4465): "[PERF] sysQuery request/done"
-- fetchIzone izBulkZones bracket (~lines 4485-4489): "[PERF] izBulkZones request/done"
-- fetchIzone fetchSensors bracket (~lines 4499-4503): "[PERF] fetchSensors request/done"
-- fetchIzone first-render flag (~lines 4505-4508): "[PERF] first render done"
-- syncRoomsFromIzone bracket (~lines 4375-4376, 4396-4397): "[PERF] sync start/done"
-
-All can be removed cleanly with a search for "[PERF]" and deleting those lines plus the t0_/t1_ const lines that fed them.
-
 ### Adaptive iZone polling frequency
 **Reported:** 2026-04-28
 **Status:** Open
@@ -100,3 +83,9 @@ Dominant cost is izBulkZones (1.8s WiFi, 2.8-5s on 4G) which is the 6-zone seque
 The original "20 second" perception could not be reproduced. Likely was a worst-case combination of cold Pi + cold Tailscale Funnel + cellular handshake + iZone retry chain on a particular day. Closing this entry.
 
 [PERF] markers should be removed in a follow-up cleanup since they served their purpose and add console noise in production.
+
+### Remove [PERF] instrumentation
+**Reported:** 2026-04-28
+**Done:** 2026-04-28
+
+Removed all [PERF] console.log markers and associated performance.now() timing variables added in commit `7b0c5d4` for slow-load diagnosis. Production console is clean again.
