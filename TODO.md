@@ -4,14 +4,6 @@ This file tracks pending fixes and improvements that have been identified but no
 
 ## UI / UX
 
-### Room card power button — rotate 90° clockwise
-**Reported:** 2026-04-27
-**Status:** Open
-
-The power symbol icon on each room card currently appears sideways. The path inside the SVG (the C-arc with the vertical line) is rotated incorrectly. Rotating it 90° to the right (clockwise) makes it look correct.
-
-Touchpoint: `buildThermoCard` in `solar-hub/public/index.html` — search for the SVG inside the per-room power button (around line 3632 currently). The fix is most likely a `transform="rotate(90)"` on the path or `<svg>` element, or swapping the path data for the standard power-glyph orientation.
-
 ### Damper slider on dashboard cards (no need to drill in)
 **Reported:** 2026-04-27
 **Status:** Open
@@ -47,3 +39,11 @@ After deploying the isOpen=false flicker fix (commit 70e46c4), Matt observed tha
 - Render rooms immediately on first iZone success without waiting for sensor fetch
 
 Touchpoint: `fetchIzone` and `fetchSensors` in `solar-hub/public/index.html` (around lines 4395 and 4282).
+
+## Done
+
+### Room card power button — rotate 90° clockwise
+**Reported:** 2026-04-27
+**Done:** 2026-04-28 — commit `13da34c`
+
+Per-zone card SVG (in `buildThermoCard`) now has `style="transform: rotate(90deg);"` so the glyph reads as a standard upright power symbol. Master AC button and `rd-power` overlay button were intentionally left untouched (same path data, but different visual context).
