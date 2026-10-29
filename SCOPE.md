@@ -100,4 +100,42 @@ When Solar Hub is ready for sensors:
 If the AI claims to remember something not in this file or in committed code,
 treat that memory as suspect. Update this file as decisions are made.
 
+## EV solar charging (added 2026-10-29)
+
+Goal: charge the car from spare solar during the day, full rate on the cheap
+overnight window, never relying on any data from the car itself. Two cars
+(IONIQ 5, Kia EV5) share one charger; whichever is plugged in gets charged.
+
+Rules agreed with Matt:
+- 12am-6am: full 32 A whenever something is plugged in (AGL 8c off-peak).
+- Daytime: match current to spare solar, 6-32 A. Solar only: pause below 6 A
+  (about 1.4 kW) after riding out short dips for 5 min.
+- Evening (9pm-12am): off.
+- Manual override always wins: any session the controller did not start
+  (charger button, EVSEMaster app START CHARGING, the charger's own schedule)
+  gets full 32 A and is left alone until it ends or the car is unplugged.
+  When idle the limit is reset to 32 A so a button press is always full rate.
+
+Hardware facts (verified 2026-10-28/29):
+- Charger: EVSE4280 reports as "BS20", 32 A max, single-phase, at 192.168.1.45.
+  Controlled locally over the EVSEMaster UDP protocol (python `evsemaster`).
+  The library drops single-phase status packets; the controller decodes them.
+  A start is ignored while a finished session is held; stop first.
+  The phone app and the controller can be connected at the same time.
+- Inverter: live PV readable locally via Modbus TCP 192.168.1.155:502
+  (WiFi/LAN Kit-20, python `goodwe`, family DT). No local meter data.
+- House load comes from SEMS (cloud, lagged a few minutes), in watts.
+- Live test 2026-10-29: car follows current changes within ~10 s.
+
+Where it runs: Pi `eaglecam`, ~/solar-hub-pi/ev_solar.py, systemd ev-solar,
+venv ~/solar-hub-pi/evtest. DRY_RUN=1 (watch only) until Matt approves live.
+Logs: ~/solar-hub-pi/ev_solar.log (JSON lines), ev_state.json (latest).
+
+## SEMS endpoint change (2026-10-29)
+
+After GoodWe moved the account to SEMS+, GetMonitorDetailByPowerstationId
+returns code 0 with empty data, so Solar Hub showed zeros. Live data now comes
+from v2/PowerStation/GetPowerflow (gridStatus -1 = import, 1 = export) and
+today's generation from v3/PowerStation/GetPlantDetailByPowerstationId.
+
 End of file.

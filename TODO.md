@@ -60,6 +60,28 @@ Investigation steps:
 - Add a single `document.addEventListener('visibilitychange', ...)` handler that pauses/resumes the interval
 - Verify polling resumes immediately on tab refocus by triggering a one-shot fetchIzone() on visibilitychange to "visible"
 
+## EV charging
+
+### Switch ev-solar from watch-only to live
+**Reported:** 2026-10-29
+**Status:** Open, waiting on Matt's go-ahead. Set Environment=DRY_RUN=0 in /etc/systemd/system/ev-solar.service, restart, watch the first sunny hour.
+
+### Test the physical button on the charger
+**Reported:** 2026-10-29
+**Status:** Open. Press it while the controller runs; confirm the session owner is not "evsemasterpy" and the log shows MANUAL OVERRIDE.
+
+### EV Charging tab in Solar Hub
+**Reported:** 2026-10-29
+**Status:** Open. Preview built as a separate page. Needs a bridge endpoint on the Pi exposing ev_state.json / mode, then a new tab.
+
+### Daily import/export totals and hourly chart
+**Reported:** 2026-10-29
+**Status:** Open. New SEMS endpoints don't carry daily buy/sell; the today chart (GetChartByPlant) returns no lines.
+
+### Nightly clip clean-up on the Pi
+**Reported:** 2026-10-29
+**Status:** Open. ~/clips filled the 58 GB card by early Sept; 61 oldest days deleted on 2026-10-28. Add a cron to delete clips older than 30 days.
+
 ## Done
 
 ### Room card power button — rotate 90° clockwise
