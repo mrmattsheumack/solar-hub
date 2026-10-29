@@ -64,7 +64,7 @@ Investigation steps:
 
 ### Switch ev-solar from watch-only to live
 **Reported:** 2026-10-29
-**Status:** Open, waiting on Matt's go-ahead. Set Environment=DRY_RUN=0 in /etc/systemd/system/ev-solar.service, restart, watch the first sunny hour.
+**Status:** Done 2026-10-29 20:11, DRY_RUN=0 with Matt's approval.
 
 ### Test the physical button on the charger
 **Reported:** 2026-10-29

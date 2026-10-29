@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 User=matt
 WorkingDirectory=/home/matt/solar-hub-pi
-Environment=DRY_RUN=1
+Environment=DRY_RUN=0
 ExecStart=/home/matt/solar-hub-pi/evtest/bin/python /home/matt/solar-hub-pi/ev_solar.py
 Restart=always
 RestartSec=20

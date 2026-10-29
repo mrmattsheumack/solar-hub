@@ -128,7 +128,7 @@ Hardware facts (verified 2026-10-28/29):
 - Live test 2026-10-29: car follows current changes within ~10 s.
 
 Where it runs: Pi `eaglecam`, ~/solar-hub-pi/ev_solar.py, systemd ev-solar,
-venv ~/solar-hub-pi/evtest. DRY_RUN=1 (watch only) until Matt approves live.
+venv ~/solar-hub-pi/evtest. Live (DRY_RUN=0) since 2026-10-29 20:11 with Matt's approval.
 Logs: ~/solar-hub-pi/ev_solar.log (JSON lines), ev_state.json (latest).
 
 ## SEMS endpoint change (2026-10-29)
