@@ -266,8 +266,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
 
 <script>
 (function(){
-  const BRIDGE_URL   = 'https://eaglecam.taile03fa1.ts.net';
-  const BRIDGE_TOKEN = 'viVoR2iD0-BZa4B2K53_CBdDTDIRVZTA_nBSk8qTx5E';
+  const EV_API = '/.netlify/functions/ev';   // Netlify proxies to the Pi; no key in the page
   const REFRESH_MS = 30000, V_NOM = 240, MAX_A = 32;
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -314,7 +313,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     const m = b.dataset.mode; if (m === currentMode) return;
     btns.forEach(x => x.disabled = true); $('mode-msg').textContent = 'Saving…';
     try {
-      const r = await fetch(BRIDGE_URL + '/api/ev/mode', { method:'POST', headers:{'Authorization':'Bearer '+BRIDGE_TOKEN,'Content-Type':'application/json'}, body: JSON.stringify({mode:m}), signal: AbortSignal.timeout(10000) });
+      const r = await fetch(EV_API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({mode:m}), signal: AbortSignal.timeout(10000) });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       showMode(m); $('mode-msg').textContent = 'Saved. The controller picks it up within 30 seconds.';
       setTimeout(load, 3000);
@@ -456,7 +455,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
   let failures = 0;
   async function load(){
     try {
-      const r = await fetch(BRIDGE_URL + '/api/ev/state', { headers:{'Authorization':'Bearer '+BRIDGE_TOKEN}, signal: AbortSignal.timeout(15000) });
+      const r = await fetch(EV_API, { signal: AbortSignal.timeout(15000) });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json(); failures = 0; $('banner').hidden = true;
       renderNow(d); renderTotals(d.totals || {}); renderLog(d.decisions); renderChart(d.series);
