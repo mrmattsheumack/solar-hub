@@ -4,7 +4,7 @@
 // this keeps the bridge token out of the page). Netlify calls the Pi's Funnel URL.
 //   GET  /.netlify/functions/ev            -> bridge GET  /api/ev/state
 //   POST /.netlify/functions/ev {mode}     -> bridge POST /api/ev/mode
-// Needs Netlify env var BRIDGE_TOKEN (same value as BEARER_TOKEN in the Pi's .env).
+// Needs Netlify env var BRIDGE_TOKEN (same value as BEARER_TOKEN in the Pi's .env), set 2026-10-30.
 const BRIDGE_URL = process.env.BRIDGE_URL || "https://eaglecam.taile03fa1.ts.net";
 
 exports.handler = async (event) => {
