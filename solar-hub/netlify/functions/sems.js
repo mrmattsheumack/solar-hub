@@ -21,7 +21,8 @@ async function getToken(email, password) {
   let parsed;
   try { parsed = JSON.parse(text); } catch(e) { throw new Error(`Login parse error: ${text.slice(0,200)}`); }
   if (parsed.code !== 0) throw new Error(`Login failed (${parsed.code}): ${parsed.msg}`);
-  return parsed.data;
+  // GoodWe returns the API base for this account's region; older code ignored it
+  return { ...parsed.data, _api: parsed.api || (parsed.components && parsed.components.api) || null };
 }
 
 exports.handler = async (event) => {
@@ -65,6 +66,16 @@ exports.handler = async (event) => {
 
     let resp, chartResp;
     try { resp      = JSON.parse(detailText); } catch(e) { throw new Error(`Detail parse error: ${detailText.slice(0,200)}`); }
+    // Surface what GoodWe actually said (no credentials). Empty data used to become silent zeros.
+    const semsStatus = {
+      loginApi: auth._api,
+      detailHttp: detailRes.status,
+      detailCode: resp.code,
+      detailMsg: resp.msg,
+      detailHasData: !!(resp.data && Object.keys(resp.data).length),
+      detailDataKeys: resp.data ? Object.keys(resp.data).slice(0, 25) : [],
+      detailRaw: resp.data && Object.keys(resp.data).length ? undefined : detailText.slice(0, 300),
+    };
     try { chartResp = JSON.parse(chartText);  } catch(e) { chartResp = {}; }
 
     const detail = resp.data || {};
@@ -142,6 +153,7 @@ exports.handler = async (event) => {
         hourlyChart,
         // debug chart shape if empty
         _chartDebug: hourlyChart.length === 0 ? { code: chartResp.code, keys: Object.keys(chartResp.data || {}) } : null,
+        _semsStatus: semsStatus,
       }),
     };
   } catch (err) {
