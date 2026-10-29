@@ -1,7 +1,10 @@
 // netlify/functions/sems.js
 const STATION_ID = "f04ed04f-8f02-4eda-9fc9-03c68fab7ad2";
 const LOGIN_URL  = "https://au.semsportal.com/api/v2/common/crosslogin";
-const DETAIL_URL = "https://au.semsportal.com/api/v2/PowerStation/GetMonitorDetailByPowerstationId";
+// GetMonitorDetailByPowerstationId stopped returning data (Oct 2026, after the SEMS+ migration):
+// code 0, "success", but data {}. Live flows now come from GetPowerflow, totals from v3 plant detail.
+const POWERFLOW_URL = "https://au.semsportal.com/api/v2/PowerStation/GetPowerflow";
+const PLANT_URL     = "https://au.semsportal.com/api/v3/PowerStation/GetPlantDetailByPowerstationId";
 const CHART_URL  = "https://au.semsportal.com/api/v2/Charts/GetChartByPlant";
 const EMPTY_TOKEN = "eyJ1aWQiOiIiLCJ0aW1lc3RhbXAiOjAsInRva2VuIjoiIiwiY2xpZW50Ijoid2ViIiwidmVyc2lvbiI6IiIsImxhbmd1YWdlIjoiZW4ifQ==";
 
@@ -43,107 +46,56 @@ exports.handler = async (event) => {
       client: auth.client, version: auth.version, language: auth.language,
     });
 
-    // ?probe=1 : one-off diagnostics. Tries alternative GoodWe endpoints and reports which return data.
-    if ((event.queryStringParameters || {}).probe) {
-      const base = auth._api || "https://au.semsportal.com/api/";
-      const tries = [
-        ["v2/PowerStation/GetMonitorDetailByPowerstationId", { powerStationId: STATION_ID }],
-        ["v1/PowerStation/GetMonitorDetailByPowerstationId", { powerStationId: STATION_ID }],
-        ["v2/PowerStation/GetPowerflow", { PowerStationId: STATION_ID }],
-        ["v1/PowerStation/GetPowerflow", { PowerStationId: STATION_ID }],
-        ["v3/PowerStation/GetPlantDetailByPowerstationId", { powerStationId: STATION_ID }],
-        ["v2/PowerStation/GetInverterAllPoint", { powerStationId: STATION_ID }],
-        ["v1/PowerStation/GetInverterAllPoint", { powerStationId: STATION_ID }],
-        ["v2/PowerStationMonitor/QueryPowerStationMonitorForApp", { page_index: 1, page_size: 10, key: "", orderby: "", powerstation_id: "", powerstation_status: "", powerstation_type: "" }],
-        ["v1/PowerStationMonitor/QueryPowerStationMonitor", { page_index: 1, page_size: 10, key: "", orderby: "", powerstation_id: "", powerstation_status: "", powerstation_type: "" }],
-      ];
-      const out = [];
-      for (const [path, body] of tries) {
-        try {
-          const r = await fetch(base + path, { method: "POST", headers: { "Content-Type": "application/json", "Token": tokenHeader }, body: JSON.stringify(body) });
-          const t = await r.text(); let j = {}; try { j = JSON.parse(t); } catch (e) {}
-          const d = j.data;
-          const keys = d && typeof d === "object" ? Object.keys(Array.isArray(d) ? (d[0] || {}) : d).slice(0, 30) : [];
-          const sample = {};
-          if (d && typeof d === "object") {
-            const src = Array.isArray(d) ? d[0] || {} : d;
-            for (const k of ["powerflow", "pv", "load", "grid", "pac", "pmeter", "powerstation_id", "id", "stationname", "status"]) {
-              if (src[k] !== undefined) sample[k] = typeof src[k] === "object" ? JSON.stringify(src[k]).slice(0, 300) : src[k];
-            }
-            if (src.list) sample.list = JSON.stringify(src.list).slice(0, 400);
-          }
-          out.push({ path, http: r.status, code: j.code, msg: j.msg, hasData: keys.length > 0, keys, sample });
-        } catch (e) { out.push({ path, error: e.message }); }
-      }
-      return { statusCode: 200, headers, body: JSON.stringify({ probe: out }, null, 1) };
-    }
-
-    // Fetch live detail + today's chart data in parallel
-    const [detailRes, chartRes] = await Promise.all([
-      fetch(DETAIL_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Token": tokenHeader },
-        body: JSON.stringify({ powerStationId: STATION_ID }),
-      }),
-      fetch(CHART_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Token": tokenHeader },
-        body: JSON.stringify({
-          powerStationId: STATION_ID,
-          chartIndexId: "1",   // 1 = today power chart
-          date: new Date().toISOString().slice(0, 10).replace(/-/g, ""),
-        }),
+    const post = (url, body) => fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Token": tokenHeader },
+      body: JSON.stringify(body),
+    });
+    const [pfRes, plantRes, chartRes] = await Promise.all([
+      post(POWERFLOW_URL, { PowerStationId: STATION_ID }),
+      post(PLANT_URL, { powerStationId: STATION_ID }),
+      post(CHART_URL, {
+        powerStationId: STATION_ID,
+        chartIndexId: "1",   // 1 = today power chart
+        date: new Date().toISOString().slice(0, 10).replace(/-/g, ""),
       }),
     ]);
-
-    const detailText = await detailRes.text();
-    const chartText  = await chartRes.text();
-
-    let resp, chartResp;
-    try { resp      = JSON.parse(detailText); } catch(e) { throw new Error(`Detail parse error: ${detailText.slice(0,200)}`); }
-    // Surface what GoodWe actually said (no credentials). Empty data used to become silent zeros.
-    const semsStatus = {
-      loginApi: auth._api,
-      detailHttp: detailRes.status,
-      detailCode: resp.code,
-      detailMsg: resp.msg,
-      detailHasData: !!(resp.data && Object.keys(resp.data).length),
-      detailDataKeys: resp.data ? Object.keys(resp.data).slice(0, 25) : [],
-      detailRaw: resp.data && Object.keys(resp.data).length ? undefined : detailText.slice(0, 300),
+    const parse = async (r, label) => {
+      const t = await r.text();
+      try { return JSON.parse(t); } catch (e) { throw new Error(`${label} parse error: ${t.slice(0, 200)}`); }
     };
-    try { chartResp = JSON.parse(chartText);  } catch(e) { chartResp = {}; }
+    const pfResp    = await parse(pfRes, "Powerflow");
+    const plantResp = await parse(plantRes, "Plant detail").catch(() => ({}));
+    let chartResp; try { chartResp = await chartRes.json(); } catch (e) { chartResp = {}; }
 
-    const detail = resp.data || {};
-    const kpi    = detail.kpi || {};
-    const info   = detail.info || {};
-    const pf     = detail.powerflow || {};
-    const inv    = (detail.inverter || [])[0] || {};
-    const full   = inv.invert_full || {};
-    const stats  = detail.energeStatisticsCharts || {};
+    const pf    = (pfResp.data || {}).powerflow || {};
+    if (!pf.pv && !pf.load) {
+      // Never hand back silent zeros again: make the failure visible to callers
+      return { statusCode: 502, headers, body: JSON.stringify({
+        error: "SEMS powerflow returned no data", code: pfResp.code, msg: pfResp.msg,
+      }) };
+    }
+    const plant = plantResp.data || {};
+    const kpi   = plant.kpi || {};
+    const info  = plant.info || {};
+    const stats = {};
 
-    // Live power flows
-    // pmeter: negative = importing from grid, positive = exporting to grid
-    const pmeter      = full.pmeter ?? 0;
-    const gridPower   = pmeter;
-    const importPower = Math.max(0, -pmeter);
-    const exportPower = Math.max(0,  pmeter);
-
-    // pvPower: try explicit fields first, then energy balance
-    // Energy balance: pvPower = homePower + exportPower - importPower
-    const pvRaw = full.pv_power || full.pac || parseW(pf.pv) || kpi.pac || 0;
-    // homePower from powerflow load string e.g. "1642(W)"
-    const homePower = parseW(pf.load) || 0;
-    // Derive pvPower from energy balance if explicit field is 0
-    // pvPower = load + export - import (conservation of energy)
-    const pvBalanced = Math.max(0, homePower + exportPower - importPower);
-    const pvPowerFinal = pvRaw > 0 ? pvRaw : pvBalanced;
-    const batterySoc  = full.soc ?? 0;
-    const batteryPower = full.total_pbattery ?? 0;
+    // Live power flows (W). pf.grid is unsigned; gridStatus -1 = importing, 1 = exporting.
+    const pvW   = parseW(pf.pv);
+    const homeW = parseW(pf.load);
+    const gridW = parseW(pf.grid);
+    const importPower = pf.gridStatus === -1 ? gridW : 0;
+    const exportPower = pf.gridStatus === 1 ? gridW : 0;
+    const gridPower   = exportPower - importPower;   // + export, - import (same sign as old pmeter)
+    const homePower   = homeW;
+    const pvPowerFinal = pvW > 0 ? pvW : Math.max(0, homeW + exportPower - importPower);
+    const batterySoc   = pf.soc ?? 0;
+    const batteryPower = parseW(pf.bettery);
 
     // Daily totals
-    const dailyGeneration  = inv.eday   ?? kpi.power ?? 0;
-    const dailyExport      = full.seller ?? stats.sell ?? 0;
-    const dailyImport      = full.buy    ?? stats.buy  ?? 0;
+    const dailyGeneration  = kpi.power ?? 0;
+    const dailyExport      = 0;   // not in the new endpoints; chart below carries the shape
+    const dailyImport      = 0;
     const dailyConsumption = stats.consumptionOfLoad ?? (dailyGeneration + dailyImport - dailyExport);
 
     // Parse hourly chart data
@@ -188,7 +140,7 @@ exports.handler = async (event) => {
         hourlyChart,
         // debug chart shape if empty
         _chartDebug: hourlyChart.length === 0 ? { code: chartResp.code, keys: Object.keys(chartResp.data || {}) } : null,
-        _semsStatus: semsStatus,
+        _source: "powerflow",
       }),
     };
   } catch (err) {
