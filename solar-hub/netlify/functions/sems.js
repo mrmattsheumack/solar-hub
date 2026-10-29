@@ -43,6 +43,41 @@ exports.handler = async (event) => {
       client: auth.client, version: auth.version, language: auth.language,
     });
 
+    // ?probe=1 : one-off diagnostics. Tries alternative GoodWe endpoints and reports which return data.
+    if ((event.queryStringParameters || {}).probe) {
+      const base = auth._api || "https://au.semsportal.com/api/";
+      const tries = [
+        ["v2/PowerStation/GetMonitorDetailByPowerstationId", { powerStationId: STATION_ID }],
+        ["v1/PowerStation/GetMonitorDetailByPowerstationId", { powerStationId: STATION_ID }],
+        ["v2/PowerStation/GetPowerflow", { PowerStationId: STATION_ID }],
+        ["v1/PowerStation/GetPowerflow", { PowerStationId: STATION_ID }],
+        ["v3/PowerStation/GetPlantDetailByPowerstationId", { powerStationId: STATION_ID }],
+        ["v2/PowerStation/GetInverterAllPoint", { powerStationId: STATION_ID }],
+        ["v1/PowerStation/GetInverterAllPoint", { powerStationId: STATION_ID }],
+        ["v2/PowerStationMonitor/QueryPowerStationMonitorForApp", { page_index: 1, page_size: 10, key: "", orderby: "", powerstation_id: "", powerstation_status: "", powerstation_type: "" }],
+        ["v1/PowerStationMonitor/QueryPowerStationMonitor", { page_index: 1, page_size: 10, key: "", orderby: "", powerstation_id: "", powerstation_status: "", powerstation_type: "" }],
+      ];
+      const out = [];
+      for (const [path, body] of tries) {
+        try {
+          const r = await fetch(base + path, { method: "POST", headers: { "Content-Type": "application/json", "Token": tokenHeader }, body: JSON.stringify(body) });
+          const t = await r.text(); let j = {}; try { j = JSON.parse(t); } catch (e) {}
+          const d = j.data;
+          const keys = d && typeof d === "object" ? Object.keys(Array.isArray(d) ? (d[0] || {}) : d).slice(0, 30) : [];
+          const sample = {};
+          if (d && typeof d === "object") {
+            const src = Array.isArray(d) ? d[0] || {} : d;
+            for (const k of ["powerflow", "pv", "load", "grid", "pac", "pmeter", "powerstation_id", "id", "stationname", "status"]) {
+              if (src[k] !== undefined) sample[k] = typeof src[k] === "object" ? JSON.stringify(src[k]).slice(0, 300) : src[k];
+            }
+            if (src.list) sample.list = JSON.stringify(src.list).slice(0, 400);
+          }
+          out.push({ path, http: r.status, code: j.code, msg: j.msg, hasData: keys.length > 0, keys, sample });
+        } catch (e) { out.push({ path, error: e.message }); }
+      }
+      return { statusCode: 200, headers, body: JSON.stringify({ probe: out }, null, 1) };
+    }
+
     // Fetch live detail + today's chart data in parallel
     const [detailRes, chartRes] = await Promise.all([
       fetch(DETAIL_URL, {
