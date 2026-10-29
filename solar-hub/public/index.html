@@ -2646,8 +2646,9 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
    Replaces direct LAN access (blocked by mixed-content) with HTTPS bridge
    Bridge code lives on Pi at /home/matt/solar-hub-pi/bridge.py
    ════════════════════════════════════════════════════════════════ */
-const BRIDGE_URL   = 'https://eaglecam.taile03fa1.ts.net';
-const BRIDGE_TOKEN = 'viVoR2iD0-BZa4B2K53_CBdDTDIRVZTA_nBSk8qTx5E';
+// All Pi calls go through a same-origin Netlify function (netlify/functions/bridge.js),
+// which adds the bridge key server-side. The key is no longer in this page.
+const BRIDGE_URL   = '/.netlify/functions/bridge?p=';
 const IZONE_URL    = '';  // retained for compat with existing code paths; all calls now go through bridge
 
 let bridgeOnline   = null;  // null=unknown, true=reachable, false=offline
@@ -4227,7 +4228,6 @@ async function izPost(url, body) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + BRIDGE_TOKEN,
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(8000),
@@ -4260,7 +4260,6 @@ async function izBulkZones() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + BRIDGE_TOKEN,
       },
       signal: AbortSignal.timeout(15000),
     });
@@ -4288,7 +4287,6 @@ async function fetchSensors() {
   try {
     const r = await fetch(BRIDGE_URL + '/api/sensors/temps', {
       method: 'GET',
-      headers: { 'Authorization': 'Bearer ' + BRIDGE_TOKEN },
       signal: AbortSignal.timeout(5000),
     });
     if (!r.ok) throw new Error('Sensors HTTP ' + r.status);
