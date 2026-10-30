@@ -848,7 +848,7 @@ body.dimmed .dim{opacity:.62}
   let map, frames = [], layers = [], idx = 0, playing = true, timer = null;
   function initMap() {
     if (!window.L) { $('map').innerHTML = '<div class="empty" style="position:absolute;inset:0;display:flex">Map library didn\'t load.</div>'; return; }
-    map = L.map('map', { center: RADAR_CENTRE, zoom: RADAR_ZOOM, minZoom: 6, maxZoom: 11, zoomControl: false, attributionControl: true, zoomSnap: 0.5 });
+    map = L.map('map', { center: RADAR_CENTRE, zoom: RADAR_ZOOM, minZoom: 6, maxZoom: 11, zoomControl: false, attributionControl: true, zoomSnap: 0.5, fadeAnimation: false });   // tile fade-ins pass through partial opacity, which draws seams
     // BoM-style background: Esri's Ocean basemap (blue sea, pale land with relief), keyless.
     // (CARTO stopped serving keyless tiles in 2026; they come back watermarked.)
     const esri = n => `https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/${n}/MapServer/tile/{z}/{y}/{x}`;
