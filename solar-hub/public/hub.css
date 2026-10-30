@@ -311,3 +311,12 @@ body.radar-fs .sh-rail,body.radar-fs .sh-burger{visibility:hidden}
 .state-view .town.local{display:none}
 .state-view .town.state{display:flex}
 .radar.fs .radar-bar{bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+
+/* full-screen radar: close button and zoom buttons */
+.radar-close{display:none}
+.radar.fs .radar-close{display:grid;place-items:center;position:absolute;top:calc(10px + env(safe-area-inset-top,0px));left:12px;z-index:600;
+  width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.2);background:rgba(13,18,32,.72);color:#fff;font-size:28px;line-height:1;cursor:pointer;backdrop-filter:blur(4px)}
+.radar.fs .card-head{padding-left:68px}
+.radar.fs .leaflet-control-zoom{margin-top:60px;margin-right:12px;border:0;border-radius:12px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.radar.fs .leaflet-control-zoom a{width:44px;height:44px;line-height:44px;font-size:22px;background:rgba(13,18,32,.78);color:#fff;border-color:rgba(255,255,255,.12)}
+.radar.fs #map{cursor:grab}

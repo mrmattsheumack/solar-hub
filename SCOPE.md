@@ -265,6 +265,10 @@ Dashboard changes:
   Cowes) and locked against dragging/pinching. Tapping it goes full screen showing all of Victoria
   (pan and pinch allowed there, regional cities labelled); tap again or Esc to return. Zoomed out,
   radar tiles drop to zoom 6 or 5 so a frame stays a few requests (RainViewer limit 100/min).
+- Dashboard radar view is capped at zoom 8 (radar data is zoom 7 at most, so zoom 9 stretched each
+  rain pixel 4x and looked blurry). Full screen: pinch/scroll/double-tap and +/- buttons zoom, drag
+  pans, a close button (or Esc) exits; taps inside full screen no longer close it. Radar tiles are
+  cached in the page so moving around doesn't re-download them.
 
 New data:
 - `ecowitt?history=today`: today's 5-minute WS90 readings (Ecowitt v3 device/history).

@@ -645,7 +645,9 @@ window.Hub = (() => {
       if (b) {
         const o = map.options.zoomSnap; map.options.zoomSnap = 0.01;
         const zr = map.getBoundsZoom(b, false, L.point(fs ? 16 : 0, fs ? 16 : 0)); map.options.zoomSnap = o;
-        map.setView(b.getCenter(), fs ? Math.floor(zr) : Math.round(zr), { animate: false });
+        // data-max-zoom caps the pinned view: the free radar stops at zoom 7, so one step past it keeps rain sharp
+        const cap = md.maxZoom ? +md.maxZoom : 99;
+        map.setView(b.getCenter(), fs ? Math.floor(zr) : Math.min(cap, Math.round(zr)), { animate: false });
       }
       map.getContainer().classList.toggle('state-view', map.getZoom() < 7.6);
     };
@@ -674,18 +676,26 @@ window.Hub = (() => {
       if (on && !viewB) before = [map.getCenter(), map.getZoom()];
       if (!on && !viewB && before) setTimeout(() => map.setView(before[0], before[1], { animate: false }), 450);
       card.classList.toggle('fs', on);
-      if (locked) setLock(!on);              // free to pan and pinch in full screen
+      if (on) { setLock(false); zoomCtl.addTo(map); } else { zoomCtl.remove(); if (locked) setLock(true); }
       document.body.classList.toggle('radar-fs', on);
       if (on && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
       if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
       setTimeout(snap, 60); setTimeout(snap, 400);
     };
+    // Tap opens full screen. In full screen the map is free to pan and zoom (pinch, scroll, double-tap,
+    // or the + and - buttons), so taps there don't close it: the close button or Esc does.
+    const zoomCtl = L.control.zoom({ position: 'topright' });
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'radar-close'; closeBtn.type = 'button'; closeBtn.setAttribute('aria-label', 'Close full-screen radar'); closeBtn.innerHTML = '&times;';
+    closeBtn.addEventListener('click', e => { e.stopPropagation(); setFs(false); });
+    card.appendChild(closeBtn);
     let down = null;
     $('map').addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
     $('map').addEventListener('click', e => {
+      if (card.classList.contains('fs')) return;
       if (e.target.closest('.leaflet-control,.radar-bar,a,button')) return;
       if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return;   // that was a drag
-      setFs(!card.classList.contains('fs'));
+      setFs(true);
     });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && card.classList.contains('fs')) setFs(false); });
     document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && card.classList.contains('fs')) setFs(false); });
@@ -764,7 +774,17 @@ window.Hub = (() => {
   const tile2lat = (y, z) => { const n = Math.PI - 2 * Math.PI * y / 2 ** z; return 180 / Math.PI * Math.atan(Math.sinh(n)); };
   const lon2tile = (lon, z) => Math.floor((lon + 180) / 360 * 2 ** z);
   const lat2tile = (lat, z) => { const r = lat * Math.PI / 180; return Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 2 ** z); };
-  const loadImg = src => new Promise((ok, bad) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => ok(im); im.onerror = bad; im.src = src; });
+  // Radar tiles are cached once fetched, so panning and zooming in full screen reuses them instead of
+  // spending RainViewer's 100-requests-a-minute allowance again (frames older than 2 h drop out anyway)
+  const tileCache = new Map();
+  const loadImg = src => {
+    if (tileCache.has(src)) return tileCache.get(src);
+    const p = new Promise((ok, bad) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => ok(im); im.onerror = bad; im.src = src; });
+    p.catch(() => tileCache.delete(src));
+    tileCache.set(src, p);
+    if (tileCache.size > 600) tileCache.delete(tileCache.keys().next().value);
+    return p;
+  };
   function recolour(x, w, h) {
     const d = x.getImageData(0, 0, w, h), p = d.data, Z = new Int8Array(w * h).fill(-99);
     for (let i = 0, k = 0; i < Z.length; i++, k += 4) if (p[k + 3]) Z[i] = dbzFor(p[k], p[k + 1], p[k + 2]);
