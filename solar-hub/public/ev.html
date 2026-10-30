@@ -71,8 +71,9 @@ a{color:inherit}
 .state-text{min-width:0}
 .state-big{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.15;margin:4px 0 6px;text-wrap:balance}
 .state-why{color:var(--text-muted);font-size:14px}
-.facts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:18px}
-@media (max-width:560px){.facts{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:18px}
+@media (max-width:560px){.facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.facts-note{font-size:12px;color:var(--text-dim);margin-top:8px}
 .fact{background:var(--surface-2);border-radius:var(--r-sm);padding:10px 12px;min-width:0}
 .fact .v{font-family:var(--mono);font-size:17px;font-weight:500;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fact .v small{font-size:12px;color:var(--text-muted);font-weight:400}
@@ -110,7 +111,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
 .tot .sub{font-size:12px;color:var(--text-dim);margin-top:2px}
 
 .log{display:flex;flex-direction:column}
-.row{display:grid;grid-template-columns:76px 80px minmax(0,1fr) 60px;gap:12px;padding:9px 0;border-top:1px solid var(--border);font-size:13px;align-items:baseline}
+.row{display:grid;grid-template-columns:76px 80px minmax(0,1fr) 70px;gap:12px;padding:9px 0;border-top:1px solid var(--border);font-size:13px;align-items:baseline}
 .row:first-child{border-top:0}
 .row .t{font-family:var(--mono);color:var(--text-muted);white-space:nowrap}
 .row .a{font-family:var(--mono);text-align:right}
@@ -189,12 +190,12 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
         </div>
       </div>
       <div class="facts">
-        <div class="fact"><div class="label">Car</div><div class="v" id="f-car">–</div></div>
-        <div class="fact"><div class="label">Charging</div><div class="v" id="f-power">–</div></div>
-        <div class="fact"><div class="label">Limit</div><div class="v" id="f-limit">–</div></div>
         <div class="fact"><div class="label">Solar</div><div class="v" id="f-solar">–</div></div>
+        <div class="fact"><div class="label">Car</div><div class="v" id="f-power">–</div></div>
         <div class="fact"><div class="label">House</div><div class="v" id="f-house">–</div></div>
+        <div class="fact"><div class="label">Grid</div><div class="v" id="f-grid">–</div></div>
       </div>
+      <div class="facts-note">Solar = car + house + grid. House excludes the car.</div>
     </div>
 
     <div class="panel modes">
@@ -206,22 +207,6 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
       </div>
       <div class="mode-desc" id="mode-desc"></div>
       <div class="mode-msg" id="mode-msg" aria-live="polite"></div>
-      <div class="override">
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="var(--import)" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="var(--import)"/></svg>
-        <div><strong>The charger button always wins.</strong> Press it, or START CHARGING in the EVSEMaster app, and the car charges at full 32 A whatever the sun is doing. The controller stays hands-off until that charge ends or the car is unplugged.</div>
-      </div>
-    </div>
-  </section>
-
-  <section class="panel">
-    <div class="panel-head">
-      <h2>The daily plan</h2>
-      <span class="note">What Auto does across 24 hours</span>
-    </div>
-    <div class="strip">
-      <div class="op" id="w-offpeak">12 am – 6 am<span>Full rate, 8c off-peak</span></div>
-      <div class="day" id="w-day">6 am – 9 pm<span>Follow spare solar, pause below 1.4 kW</span></div>
-      <div class="ev" id="w-evening">9 pm<span>Off</span></div>
     </div>
   </section>
 
@@ -243,14 +228,6 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
 
   <section class="panel">
     <div class="panel-head">
-      <h2>What the controller decided today</h2>
-      <span class="note">Newest first · every change with the reason</span>
-    </div>
-    <div class="log" id="log"><div class="empty">Loading…</div></div>
-  </section>
-
-  <section class="panel">
-    <div class="panel-head">
       <h2>Solar charging outlook</h2>
       <span class="note" id="outlook-note">Next 5 days · Open-Meteo forecast for Dromana</span>
     </div>
@@ -259,6 +236,26 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
       <summary>How the score works</summary>
       <p>Each day's score out of 10 starts with the total sunlight forecast for the day, measured against a clear late-spring day in Dromana (about 7.8 kWh per m²). Patchy cloud then takes up to 3 points off, because cloud coming and going makes the charger pause and restart. Storms take off one more. Estimated generation assumes your 13.2 kW of panels turn about 65% of the forecast sunlight into power, allowing for panel angle, heat and the 10 kW inverter limit.</p>
     </details>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>What the controller decided today</h2>
+      <span class="note">Newest first · every change with the reason</span>
+    </div>
+    <div class="log" id="log"><div class="empty">Loading…</div></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>The daily plan</h2>
+      <span class="note">What Auto does across 24 hours</span>
+    </div>
+    <div class="strip">
+      <div class="op" id="w-offpeak">12 am – 6 am<span>Full rate, 8c off-peak</span></div>
+      <div class="day" id="w-day">6 am – 9 pm<span>Follow spare solar, pause below 1.4 kW</span></div>
+      <div class="ev" id="w-evening">9 pm<span>Off</span></div>
+    </div>
   </section>
 
   <p class="foot" id="foot">Live data from the controller on the Pi, refreshed every 30 seconds. Solar is read straight from the inverter; house use comes from GoodWe's cloud and runs a few minutes behind. Rates: AGL Night Saver EV, 26.5c peak, 8c off-peak, 1.5c feed-in.</p>
@@ -334,19 +331,24 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     let big, why;
     if (!plugged) { big = 'Nothing plugged in'; why = 'Plug in a car and it will charge on the next spare solar, or from midnight.'; }
     else if (c.state === 'charging' && watts > 200) {
-      big = L.override ? 'Full charge (manual)' : L.window === 'offpeak' ? 'Charging, off-peak' : 'Charging on solar';
+      big = L.override ? 'Car charging, full rate' : L.window === 'offpeak' ? 'Car charging, off-peak' : 'Car charging on solar';
       why = `${kw(watts)} kW into the car. ${ex.text}.`;
     } else if (c.state === 'charging') { big = 'Car is not drawing'; why = 'A charge is open but the car is taking nothing. It is probably full.'; }
     else if (c.state === 'complete' || c.state === 'full') { big = 'Car is full'; why = ex.text + '.'; }
-    else { big = 'Plugged in, waiting'; why = ex.text + '.'; }
+    else { big = 'Car plugged in, waiting'; why = ex.text + '.'; }
     $('state-big').textContent = big; $('state-why').textContent = why;
     $('now-label').textContent = 'Right now · ' + (L.ts ? fmtTime(L.ts) : '');
-    $('f-car').textContent = plugged ? (stateWords[c.state] || 'Ready') : 'Unplugged';
     $('f-power').innerHTML = `${kw(watts)}<small> kW</small>`;
-    $('f-limit').innerHTML = `${L.limit_a ?? '–'}<small> A</small>`;
     const pv = L.pv_live_w != null ? L.pv_live_w : (L.pv_kw != null ? L.pv_kw * 1000 : null);
     $('f-solar').innerHTML = `${kw(pv)}<small> kW</small>`;
-    $('f-house').innerHTML = `${L.home_kw != null ? (+L.home_kw).toFixed(1) : '–'}<small> kW</small>`;
+    // House excluding the car: the controller's own figure by day, else SEMS load minus the car
+    const houseW = L.house_w != null ? L.house_w : (L.home_kw != null ? Math.max(0, L.home_kw * 1000 - watts) : null);
+    $('f-house').innerHTML = `${kw(houseW)}<small> kW</small>`;
+    if (pv != null && houseW != null) {
+      const g = pv - houseW - watts;   // + export, - import
+      const dir = Math.abs(g) < 50 ? '' : g > 0 ? ' export' : ' import';
+      $('f-grid').innerHTML = `<span style="color:${g >= 50 ? 'var(--export)' : g <= -50 ? 'var(--import)' : 'inherit'}">${kw(Math.abs(g))}</span><small> kW${dir}</small>`;
+    } else { $('f-grid').innerHTML = '–'; }
     // window highlight
     ['w-offpeak','w-day','w-evening'].forEach(id => $(id).classList.toggle('now', id === 'w-' + L.window));
     // status pill
@@ -372,12 +374,27 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
 
   function renderLog(list){
     if (!list || !list.length) { $('log').innerHTML = '<div class="empty">No decisions logged yet today.</div>'; return; }
-    $('log').innerHTML = list.slice().reverse().map(x => {
+    // Merge runs of the same kind of decision (e.g. a stream of solar adjustments) into one line
+    const groups = [];
+    list.forEach(x => {
       const ex = explain(x.reason);
-      const finished = x.state === 'complete' || x.state === 'full';
-      const tag = finished && !x.target_a ? {tag:'Finished',cls:'pause'} : ex;
-      return `<div class="row"><span class="t">${esc(fmtTime(x.ts))}</span><span class="tag ${tag.cls}">${esc(tag.tag)}</span><span class="r">${esc(ex.text)}</span><span class="a">${x.target_a ? x.target_a + ' A' : '–'}</span></div>`;
-    }).join('');
+      const finished = (x.state === 'complete' || x.state === 'full') && !x.target_a;
+      const tag = finished ? {tag:'Finished',cls:'pause'} : ex;
+      const g = groups[groups.length - 1];
+      if (g && g.tag === tag.tag) {
+        g.end = x.ts; g.last = ex.text;
+        if (x.target_a) { g.min = Math.min(g.min ?? x.target_a, x.target_a); g.max = Math.max(g.max ?? x.target_a, x.target_a); }
+        g.n++;
+      } else {
+        groups.push({ start: x.ts, end: x.ts, tag: tag.tag, cls: tag.cls, last: ex.text, min: x.target_a || null, max: x.target_a || null, n: 1 });
+      }
+    });
+    const text = g => g.n > 1 && g.tag === 'Solar' ? 'Following spare solar as it changed' : g.n > 1 && g.tag === 'Cloud' ? 'Easing at the minimum through cloud' : g.last;
+    const amps = g => !g.max ? '–' : g.min === g.max ? g.max + ' A' : `${g.min}–${g.max} A`;
+    const when = g => g.n > 1 && fmtTime(g.start) !== fmtTime(g.end) ? `${fmtTime(g.start)}` : fmtTime(g.start);
+    $('log').innerHTML = groups.slice(-30).reverse().map(g =>
+      `<div class="row"><span class="t">${esc(when(g))}</span><span class="tag ${g.cls}">${esc(g.tag)}</span><span class="r">${esc(text(g))}${g.n > 1 ? ` <span class="note">until ${esc(fmtTime(g.end))}</span>` : ''}</span><span class="a">${amps(g)}</span></div>`
+    ).join('');
   }
 
   function renderChart(series){

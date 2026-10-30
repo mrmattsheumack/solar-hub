@@ -191,6 +191,8 @@ class Controller:
         self.session_owner = None
         self.pv_source = None
         self.house_source = None
+        self.last_house_w = None   # house load excluding the car (what the controller nets out)
+        self.last_pv_w = None
 
     def window(self, now):
         if CFG["offpeak_start"] <= now.hour < CFG["offpeak_end"]:
@@ -216,6 +218,7 @@ class Controller:
         pv_w = self.inverter.pv_w if live else (d["pvPower"] if sems_ok else 0)
         self.pv_source = "inverter" if live else "sems"
         spare_w = pv_w - house_w - CFG["headroom_w"]
+        self.last_house_w, self.last_pv_w = round(house_w), round(pv_w)
         return spare_w, max(0, math.floor(spare_w / volts))
 
     async def act(self, what, fn):
@@ -330,7 +333,8 @@ class Controller:
         row = {
             "ts": now.isoformat(timespec="seconds"), "dry_run": DRY_RUN, "mode": mode, "window": win,
             "pv_kw": round(d["pvPower"] / 1000, 3) if d.get("pvPower") is not None else None,
-            "pv_live_w": self.inverter.pv_w if hasattr(self, "inverter") else None, "pv_source": self.pv_source, "house_source": self.house_source, "home_kw": round(d["homePower"] / 1000, 3) if d.get("homePower") is not None else None,
+            "pv_live_w": self.inverter.pv_w if hasattr(self, "inverter") else None, "pv_source": self.pv_source, "house_source": self.house_source,
+            "house_w": self.last_house_w if win == "day" else None, "home_kw": round(d["homePower"] / 1000, 3) if d.get("homePower") is not None else None,
             "export_kw": round(d.get("exportPower", 0) / 1000, 3), "import_kw": round(d.get("importPower", 0) / 1000, 3),
             "solar_age_s": int(time.time() - self.solar.ok_at) if self.solar.ok_at else None,
             "charger": st, "limit_a": self.charger.limit if self.charger.evse else None,

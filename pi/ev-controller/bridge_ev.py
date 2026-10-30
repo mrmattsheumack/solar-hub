@@ -100,7 +100,7 @@ def ev_state():
         "latest": latest,
         "mode": _ev_mode(),
         "series": series,
-        "decisions": decisions[-40:],
+        "decisions": decisions[-600:],
         "totals": {k: round(v, 2) for k, v in totals.items()},
         "server_time": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
     })
