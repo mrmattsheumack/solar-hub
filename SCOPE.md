@@ -163,6 +163,25 @@ Decisions agreed with Matt:
   >= 55 km/h, solar left vs car plugged in, tomorrow's solar after 5pm, high UV,
   Pi unreachable). Max three shown.
 
+Revision 2 (2026-10-30, Matt's feedback):
+- Basemap moved from CARTO to Esri Canvas (dark grey base plus a labels layer
+  above the radar). CARTO stopped serving keyless tiles in 2026; they come back
+  watermarked "API KEY REQUIRED", which made the radar look broken.
+- Weather tile retitled "Weather" (title is ready to link to a detail page via
+  WX_DETAIL_URL). Outside and inside temps shown at the same size. Shows
+  feels like, humidity, next-12-hour high/low with times, wind, rain today, UV.
+  Removed: pressure, monthly rain, dew point, sunlight W/m2. The gust warning
+  (>= 55 km/h in the next 12 h) lives in this tile, not the header.
+- Today chart removed. "Energy now" replaced by an Energy flow diagram (solar,
+  grid, house, car, animated direction, % of solar going each way) and a
+  "Today's electricity" tile with two donuts: where it came from (solar, grid
+  off-peak, grid peak, with cost) and where it went (house, car, exported).
+  Totals come from the controller's 5-minute series. Allocation: solar serves
+  the house first, then the car, the rest is exported.
+- Excess solar alert: live spare solar >= 1.4 kW (one 6 A charge) with no car
+  charging, sustained for 30 min in the 5-minute series, shows "Excess solar -
+  Suggest Car Charging" in the flow tile and the header.
+
 Function changes made for it (2026-10-30):
 - `ecowitt.js`: zero readings are now 0 instead of null; reads the WS90's
   `rainfall_piezo` block (falls back to `rainfall`); adds feels like, dew point,

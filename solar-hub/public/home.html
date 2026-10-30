@@ -21,7 +21,7 @@
   --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
   --text:#ecedf5; --text-muted:#8890a8; --text-dim:#5a6178;
   --solar:#f5a623; --export:#00d4a6; --import:#ff5470; --import-soft:rgba(255,84,112,.45);
-  --home:#7ba3f7; --car:#00d4a6; --rain:#4fb3ff; --offpeak:rgba(123,163,247,.08);
+  --home:#7ba3f7; --car:#00d4a6; --gridout:#b18cff; --rain:#4fb3ff; --offpeak:rgba(123,163,247,.08);
   --warn:#f5a623; --ok:#00d4a6;
   --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
   --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
@@ -33,7 +33,7 @@
   --border:rgba(0,0,0,.08); --border-strong:rgba(0,0,0,.16);
   --text:#1b1f2a; --text-muted:#6b7286; --text-dim:#9aa0b4;
   --solar:#d9890a; --export:#00a383; --import:#e0304f; --import-soft:rgba(224,48,79,.4);
-  --home:#4a76d8; --car:#00a383; --rain:#1f7fd1; --offpeak:rgba(74,118,216,.07);
+  --home:#4a76d8; --car:#00a383; --gridout:#7c4dde; --rain:#1f7fd1; --offpeak:rgba(74,118,216,.07);
   --warn:#c77a00; --ok:#00a383; color-scheme:light;
 }
 *{box-sizing:border-box}
@@ -50,7 +50,7 @@ button{font:inherit;color:inherit}
   padding:calc(var(--gap) + env(safe-area-inset-top,0px)) max(var(--gap),env(safe-area-inset-right,0px)) calc(var(--gap) + env(safe-area-inset-bottom,0px)) max(var(--gap),env(safe-area-inset-left,0px));
   grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) minmax(0,1fr);
   grid-template-rows:auto minmax(0,1.12fr) minmax(0,1fr);
-  grid-template-areas:"head head head" "wx radar energy" "today today fc";
+  grid-template-areas:"head head head" "wx radar flow" "mix mix fc";
   transition:transform 2s ease}
 
 /* ---------- header ---------- */
@@ -91,14 +91,16 @@ button{font:inherit;color:inherit}
 .card-link:hover{color:var(--text)}
 .empty{color:var(--text-muted);font-size:14px;margin:auto;text-align:center;padding:10px}
 
-/* ---------- outside (WS90) ---------- */
+/* ---------- weather (WS90 + next 12 h) ---------- */
 .wx{grid-area:wx}
-.wx-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
-.temp{font-family:var(--mono);font-size:clamp(52px,5.4vw,92px);font-weight:500;letter-spacing:-.05em;line-height:.9}
-.temp sup{font-size:.42em;letter-spacing:0;vertical-align:.95em;margin-left:2px;color:var(--text-muted)}
-.wx-sub{text-align:right;color:var(--text-muted);font-size:14px;display:flex;flex-direction:column;gap:2px}
+.wx-title{color:inherit;text-decoration:none}
+.temps{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tblock .label{margin-bottom:4px}
+.temp{font-family:var(--mono);font-size:clamp(44px,4.4vw,78px);font-weight:500;letter-spacing:-.05em;line-height:.95;white-space:nowrap}
+.temp sup{font-size:.4em;letter-spacing:0;vertical-align:1em;margin-left:2px;color:var(--text-muted)}
+.wx-sub{color:var(--text-muted);font-size:14px;display:flex;gap:14px;flex-wrap:wrap}
 .wx-sub b{color:var(--text);font-weight:500;font-family:var(--mono)}
-.facts{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:minmax(0,1fr);gap:8px;flex:1;min-height:0;max-height:260px}
+.facts{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:minmax(0,1fr);gap:8px;flex:1;min-height:0;max-height:240px}
 .fact{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;min-width:0}
 .fact .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
 .fact .v{font-family:var(--mono);font-size:clamp(16px,1.35vw,21px);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -107,6 +109,10 @@ button{font:inherit;color:inherit}
 .fact-body{min-width:0;flex:1}
 .compass{width:42px;height:42px;flex:none}
 .raining{color:var(--rain)}
+.hi{color:var(--import)} .lo{color:var(--home)}
+.wx-alert{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;font-size:13px;
+  background:color-mix(in srgb,var(--home) 12%,transparent);border:1px solid color-mix(in srgb,var(--home) 35%,transparent)}
+.wx-alert i{width:8px;height:8px;border-radius:50%;background:var(--home);flex:none}
 
 /* ---------- radar ---------- */
 .radar{grid-area:radar;padding:0}
@@ -130,41 +136,44 @@ button{font:inherit;color:inherit}
 .legend span{display:block;width:70px;height:6px;border-radius:3px;
   background:linear-gradient(90deg,#88ddee,#0099cc,#0077aa,#005588,#ffee00,#ffaa00,#ff4400,#c10000)}
 
-/* ---------- energy now ---------- */
-.energy{grid-area:energy}
-.flows{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.flow{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;border-left:3px solid var(--c,var(--border-strong));min-width:0}
-.flow .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
-.flow .v{font-family:var(--mono);font-size:clamp(22px,2.1vw,34px);font-weight:500;letter-spacing:-.03em;line-height:1.15}
-.flow .v small{font-size:.45em;color:var(--text-muted);letter-spacing:0;margin-left:3px}
-.flow .s{font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.split{display:flex;flex-direction:column;gap:6px}
+/* ---------- energy flow ---------- */
+.flowcard{grid-area:flow}
+.flow-svg{flex:1;min-height:0;width:100%}
+.flow-svg text{font-family:var(--sans)}
+.flow-svg .num{font-family:var(--mono);font-weight:500}
+.wire{fill:none;stroke-linecap:round}
+.wire.bg{stroke:var(--surface-3)}
+.wire.live{stroke-dasharray:3 9;animation:flow 1.1s linear infinite}
+.wire.rev{animation-direction:reverse}
+@keyframes flow{to{stroke-dashoffset:-12}}
+.split{display:flex;flex-direction:column;gap:6px;flex:none}
 .split-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--surface-3)}
 .split-bar i{display:block;height:100%;transition:width .6s ease}
 .split-leg{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--text-muted)}
 .split-leg span{display:flex;align-items:center;gap:5px}
 .split-leg span::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--c)}
-.chips{display:flex;gap:6px;flex-wrap:wrap}
-.chip{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);white-space:nowrap}
-.chip b{color:var(--text);font-weight:600}
-.chip.live{border-color:color-mix(in srgb,var(--car) 50%,transparent);color:var(--car)}
-.chip.over{border-color:color-mix(in srgb,var(--solar) 50%,transparent);color:var(--solar)}
-.totals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:auto}
-.tot .k{font-size:11px;color:var(--text-muted)}
-.tot .v{font-family:var(--mono);font-size:clamp(16px,1.4vw,22px);font-weight:500}
-.tot .v small{font-size:.6em;color:var(--text-muted);margin-left:2px}
+.split-leg b{color:var(--text);font-family:var(--mono);font-weight:500}
+.excess{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;flex:none;
+  background:color-mix(in srgb,var(--solar) 16%,transparent);border:1px solid color-mix(in srgb,var(--solar) 55%,transparent);animation:pulse 2.4s ease-in-out infinite}
+.excess svg{width:26px;height:26px;flex:none}
+.excess b{display:block;font-size:15px;color:var(--solar)}
+.excess span{font-size:12px;color:var(--text-muted)}
+@keyframes pulse{50%{border-color:color-mix(in srgb,var(--solar) 20%,transparent)}}
+.chip.over{font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid color-mix(in srgb,var(--solar) 50%,transparent);color:var(--solar);align-self:flex-start}
 
-/* ---------- today chart ---------- */
-.today{grid-area:today}
-.today-stats{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--text-muted)}
-.today-stats b{font-family:var(--mono);color:var(--text);font-weight:500;font-size:15px}
-.chart-wrap{flex:1;min-height:0;position:relative}
-.chart-wrap svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-.chart-leg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-muted);flex:none}
-.chart-leg span{display:flex;align-items:center;gap:6px}
-.chart-leg i{width:14px;height:3px;border-radius:2px;background:var(--c)}
-.chart-leg i.dash{background:repeating-linear-gradient(90deg,var(--c) 0 4px,transparent 4px 7px)}
-.chart-leg i.bar{width:8px;height:10px;border-radius:2px;opacity:.6}
+/* ---------- today's mix (two donuts) ---------- */
+.mix{grid-area:mix}
+.pies{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:var(--gap)}
+.pie{display:grid;grid-template-columns:minmax(110px,44%) 1fr;align-items:center;gap:14px;min-width:0;min-height:0}
+.pie h3{grid-column:1/-1;margin:0;font-size:14px;font-weight:600}
+.pie svg{width:100%;max-height:100%;aspect-ratio:1}
+.pie-leg{display:flex;flex-direction:column;gap:8px;min-width:0}
+.pie-leg div{display:grid;grid-template-columns:10px 1fr auto;gap:8px;align-items:baseline;font-size:13px}
+.pie-leg i{width:10px;height:10px;border-radius:3px;background:var(--c);align-self:center}
+.pie-leg span{color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pie-leg b{font-family:var(--mono);font-weight:500;white-space:nowrap}
+.pie-leg b small{color:var(--text-muted);font-weight:400;margin-left:6px}
+.pie-leg .sub{grid-column:2/-1;font-size:11px;color:var(--text-dim);margin-top:-6px}
 
 /* ---------- forecast ---------- */
 .fc{grid-area:fc}
@@ -186,8 +195,7 @@ button{font:inherit;color:inherit}
 
 @media (max-height:880px) and (min-width:1001px){
   :root{--pad:14px;--gap:10px}
-  .temp{font-size:clamp(48px,4.6vw,72px)}
-  .flow{padding:8px 10px} .flow .v{font-size:clamp(20px,1.9vw,28px)}
+  .temp{font-size:clamp(40px,4vw,64px)}
   .fact{padding:8px 10px} .card{gap:10px}
   .hr svg{width:26px;height:28px} .day{padding:3px 4px}
 }
@@ -200,16 +208,17 @@ body.dimmed .dim{opacity:.62}
 @media (max-width:1000px), (max-height:560px) and (max-width:1200px){
   body{overflow:auto}
   .screen{height:auto;grid-template-columns:1fr 1fr;grid-template-rows:auto;
-    grid-template-areas:"head head" "wx energy" "radar radar" "today today" "fc fc"}
-  .radar{min-height:420px} .today{min-height:320px}
+    grid-template-areas:"head head" "wx flow" "radar radar" "mix mix" "fc fc"}
+  .radar{min-height:420px} .flowcard{min-height:420px} .mix{min-height:300px}
   .head{flex-wrap:wrap} .head-mid{order:3;flex-basis:100%;justify-content:flex-start}
   .notes{height:auto;justify-content:flex-start} .note{white-space:normal;height:auto;padding:8px 14px}
 }
 @media (max-width:640px){
-  .screen{grid-template-columns:1fr;grid-template-areas:"head" "wx" "energy" "radar" "today" "fc"}
+  .screen{grid-template-columns:1fr;grid-template-areas:"head" "wx" "flow" "radar" "mix" "fc"}
+  .pies{grid-template-columns:1fr}
   .head{flex-wrap:wrap} .dots{display:none}
 }
-@media (prefers-reduced-motion:reduce){ .screen,.split-bar i,.dim{transition:none} }
+@media (prefers-reduced-motion:reduce){ .screen,.split-bar i,.dim{transition:none} .wire.live,.excess{animation:none} }
 </style>
 </head>
 <body>
@@ -237,10 +246,11 @@ body.dimmed .dim{opacity:.62}
     </div>
   </header>
 
-  <!-- ===== outside: WS90 ===== -->
+  <!-- ===== weather: WS90 + next 12 h ===== -->
   <section class="card wx" aria-labelledby="wx-h">
-    <div class="card-head"><h2 id="wx-h">Outside now</h2><span class="meta" id="wx-meta">Ecowitt WS90</span></div>
-    <div id="wx-body" class="wx-body" style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
+    <!-- The title becomes a link to a detailed weather page later: set WX_DETAIL_URL in the script. -->
+    <div class="card-head"><h2 id="wx-h"><a class="wx-title" id="wx-title">Weather</a></h2><span class="meta" id="wx-meta">Ecowitt WS90</span></div>
+    <div id="wx-body" style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
       <div class="empty">Waiting for the weather station…</div>
     </div>
   </section>
@@ -264,28 +274,18 @@ body.dimmed .dim{opacity:.62}
     </div>
   </section>
 
-  <!-- ===== energy now ===== -->
-  <section class="card energy" aria-labelledby="en-h">
-    <div class="card-head"><h2 id="en-h">Energy now</h2><a class="card-link" href="ev.html"><span id="en-mode"></span>Charging ›</a></div>
-    <div id="en-body" style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
+  <!-- ===== energy flow ===== -->
+  <section class="card flowcard" aria-labelledby="flow-h">
+    <div class="card-head"><h2 id="flow-h">Energy flow</h2><a class="card-link" href="ev.html"><span id="en-mode"></span>Charging ›</a></div>
+    <div id="flow-body" style="display:flex;flex-direction:column;gap:10px;flex:1;min-height:0">
       <div class="empty">Waiting for solar and charger data…</div>
     </div>
   </section>
 
-  <!-- ===== today chart ===== -->
-  <section class="card today" aria-labelledby="today-h">
-    <div class="card-head">
-      <h2 id="today-h">Today · solar, house and car</h2>
-      <div class="today-stats" id="today-stats"></div>
-    </div>
-    <div class="chart-wrap" id="chart"><div class="empty">Building today's chart…</div></div>
-    <div class="chart-leg">
-      <span><i style="--c:var(--solar)"></i>Solar</span>
-      <span><i class="dash" style="--c:var(--solar)"></i>Solar forecast</span>
-      <span><i style="--c:var(--home)"></i>House</span>
-      <span><i style="--c:var(--car)"></i>Car</span>
-      <span><i class="bar" style="--c:var(--rain);background:var(--rain)"></i>Chance of rain</span>
-    </div>
+  <!-- ===== today's mix ===== -->
+  <section class="card mix" aria-labelledby="mix-h">
+    <div class="card-head"><h2 id="mix-h">Today's electricity</h2><span class="meta" id="mix-meta">since midnight</span></div>
+    <div class="pies" id="pies"><div class="empty">Adding up today…</div></div>
   </section>
 
   <!-- ===== forecast ===== -->
@@ -455,7 +455,9 @@ body.dimmed .dim{opacity:.62}
     }
   }
 
-  // ---------- render: weather station ----------
+  // ---------- render: weather tile ----------
+  // Set this when the detailed weather page exists; the tile title becomes a link.
+  const WX_DETAIL_URL = '';
   const CARD = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
   const cardinal = deg => has(deg) ? CARD[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16] : '';
   const uvLabel = u => !has(u) ? '' : u < 3 ? 'Low' : u < 6 ? 'Moderate' : u < 8 ? 'High' : u < 11 ? 'Very high' : 'Extreme';
@@ -463,115 +465,173 @@ body.dimmed .dim{opacity:.62}
   const compass = deg => `<svg class="compass" viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="19" fill="none" stroke="var(--border-strong)" stroke-width="1.5"/>
     <text x="21" y="8.5" text-anchor="middle" font-size="7" font-weight="600" fill="var(--text-dim)" font-family="var(--sans)">N</text>
     ${has(deg) ? `<g transform="rotate(${deg + 180} 21 21)"><path d="M21 7l6 14h-12z" fill="var(--home)"/><rect x="19.6" y="19" width="2.8" height="15" rx="1.4" fill="var(--home)"/></g>` : ''}</svg>`;
+  const GUST_ALERT = 55;   // km/h
+  // Highest and lowest forecast temperature over the next 12 hours, with when
+  function next12Range() {
+    const hs = nextHours(13).slice(1);
+    if (!hs.length) return null;
+    const hi = hs.reduce((a, h) => h.temperature > a.temperature ? h : a), lo = hs.reduce((a, h) => h.temperature < a.temperature ? h : a);
+    return { hi: hi.temperature, hiAt: ampm(fcHour(hi.time)), lo: lo.temperature, loAt: ampm(fcHour(lo.time)) };
+  }
+  function maxGust12() {
+    const hs = nextHours(12);
+    let best = { v: S.wx?.windGust || 0, at: 'now' };
+    hs.forEach(h => { if ((h.windGust || 0) > best.v) best = { v: h.windGust, at: ampm(fcHour(h.time)) }; });
+    return best;
+  }
   function renderWx() {
     const w = S.wx, box = $('wx-body');
+    if (WX_DETAIL_URL) { $('wx-title').href = WX_DETAIL_URL; }
     if (!w) { if (failed.wx) box.innerHTML = '<div class="empty">Weather station not reachable right now.</div>'; return; }
-    const raining = has(w.rainRate) && w.rainRate > 0;
+    const raining = has(w.rainRate) && w.rainRate > 0, r12 = next12Range(), gust = maxGust12();
     const fact = (k, v, s = '', extra = '') => `<div class="fact">${extra}<div class="fact-body"><div class="k">${k}</div><div class="v">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div></div>`;
     box.innerHTML = `
-      <div class="wx-hero">
-        <div class="temp">${f1(w.temperature)}<sup>°C</sup></div>
-        <div class="wx-sub">
-          ${has(w.feelsLike) ? `<span>Feels like <b>${f1(w.feelsLike)}°</b></span>` : ''}
-          <span>Humidity <b>${f0(w.humidity)}%</b></span>
-          ${has(w.dewPoint) ? `<span>Dew point <b>${f1(w.dewPoint)}°</b></span>` : ''}
-          ${has(w.indoorTemp) ? `<span>Inside <b>${f1(w.indoorTemp)}°</b></span>` : ''}
-        </div>
+      <div class="temps">
+        <div class="tblock"><div class="label">Outside</div><div class="temp">${f1(w.temperature)}<sup>°</sup></div></div>
+        <div class="tblock"><div class="label">Inside</div><div class="temp">${f1(w.indoorTemp)}<sup>°</sup></div></div>
+      </div>
+      <div class="wx-sub">
+        ${has(w.feelsLike) ? `<span>Feels like <b>${f1(w.feelsLike)}°</b></span>` : ''}
+        <span>Humidity <b>${f0(w.humidity)}%</b></span>
       </div>
       <div class="facts">
+        ${fact('Next 12 hours', r12 ? `<span class="hi">${f0(r12.hi)}°</span> <small>/</small> <span class="lo">${f0(r12.lo)}°</span>` : '--', r12 ? `High ${r12.hiAt} · Low ${r12.loAt}` : 'Forecast loading')}
         ${fact('Wind', `${f0(w.windSpeed)}<small>km/h</small>`, [cardinal(w.windDirection), has(w.windGust) ? `gust ${f0(w.windGust)}` : ''].filter(Boolean).join(' · '), compass(w.windDirection))}
         ${fact('Rain today', `<span class="${raining ? 'raining' : ''}">${f1(w.rainDaily ?? 0)}</span><small>mm</small>`, raining ? `<span class="raining">Raining ${f1(w.rainRate)} mm/h</span>` : (has(w.rainWeekly) ? `${f1(w.rainWeekly)} mm this week` : 'Dry right now'))}
-        ${fact('Sunlight', `${f0(w.solarIrradiance ?? 0)}<small>W/m²</small>`, has(w.uvi) ? `UV ${f1(w.uvi)} · ${uvLabel(w.uvi)}` : '')}
-        ${fact('Pressure', `${f0(w.pressure)}<small>hPa</small>`, has(w.rainMonthly) ? `${f0(w.rainMonthly)} mm rain this month` : '')}
-      </div>`;
+        ${fact('UV', `${has(w.uvi) ? f1(w.uvi) : '--'}`, has(w.uvi) ? uvLabel(w.uvi) : '')}
+      </div>
+      ${gust.v >= GUST_ALERT ? `<div class="wx-alert"><i></i>Gusty, up to ${Math.round(gust.v)} km/h in the next 12 hours${gust.at !== 'now' ? ` (around ${gust.at})` : ''}</div>` : ''}`;
     const t = w.stationTime ? new Date(w.stationTime) : (at.wx ? new Date(at.wx) : null);
     $('wx-meta').textContent = t ? `WS90 · ${clock(t)}` : 'Ecowitt WS90';
   }
 
-  // ---------- render: energy now ----------
-  const STATE_TXT = { charging: 'Charging', ready: 'Plugged in, waiting', complete: 'Session finished', full: 'Car full',
+  // ---------- energy accounting ----------
+  // Solar serves the house first; the controller only gives the car what's spare, then the rest is exported.
+  function allocate(pv, house, car) {
+    pv = Math.max(0, pv || 0); house = Math.max(0, house || 0); car = Math.max(0, car || 0);
+    const sHouse = Math.min(pv, house), sCar = Math.min(pv - sHouse, car), exp = pv - sHouse - sCar;
+    return { sHouse, sCar, exp, gHouse: house - sHouse, gCar: car - sCar };
+  }
+  // Excess solar: export of at least one minimum charge (6 A, about 1.4 kW) with no car charging,
+  // sustained for 30 minutes. Uses the controller's 5-minute series so a page reload doesn't reset it.
+  const EXCESS_W = 1400, EXCESS_MIN = 30;
+  function excessSolar() {
+    const e = energyNow();
+    const liveSpare = has(e.pv) && e.house != null ? e.pv - e.house - e.car : null;
+    if (liveSpare == null || liveSpare < EXCESS_W || e.car > 200) return null;
+    const ser = S.ev?.series || [];
+    let mins = 0, sum = 0;
+    for (let i = ser.length - 1; i >= 0; i--) {
+      const b = ser[i], spare = b.pv - b.home;            // home includes the car
+      if (spare >= EXCESS_W && b.car < 200) { mins += 5; sum += spare; } else break;
+    }
+    return mins >= EXCESS_MIN ? { mins, kw: liveSpare / 1000, avg: sum / (mins / 5) / 1000 } : null;
+  }
+  // Today's totals from the 5-minute series (kWh)
+  function todayTotals() {
+    const ser = S.ev?.series || [];
+    if (!ser.length) return null;
+    const T = { solarUsed: 0, gridOff: 0, gridPeak: 0, house: 0, car: 0, exp: 0, pv: 0 };
+    const hrs = 5 / 60, nowH = mel().hf;
+    ser.forEach((b, i) => {
+      const h = +b.t.slice(0, 2) + +b.t.slice(3, 5) / 60;
+      const dt = i === ser.length - 1 ? Math.max(0, Math.min(hrs, nowH - h)) : hrs;   // last bucket is still filling
+      const pv = b.pv / 1000, car = b.car / 1000, house = Math.max(0, b.home - b.car) / 1000;
+      const a = allocate(pv, house, car), grid = a.gHouse + a.gCar;
+      T.pv += pv * dt; T.solarUsed += (a.sHouse + a.sCar) * dt; T.exp += a.exp * dt;
+      T.house += house * dt; T.car += car * dt;
+      if (h < 6) T.gridOff += grid * dt; else T.gridPeak += grid * dt;
+    });
+    return T;
+  }
+
+  // ---------- render: energy flow diagram ----------
+  const ICON = {
+    sun: '<circle r="7" fill="var(--solar)"/>' + [0, 45, 90, 135, 180, 225, 270, 315].map(a => { const t = a * Math.PI / 180; return `<line x1="${(Math.cos(t) * 10).toFixed(1)}" y1="${(Math.sin(t) * 10).toFixed(1)}" x2="${(Math.cos(t) * 14).toFixed(1)}" y2="${(Math.sin(t) * 14).toFixed(1)}" stroke="var(--solar)" stroke-width="2.2" stroke-linecap="round"/>`; }).join(''),
+    grid: '<path d="M-6 14L0-13L6 14M-9-6h18M-11 2h22M-3 6l6-6M3 6l-6-6" fill="none" stroke="var(--text)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>',
+    house: '<path d="M-12 1L0-11L12 1M-8-2v13h16V-2" fill="none" stroke="var(--home)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/><rect x="-2.5" y="4" width="5" height="7" fill="var(--home)"/>',
+    car: '<path d="M-13 5v-4l3-7h20l3 7v4z" fill="none" stroke="var(--car)" stroke-width="2.2" stroke-linejoin="round"/><circle cx="-7" cy="7" r="3" fill="var(--car)"/><circle cx="7" cy="7" r="3" fill="var(--car)"/>',
+  };
+  const STATE_TXT = { charging: 'Charging', ready: 'Plugged in', complete: 'Session finished', full: 'Car full',
     not_connected: 'Not plugged in', wait_button: 'Waiting for button', wait_swipe: 'Waiting for card', reserved: 'Scheduled', fault: 'Charger fault' };
-  function renderEnergy() {
-    const box = $('en-body');
+  function renderFlow() {
+    const box = $('flow-body');
     if (!S.ev && !S.sems) { if (failed.ev && failed.sems) box.innerHTML = '<div class="empty">Solar and charger data unavailable right now.</div>'; return; }
     const e = energyNow(), L = e.L || {}, c = e.c;
-    const st = c.state, plugged = c.plug && c.plug !== 'unplugged';
-    const carSub = !S.ev ? 'Pi not reachable' :
-      st === 'charging' ? `${f0(c.amps)} A${L.override ? ' · manual, full rate' : L.window === 'offpeak' ? ' · off-peak' : ' · matching solar'}` :
-      (STATE_TXT[st] || (plugged ? 'Plugged in' : 'Not plugged in'));
-    const gridTxt = !has(e.grid) ? ['Grid', '--', ''] : e.grid >= 50 ? ['Exporting', kw(e.grid), 'var(--export)'] : e.grid <= -50 ? ['Importing', kw(-e.grid), 'var(--import)'] : ['Grid', '0.0', 'var(--border-strong)'];
-    // Where the solar is going right now: car first, then the house, the rest is exported
-    let split = '';
-    if (has(e.pv) && e.pv > 100) {
-      const toCar = Math.min(e.car, e.pv), toHouse = Math.min(e.house ?? 0, e.pv - toCar), toGrid = Math.max(0, e.pv - toCar - toHouse);
-      const pct = v => (v / e.pv * 100).toFixed(1) + '%';
-      split = `<div class="split"><div class="label">Where the solar is going</div>
-        <div class="split-bar"><i style="width:${pct(toCar)};background:var(--car)"></i><i style="width:${pct(toHouse)};background:var(--home)"></i><i style="width:${pct(toGrid)};background:var(--text-dim)"></i></div>
-        <div class="split-leg"><span style="--c:var(--car)">Car ${kw(toCar)}</span><span style="--c:var(--home)">House ${kw(toHouse)}</span><span style="--c:var(--text-dim)">Grid ${kw(toGrid)} kW</span></div></div>`;
-    } else {
-      split = `<div class="split"><div class="label">Solar</div><div class="split-leg">${mel().h >= 5 && mel().h < 21 ? 'Barely generating right now.' : 'Not generating overnight.'}${L.window === 'offpeak' ? ' Off-peak window, 8c until 6 am.' : ''}</div></div>`;
+    const pv = has(e.pv) ? e.pv : 0, house = e.house ?? 0, car = e.car || 0;
+    const a = allocate(pv, house, car);
+    // Grid direction: trust the live balance when we have the inverter reading, else SEMS
+    const net = has(e.pv) && e.house != null ? pv - house - car : (has(e.grid) ? e.grid : 0);
+    const imp = Math.max(0, -net), exp = Math.max(0, net);
+    const pct = v => pv > 100 ? Math.round(v / pv * 100) + '%' : '';
+    const W = 360, H = 252, hub = [180, 124];
+    const N = { solar: [180, 34], grid: [44, 124], house: [316, 124], car: [180, 214] };
+    const width = p => (2 + 5 * Math.min(1, p / 7000)).toFixed(1);
+    const wire = (from, to, p, col, rev) => {
+      const d = `M${from[0]},${from[1]} L${to[0]},${to[1]}`;
+      return `<path class="wire bg" d="${d}" stroke-width="6"/>` + (p >= 50 ? `<path class="wire live${rev ? ' rev' : ''}" d="${d}" stroke="${col}" stroke-width="${width(p)}"/>` : '');
+    };
+    const node = (k, pos, col, active) => `<g transform="translate(${pos[0]} ${pos[1]})"> <circle r="27" fill="var(--surface-2)" stroke="${active ? col : 'var(--border-strong)'}" stroke-width="2"/><g>${ICON[k]}</g></g>`;
+    const txt = (x, y, anchor, big, small, col = 'var(--text)') => `<text x="${x}" y="${y}" text-anchor="${anchor}"><tspan class="num" font-size="21" fill="${col}">${big}</tspan><tspan x="${x}" dy="17" font-size="13" fill="var(--text-muted)">${esc(small)}</tspan></text>`;
+    const gridCol = imp >= 50 ? 'var(--import)' : 'var(--gridout)';
+    const carState = !S.ev ? 'Pi not reachable' : c.state === 'charging' ? (L.override ? 'Manual, full rate' : L.window === 'offpeak' ? 'Off-peak charge' : 'Matching solar') : (STATE_TXT[c.state] || 'Not plugged in');
+    let s = '';
+    s += wire(N.solar, hub, pv, 'var(--solar)', false);
+    s += wire(hub, N.house, house, 'var(--home)', false);
+    s += wire(hub, N.car, car, 'var(--car)', false);
+    s += wire(N.grid, hub, Math.max(imp, exp), gridCol, exp >= 50);   // reverse = exporting
+    s += `<circle cx="${hub[0]}" cy="${hub[1]}" r="5" fill="var(--text-muted)"/>`;
+    s += node('sun', N.solar, 'var(--solar)', pv >= 50) + node('grid', N.grid, gridCol, imp >= 50 || exp >= 50) + node('house', N.house, 'var(--home)', house >= 50) + node('car', N.car, 'var(--car)', car >= 50);
+    s += txt(216, 32, 'start', `${kw(pv)} kW`, `Solar${e.pvSrc ? ' · ' + e.pvSrc : ''}`, 'var(--solar)');
+    s += txt(44, 172, 'middle', `${kw(imp >= 50 ? imp : exp)} kW`, imp >= 50 ? 'Importing' : exp >= 50 ? 'Exporting' : 'Grid idle', imp >= 50 ? 'var(--import)' : 'var(--text)');
+    s += txt(316, 172, 'middle', `${kw(house)} kW`, 'House');
+    s += txt(216, 212, 'start', `${kw(car)} kW`, carState);
+    // % of solar going each way, on the wires
+    const badge = (x, y, v, col) => v ? `<text x="${x}" y="${y}" text-anchor="middle" font-size="14" font-weight="600" fill="${col}" class="num">${v}</text>` : '';
+    if (pv > 100) {
+      s += badge(248, 114, pct(a.sHouse), 'var(--home)') + badge(200, 174, pct(a.sCar), 'var(--car)') + badge(112, 112, pct(a.exp), 'var(--gridout)');
     }
+    const solarLine = pv > 100
+      ? `<div class="split"><div class="split-bar"><i style="width:${(a.sHouse / pv * 100).toFixed(1)}%;background:var(--home)"></i><i style="width:${(a.sCar / pv * 100).toFixed(1)}%;background:var(--car)"></i><i style="width:${(a.exp / pv * 100).toFixed(1)}%;background:var(--gridout)"></i></div>
+         <div class="split-leg"><span style="--c:var(--home)">House <b>${pct(a.sHouse)}</b></span><span style="--c:var(--car)">Car <b>${pct(a.sCar)}</b></span><span style="--c:var(--gridout)">Grid <b>${pct(a.exp)}</b></span>${imp >= 50 ? `<span style="--c:var(--import)">Grid supplying <b>${Math.round(imp / Math.max(1, house + car) * 100)}%</b> of use</span>` : ''}</div></div>`
+      : `<div class="split"><div class="split-leg">${mel().h >= 5 && mel().h < 21 ? 'Barely generating right now.' : 'No solar overnight.'}${L.window === 'offpeak' ? ' Off-peak window, 8c until 6 am.' : ''}</div></div>`;
+    const ex = excessSolar();
+    const exBox = ex ? `<div class="excess" role="alert"><svg viewBox="-16 -16 32 32" aria-hidden="true">${ICON.sun}</svg><div><b>Excess solar - Suggest Car Charging</b><span>About ${ex.kw.toFixed(1)} kW spare for ${ex.mins >= 60 ? Math.floor(ex.mins / 60) + ' h ' + (ex.mins % 60 ? (ex.mins % 60) + ' min' : '') : ex.mins + ' min'}, going to the grid at 0.5c</span></div></div>` : '';
+    box.innerHTML = `<svg class="flow-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Live energy flow between solar, grid, house and car">${s}</svg>${solarLine}${L.override ? '<span class="chip over">Manual override, full rate until unplugged</span>' : ''}${exBox}`;
     const modeTxt = { auto: 'Auto', full: 'Full rate', off: 'Off' }[e.mode] || null;
     const winTxt = { day: 'solar window', offpeak: 'off-peak', evening: 'evening' }[L.window] || '';
     $('en-mode').textContent = modeTxt ? `${modeTxt}${winTxt ? ' · ' + winTxt : ''} · ` : '';
-    const chips = L.override ? '<span class="chip over">Manual override, full rate until unplugged</span>' : '';
-    const t = e.totals, gen = S.sems?.dailyGeneration;
-    box.innerHTML = `
-      <div class="flows">
-        <div class="flow" style="--c:var(--solar)"><div class="k">Solar</div><div class="v">${kw(e.pv)}<small>kW</small></div><div class="s">${e.pvSrc ? 'from ' + e.pvSrc : 'no reading'}</div></div>
-        <div class="flow" style="--c:var(--home)"><div class="k">House</div><div class="v">${kw(e.house)}<small>kW</small></div><div class="s">excluding the car</div></div>
-        <div class="flow" style="--c:var(--car)"><div class="k">Car</div><div class="v">${kw(e.car)}<small>kW</small></div><div class="s">${esc(carSub)}</div></div>
-        <div class="flow" style="--c:${gridTxt[2]}"><div class="k">${gridTxt[0]}</div><div class="v">${gridTxt[1]}<small>kW</small></div><div class="s">${S.sems ? 'SEMS, lags a few min' : 'SEMS not reachable'}</div></div>
-      </div>
-      ${split}
-      ${chips ? `<div class="chips">${chips}</div>` : ''}
-      <div class="totals">
-        <div class="tot"><div class="k">Generated today</div><div class="v">${has(gen) ? f1(gen) : '--'}<small>kWh</small></div></div>
-        <div class="tot"><div class="k">Into the car</div><div class="v">${f1(t.car_kwh)}<small>kWh</small></div></div>
-        <div class="tot"><div class="k">Car from solar</div><div class="v">${f1(t.car_solar_kwh)}<small>kWh</small></div></div>
-      </div>`;
   }
 
-  // ---------- render: today chart ----------
-  function renderToday() {
-    const wrap = $('chart'), series = S.ev?.series || [], hrs = todayHourly();
-    if (!series.length && !hrs.length) { if (failed.ev && failed.fc) wrap.innerHTML = '<div class="empty">No data for today yet.</div>'; return; }
-    const W = Math.max(300, wrap.clientWidth), H = Math.max(120, wrap.clientHeight);
-    const L = 34, R = 8, T = 8, B = 22, pw = W - L - R, ph = H - T - B;
-    const pts = series.map(p => ({ h: +p.t.slice(0, 2) + +p.t.slice(3, 5) / 60, pv: p.pv / 1000, car: p.car / 1000, house: Math.max(0, p.home - p.car) / 1000 }));
-    const fc = hrs.map(h => ({ h: fcHour(h.time), kw: fcKw(h.ghi), p: h.precipProbability || 0 }));
-    const top = Math.max(4, ...pts.map(p => Math.max(p.pv, p.car + 0.1, p.house)), ...fc.map(f => f.kw));
-    const ymax = Math.ceil(top / 2) * 2;
-    const x = h => L + pw * h / 24, y = v => T + ph - ph * Math.min(v, ymax) / ymax;
-    let s = '';
-    // off-peak band and grid
-    s += `<rect x="${x(0)}" y="${T}" width="${x(6) - x(0)}" height="${ph}" fill="var(--offpeak)"/>`;
-    for (let v = 0; v <= ymax; v += ymax > 8 ? 4 : 2) s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--border)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--text-dim)" font-family="var(--mono)">${v}</text>`;
-    [0, 3, 6, 9, 12, 15, 18, 21, 24].forEach(h => s += `<text x="${x(h)}" y="${H - 5}" text-anchor="middle" font-size="11" fill="var(--text-dim)" font-family="var(--sans)">${h === 24 ? '' : h === 0 ? '12a' : h === 12 ? '12p' : h < 12 ? h + 'a' : (h - 12) + 'p'}</text>`);
-    s += `<text x="${L - 6}" y="${T - 0}" text-anchor="end" font-size="10" fill="var(--text-dim)" dy="-0">kW</text>`;
-    // chance of rain as bars hanging from the top (up to a third of the height)
-    fc.forEach(f => { if (f.p >= 10) { const hgt = ph / 3 * f.p / 100; s += `<rect x="${(x(f.h) + pw / 24 * 0.2).toFixed(1)}" y="${T}" width="${Math.max(2, pw / 24 * 0.6).toFixed(1)}" height="${hgt.toFixed(1)}" rx="2" fill="var(--rain)" opacity="${(0.12 + 0.33 * f.p / 100).toFixed(2)}"/>`; } });
-    // forecast solar, dashed
-    if (fc.length) s += `<path d="${fc.map((f, i) => (i ? 'L' : 'M') + x(f.h + 0.5).toFixed(1) + ',' + y(f.kw).toFixed(1)).join(' ')}" fill="none" stroke="var(--solar)" stroke-width="1.6" stroke-dasharray="5 4" opacity=".75"/>`;
-    if (pts.length) {
-      const area = (key, col, op) => `<path d="M${x(pts[0].h).toFixed(1)},${y(0)} ${pts.map(p => 'L' + x(p.h).toFixed(1) + ',' + y(p[key]).toFixed(1)).join(' ')} L${x(pts[pts.length - 1].h).toFixed(1)},${y(0)} Z" fill="${col}" fill-opacity="${op}" stroke="none"/>`;
-      const line = (key, col, w) => `<path d="${pts.map((p, i) => (i ? 'L' : 'M') + x(p.h).toFixed(1) + ',' + y(p[key]).toFixed(1)).join(' ')}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"/>`;
-      s += area('pv', 'var(--solar)', 0.22) + line('pv', 'var(--solar)', 2.2);
-      s += area('car', 'var(--car)', 0.25) + line('car', 'var(--car)', 2);
-      s += line('house', 'var(--home)', 1.8);
-    }
-    const nh = mel().hf;
-    s += `<line x1="${x(nh)}" x2="${x(nh)}" y1="${T}" y2="${T + ph}" stroke="var(--text-muted)" stroke-dasharray="2 3"/><text x="${x(nh) + 4}" y="${T + ph - 4}" font-size="10" fill="var(--text-muted)">now</text>`;
-    wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Today's solar generation, house load and car charging against the solar forecast">${s}</svg>`;
-
-    // headline stats: solar so far (SEMS) vs forecast, plus what's left
-    const gen = S.sems?.dailyGeneration, dayFc = fcDays().find(d => d.date === mel().key);
-    const left = fc.filter(f => f.h + 1 > nh).reduce((a, f) => a + (f.h < nh ? f.kw * (f.h + 1 - nh) : f.kw), 0);
-    $('today-stats').innerHTML = [
-      has(gen) ? `<span>So far <b>${f1(gen)}</b> kWh</span>` : '',
-      dayFc ? `<span>Forecast <b>${dayFc.kwh}</b> kWh</span>` : '',
-      fc.length && nh < 20 && left >= 0.5 ? `<span>Still to come <b>≈${Math.round(left)}</b> kWh</span>` : '',
-    ].join('');
+  // ---------- render: today's mix donuts ----------
+  const RATE = { general: 0.27621, offpeak: 0.08, feedin: 0.005 };
+  function donut(parts, centreBig, centreSmall) {
+    const total = parts.reduce((s, p) => s + p.v, 0);
+    const R = 42, C = 2 * Math.PI * R;
+    let off = 0, arcs = '';
+    if (total > 0.01) parts.forEach(p => { const len = p.v / total * C; if (len > 0.3) arcs += `<circle r="${R}" fill="none" stroke="${p.c}" stroke-width="16" stroke-dasharray="${(len - 1).toFixed(2)} ${(C - len + 1).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90)"/>`; off += len; });
+    return `<svg viewBox="-60 -60 120 120" aria-hidden="true"><circle r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="16"/>${arcs}
+      <text y="2" text-anchor="middle" font-size="17" font-family="var(--mono)" fill="var(--text)">${centreBig}</text><text y="17" text-anchor="middle" font-size="8.5" fill="var(--text-muted)" font-family="var(--sans)">${centreSmall}</text></svg>`;
+  }
+  const legend = parts => { const t = parts.reduce((s, p) => s + p.v, 0) || 1; return `<div class="pie-leg">${parts.map(p => `<div><i style="--c:${p.c}"></i><span>${p.n}</span><b>${p.v.toFixed(1)}<small>${Math.round(p.v / t * 100)}%</small></b>${p.sub ? `<span class="sub">${p.sub}</span>` : ''}</div>`).join('')}</div>`; };
+  function renderPies() {
+    const T = todayTotals();
+    if (!T) { if (failed.ev) $('pies').innerHTML = '<div class="empty">Needs the Pi for today\'s totals.</div>'; return; }
+    const used = T.solarUsed + T.gridOff + T.gridPeak, went = T.house + T.car + T.exp;
+    const src = [
+      { n: 'Solar', v: T.solarUsed, c: 'var(--solar)', sub: 'free, made on the roof' },
+      { n: 'Grid off-peak', v: T.gridOff, c: 'var(--import-soft)', sub: `$${(T.gridOff * RATE.offpeak).toFixed(2)} at 8c` },
+      { n: 'Grid peak', v: T.gridPeak, c: 'var(--import)', sub: `$${(T.gridPeak * RATE.general).toFixed(2)} at 27.6c` },
+    ];
+    const dst = [
+      { n: 'House', v: T.house, c: 'var(--home)' },
+      { n: 'Car charging', v: T.car, c: 'var(--car)' },
+      { n: 'Exported to grid', v: T.exp, c: 'var(--gridout)', sub: `$${(T.exp * RATE.feedin).toFixed(2)} at 0.5c` },
+    ];
+    $('pies').innerHTML = `
+      <div class="pie"><h3>Where it came from</h3>${donut(src, used.toFixed(1), 'kWh used')}${legend(src)}</div>
+      <div class="pie"><h3>Where it went</h3>${donut(dst, went.toFixed(1), 'kWh total')}${legend(dst)}</div>`;
+    $('mix-meta').textContent = `since midnight · solar made ${T.pv.toFixed(1)} kWh`;
   }
 
   // ---------- render: forecast ----------
@@ -601,15 +661,15 @@ body.dimmed .dim{opacity:.62}
       const wet = hrs.slice(1, 7).find(h => h.precipProbability >= 50);
       if (wet) out.push(['rain', `Rain likely around ${ampm(fcHour(wet.time))} (${wet.precipProbability}%)`]);
     }
-    // Wind
-    const gust = Math.max(0, ...hrs.map(h => h.windGust || 0), w?.windGust || 0);
-    if (gust >= 55) out.push(['wind', `Gusty, up to ${Math.round(gust)} km/h in the next 12 hours`]);
+    // Excess solar going to the grid with no car charging (details in the Energy flow tile)
+    const ex = excessSolar();
+    if (ex) out.unshift(['sun', `Excess solar - Suggest Car Charging (${ex.kw.toFixed(1)} kW spare)`]);
     // Solar and the car, during the solar window
     const fcLeft = todayHourly().filter(h => fcHour(h.time) >= now.h).reduce((a, h) => a + fcKw(h.ghi), 0);
     const plugged = e.c?.plug && e.c.plug !== 'unplugged';
     if (now.h >= 7 && now.h < 16 && S.ev) {
       if (e.c?.state === 'charging' && e.L?.window === 'day' && !e.L?.override) out.push(['car', `Car charging on solar at ${f0(e.c.amps)} A`]);
-      else if (!plugged && fcLeft >= 8) out.push(['sun', `About ${Math.round(fcLeft)} kWh of sun left today. Plug a car in to use it.`]);
+      else if (!plugged && fcLeft >= 8 && !ex) out.push(['sun', `About ${Math.round(fcLeft)} kWh of sun left today. Plug a car in to use it.`]);
     }
     // Evening: set expectations for tomorrow
     if (now.h >= 17) {
@@ -629,9 +689,12 @@ body.dimmed .dim{opacity:.62}
     if (!window.L) { $('map').innerHTML = '<div class="empty" style="position:absolute;inset:0;display:flex">Map library didn\'t load.</div>'; return; }
     const dark = document.documentElement.dataset.theme !== 'light';
     map = L.map('map', { center: HOME, zoom: 9, minZoom: 6, maxZoom: 11, zoomControl: false, attributionControl: true, zoomSnap: 0.5 });
-    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
-      subdomains: 'abcd', maxZoom: 19, attribution: '© OpenStreetMap © CARTO',
-    }).addTo(map);
+    // CARTO stopped serving keyless tiles in 2026 (they come back watermarked), so use Esri's free Canvas basemap
+    const esri = n => `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/${n}/MapServer/tile/{z}/{y}/{x}`;
+    L.tileLayer(esri(dark ? 'World_Dark_Gray_Base' : 'World_Light_Gray_Base'), { maxZoom: 16, attribution: 'Tiles © Esri, HERE, Garmin, OpenStreetMap' }).addTo(map);
+    // place names drawn above the radar so towns stay readable through rain
+    map.createPane('labels'); map.getPane('labels').style.zIndex = 450; map.getPane('labels').style.pointerEvents = 'none';
+    L.tileLayer(esri(dark ? 'World_Dark_Gray_Reference' : 'World_Light_Gray_Reference'), { maxZoom: 16, pane: 'labels' }).addTo(map);
     L.marker(HOME, { icon: L.divIcon({ className: '', html: '<div class="home-pin"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }), keyboard: false, title: 'Home' }).addTo(map);
     map.attributionControl.addAttribution('Radar <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>');
     new ResizeObserver(() => map.invalidateSize()).observe($('map'));
@@ -698,7 +761,7 @@ body.dimmed .dim{opacity:.62}
   setTimeout(() => location.reload(), 6 * 3600e3);
 
   // ---------- loops ----------
-  const renderAll = () => { renderClock(); renderWx(); renderEnergy(); renderToday(); renderForecast(); renderNotes(); };
+  const renderAll = () => { renderClock(); renderWx(); renderFlow(); renderPies(); renderForecast(); renderNotes(); };
   async function refresh(name) {
     if (name === 'radar') return loadRadar();
     await pull(name, name === 'ev' ? API.ev : API[name]);
@@ -715,8 +778,7 @@ body.dimmed .dim{opacity:.62}
     wake(); ['ev', 'wx'].forEach(refresh);
     if (playing) setPlaying(true);
   });
-  let rs; window.addEventListener('resize', () => { clearTimeout(rs); rs = setTimeout(renderToday, 150); });
-  renderClock(); applyDim(); wake();
+    renderClock(); applyDim(); wake();
 })();
 </script>
 </body>
