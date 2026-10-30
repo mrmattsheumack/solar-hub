@@ -1,0 +1,14 @@
+[Unit]
+Description=Kia Connect poller (EV5 status, which car is on the charger)
+After=network-online.target ev-solar.service
+Wants=network-online.target
+
+[Service]
+User=matt
+WorkingDirectory=/home/matt/solar-hub-pi
+ExecStart=/home/matt/solar-hub-pi/evtest/bin/python /home/matt/solar-hub-pi/kia_poll.py
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target

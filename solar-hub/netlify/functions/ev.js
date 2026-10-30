@@ -5,6 +5,7 @@
 //   GET  /.netlify/functions/ev            -> bridge GET  /api/ev/state
 //   GET  /.netlify/functions/ev?view=history -> bridge GET /api/ev/history (one row per day)
 //   POST /.netlify/functions/ev {mode?, offpeak?} -> bridge POST /api/ev/mode
+//   POST /.netlify/functions/ev {car: ev5|ioniq5} -> bridge POST /api/ev/car (tag the car on the charger)
 // Needs Netlify env var BRIDGE_TOKEN (same value as BEARER_TOKEN in the Pi's .env), set 2026-10-30.
 const BRIDGE_URL = process.env.BRIDGE_URL || "https://eaglecam.taile03fa1.ts.net";
 
@@ -20,6 +21,18 @@ exports.handler = async (event) => {
     if (event.httpMethod === "POST") {
       let body = {};
       try { body = JSON.parse(event.body || "{}"); } catch (e) {}
+      if (body.car !== undefined) {
+        if (!["ev5", "ioniq5"].includes(body.car)) {
+          return { statusCode: 400, headers, body: JSON.stringify({ error: "car must be ev5 or ioniq5" }) };
+        }
+        res = await fetch(BRIDGE_URL + "/api/ev/car", {
+          method: "POST",
+          headers: { ...auth, "Content-Type": "application/json" },
+          body: JSON.stringify({ car: body.car }),
+          signal: AbortSignal.timeout(10000),
+        });
+        return { statusCode: res.status, headers, body: await res.text() };
+      }
       const out = {};
       if (body.mode !== undefined) {
         if (!["auto", "full", "off"].includes(body.mode)) {

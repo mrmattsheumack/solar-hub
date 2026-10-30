@@ -346,6 +346,12 @@ class Controller:
 
     def record(self, now, mode, win, st, desired, reason):
         d = self.solar.data or {}
+        car = None
+        try:   # label from kia_poll.py; never used for control
+            with open(os.path.join(os.path.dirname(STATE_PATH), "ev_car.json")) as f:
+                car = json.load(f).get("car")
+        except (OSError, ValueError):
+            pass
         row = {
             "ts": now.isoformat(timespec="seconds"), "dry_run": DRY_RUN, "mode": mode, "window": win,
             "offpeak": read_offpeak(),
@@ -357,6 +363,7 @@ class Controller:
             "charger": st, "limit_a": self.charger.limit if self.charger.evse else None,
             "target_a": desired, "reason": reason,
             "override": self.override, "session_owner": self.session_owner,
+            "car": car,
         }
         log.info("%s | %s | target %s A | %s", win, mode, desired, reason)
         with open(LOG_PATH, "a") as f:

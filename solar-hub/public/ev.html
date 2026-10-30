@@ -69,6 +69,9 @@ a{color:inherit}
 .car-pick button{padding:5px 10px}
 .batt-row{display:flex;align-items:center;gap:12px}
 .batt-svg{width:84px;height:31px;flex:0 0 auto}
+.batt-src{font-size:11.5px;color:var(--text-dim)}
+.car-by{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px;font-size:12.5px;color:var(--text-muted)}
+.car-by b{font-family:var(--mono);font-weight:500;color:var(--text)}
 .batt-text{display:flex;flex-direction:column;min-width:0;font-size:12px;color:var(--text-muted)}
 .batt-text b{font-family:var(--mono);font-size:17px;font-weight:500;color:var(--text)}
 .toggle{display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:12px;font-weight:600;color:var(--text-muted);background:var(--surface-2);border:1px solid var(--border-strong);border-radius:999px;padding:5px 12px 5px 6px;cursor:pointer;white-space:nowrap}
@@ -295,6 +298,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
       </div>
     </div>
     <div class="split" id="car-split"></div>
+    <div class="car-by" id="car-by"></div>
       <div class="batt" id="batt" hidden>
         <div class="batt-top">
           <div class="seg seg-sm car-pick" role="group" aria-label="Which car is plugged in">
@@ -307,9 +311,11 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
             <rect x="2" y="4" width="104" height="36" rx="7" fill="none" stroke="var(--text-muted)" stroke-width="2.5"/>
             <rect x="108" y="15" width="7" height="14" rx="2" fill="var(--text-muted)"/>
             <rect id="batt-fill" x="7" y="9" width="0" height="26" rx="4" fill="var(--car)"/>
+            <rect id="batt-limit" x="0" y="6" width="2.5" height="32" rx="1" fill="var(--text)" opacity="0" />
           </svg>
           <div class="batt-text"><b id="batt-pct">–</b><span id="batt-detail"></span></div>
         </div>
+        <div class="batt-src" id="batt-src"></div>
       </div>
 
     <div class="sub-h sub-row"><span id="solar-h">Solar today</span>
@@ -448,21 +454,54 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     finally { btns.forEach(x => x.disabled = false); }
   }));
 
-  // ---------- battery estimate: energy since plugged in vs battery size ----------
+  // ---------- battery: real % for the EV5 (Kia Connect), estimate for the IONIQ 5 ----------
+  // The Pi's kia_poll.py works out which car is on the charger; tapping a car here corrects it.
+  const PI_CAR = { ev5:'ev5', ioniq5:'ioniq' }, TO_PI = { ev5:'ev5', ioniq:'ioniq5' };
+  let carInfo = null, carBusy = false;
+  const carOnCharger = () => carInfo && PI_CAR[carInfo.car] ? PI_CAR[carInfo.car] : null;
   function renderBattery(plugin){
     lastPlugin = plugin;
     const box = $('batt');
     if (!plugin) { box.hidden = true; return; }
     box.hidden = false;
+    const known = carOnCharger();
+    if (known && !carBusy) carKey = known;
     document.querySelectorAll('.car-pick button').forEach(b => b.setAttribute('aria-pressed', b.dataset.car === carKey ? 'true' : 'false'));
-    const car = CARS[carKey], pct = Math.min(100, 100 * plugin.kwh / car.kwh);
-    $('batt-fill').setAttribute('width', (96 * pct / 100).toFixed(1));
-    $('batt-pct').textContent = '+' + Math.round(pct) + '%';
-    $('batt-detail').textContent = `${plugin.kwh.toFixed(1)} of ${car.kwh} kWh added`;
+    const car = CARS[carKey], k5 = carInfo && carInfo.ev5;
+    const lim = $('batt-limit');
+    if (carKey === 'ev5' && k5 && k5.soc != null && k5.plugged) {
+      $('batt-fill').setAttribute('width', (96 * k5.soc / 100).toFixed(1));
+      $('batt-pct').textContent = k5.soc + '%';
+      const bits = [];
+      if (k5.limit_ac) bits.push(`charging to ${k5.limit_ac}%`);
+      if (k5.range_km) bits.push(`${Math.round(k5.range_km)} km range`);
+      bits.push(`${plugin.kwh.toFixed(1)} kWh added`);
+      $('batt-detail').textContent = bits.join(' · ');
+      if (k5.limit_ac) { lim.setAttribute('x', (7 + 96 * k5.limit_ac / 100 - 1).toFixed(1)); lim.setAttribute('opacity', '.55'); } else lim.setAttribute('opacity', '0');
+    } else {
+      const pct = Math.min(100, 100 * plugin.kwh / car.kwh);
+      $('batt-fill').setAttribute('width', (96 * pct / 100).toFixed(1));
+      $('batt-pct').textContent = '+' + Math.round(pct) + '%';
+      $('batt-detail').textContent = `${plugin.kwh.toFixed(1)} of ${car.kwh} kWh added (estimate)`;
+      lim.setAttribute('opacity', '0');
+    }
+    const how = carInfo && carInfo.car_how;
+    let src = '';
+    if (!known) src = 'Car not identified yet. Tap the car that is plugged in.';
+    else if (how === 'manual') src = 'You picked this car.';
+    else if (how === 'kia_connect') src = 'Detected by Kia Connect' + (k5 && k5.status_time ? `, battery as of ${fmtTime(k5.status_time)}` : '') + '.';
+    else if (how === 'elimination') src = 'Kia Connect says the EV5 isn\'t plugged in here, so this is the IONIQ 5. Battery is estimated from kWh added.';
+    if (carInfo && carInfo.last_error) src += ' Kia Connect is not answering right now.';
+    $('batt-src').textContent = src;
   }
-  document.querySelectorAll('.car-pick button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.car-pick button').forEach(b => b.addEventListener('click', async () => {
     carKey = b.dataset.car; try { localStorage.setItem('ev-car', carKey); } catch (e) {}
-    renderBattery(lastPlugin);
+    carBusy = true; renderBattery(lastPlugin);
+    try {
+      const r = await fetch(EV_API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ car: TO_PI[carKey] }) });
+      if (r.ok) { carInfo = Object.assign({}, carInfo || {}, { car: TO_PI[carKey], car_how: 'manual' }); }
+    } catch (e) {}
+    carBusy = false; renderBattery(lastPlugin);
   }));
 
   // ---------- off-peak on/off ----------
@@ -497,11 +536,13 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     $('g-val').textContent = amps ? amps.toFixed(0) : '0';
     const ex = explain(L.reason, c);
     let big, why;
+    const carName = carOnCharger() ? CARS[carOnCharger()].name : null;
     if (!plugged) { big = 'Nothing plugged in'; why = 'Plug in a car and it will charge on the next spare solar, or from midnight.'; }
     else if (c.state === 'charging' && watts > 200) {
       big = L.override ? 'Car charging, full rate' : L.window === 'offpeak' ? 'Car charging, off-peak' : 'Car charging on solar';
       why = null;
-      const pts = [`${kw(watts)} kW into the car`];
+      const pts = [`${kw(watts)} kW into the ${carName || 'car'}`];
+      if (carOnCharger() === 'ev5' && carInfo.ev5 && carInfo.ev5.soc != null) pts.push(`Battery ${carInfo.ev5.soc}%` + (carInfo.ev5.limit_ac ? `, charging to ${carInfo.ev5.limit_ac}%` : ''));
       if (d.plugin && d.plugin.since) {
         const mins = Math.max(0, Math.round((Date.now() - new Date(d.plugin.since).getTime()) / 60000));
         const dur = mins >= 60 ? `${Math.floor(mins/60)} h ${mins%60} min` : `${mins} min`;
@@ -511,6 +552,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     } else if (c.state === 'charging') { big = 'Car charged'; why = 'The car has stopped taking charge, so it is probably full.'; }
     else if (c.state === 'complete' || c.state === 'full') { big = 'Car charged'; why = 'The car finished charging and is still plugged in.'; }
     else { big = 'Car plugged in, waiting'; why = ex.text + '.'; }
+    if (carName && plugged) big = big.replace(/^Car\b/, carName);
     $('state-big').textContent = big; if (why !== null) $('state-why').textContent = why;
     $('now-label').textContent = 'Right now · ' + (L.ts ? fmtTime(L.ts) : '');
     $('f-power').innerHTML = `${kw(watts)}<small> kW</small>`;
@@ -547,7 +589,8 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
   let period = 'today', liveTotals = {}, HISTORY = [];
   try { const p0 = localStorage.getItem('ev-period'); if (p0) period = p0; } catch (e) {}
   const PERIOD_NAME = { today:'today', week:'this week', month:'this month', year:'this year', all:'all time' };
-  const KEYS = ['car_solar_kwh','car_offpeak_kwh','car_grid_day_kwh','house_solar_kwh','export_kwh','solar_kwh'];
+  const KEYS = ['car_solar_kwh','car_offpeak_kwh','car_grid_day_kwh','house_solar_kwh','export_kwh','solar_kwh',
+    ...['ev5','ioniq5','unknown'].flatMap(c => ['kwh','solar_kwh','offpeak_kwh','grid_day_kwh'].map(k => `car_${c}_${k}`))];
   function periodTotals(){
     if (period === 'today') return liveTotals;
     const now = new Date(), pad = n => String(n).padStart(2,'0'), iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -579,7 +622,11 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
       ['From solar', solar, 'var(--solar)', `$${(solar * (RATE.offpeak - RATE.feedin)).toFixed(2)} saved vs off-peak`],
       ['Grid, off-peak', off, 'var(--import-soft)', `$${(off * RATE.offpeak).toFixed(2)} at 8c`],
       ['Grid, daytime', grid, 'var(--import)', `$${(grid * RATE.general).toFixed(2)} at 27.6c`]
-    ], carTotal, `${carTotal.toFixed(1)} kWh into the car ${name}.`);
+    ], carTotal, `${carTotal.toFixed(1)} kWh into the cars ${name}.`);
+    const byCar = [['ev5','EV5'],['ioniq5','IONIQ 5'],['unknown','Not identified']].filter(([c]) => (T[`car_${c}_kwh`] || 0) >= 0.05)
+      .map(([c, n]) => { const k = T[`car_${c}_kwh`] || 0, so = T[`car_${c}_solar_kwh`] || 0;
+        return `<span>${n} <b>${k.toFixed(1)} kWh</b>${so >= 0.05 ? ` · ${so.toFixed(1)} from solar` : ''}</span>`; });
+    $('car-by').innerHTML = byCar.length ? '<span>By car:</span>' + byCar.join('') : '';
     const houseSolar = T.house_solar_kwh || 0, exp = T.export_kwh || 0;
     const solarTotal = Math.max(T.solar_kwh || 0, solar + houseSolar + exp);
     $('split').innerHTML = splitBar([
@@ -775,6 +822,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
       const r = await fetch(EV_API, { signal: AbortSignal.timeout(15000) });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json(); failures = 0; $('banner').hidden = true;
+      carInfo = d.car || null;
       renderNow(d); renderTotals(d.totals || {}); renderBattery(d.plugin); renderChart(d.series); if (!offpeakBusy && typeof d.offpeak === 'boolean') showOffpeak(d.offpeak);
     } catch (e) {
       failures++;

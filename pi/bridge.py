@@ -311,6 +311,36 @@ def _ev_offpeak() -> bool:
         return True
 
 
+EV_CAR = os.path.join(EV_DIR, "ev_car.json")
+EV_CAR_TAGS = os.path.join(EV_DIR, "ev_car_tags.json")
+EV_CAR_MANUAL = os.path.join(EV_DIR, "ev_car_manual.json")
+CARS = ("ev5", "ioniq5", "unknown")
+
+
+def _ev_car_tags() -> list:
+    try:
+        with open(EV_CAR_TAGS) as f:
+            return json.load(f)
+    except (FileNotFoundError, ValueError):
+        return []
+
+
+def _row_car(r: dict, tags: list) -> str:
+    """Car for a log row: the controller's tag, else a hand-entered range, else unknown."""
+    c = r.get("car")
+    if c in ("ev5", "ioniq5"):
+        return c
+    ts = str(r.get("ts", ""))[:19]
+    for t in tags:
+        if t.get("from", "") <= ts <= t.get("to", "") and t.get("car") in ("ev5", "ioniq5"):
+            return t["car"]
+    return "unknown"
+
+
+def _car_keys() -> dict:
+    return {f"car_{c}_{k}": 0.0 for c in CARS for k in ("kwh", "solar_kwh", "offpeak_kwh", "grid_day_kwh")}
+
+
 @app.get("/api/ev/state")
 def ev_state():
     _require_bearer()
@@ -326,7 +356,8 @@ def ev_state():
     # 5-minute series and energy totals
     buckets: dict[str, dict] = {}
     totals = {"car_kwh": 0.0, "car_offpeak_kwh": 0.0, "car_solar_kwh": 0.0, "car_grid_day_kwh": 0.0,
-              "house_solar_kwh": 0.0, "solar_kwh": 0.0, "export_kwh": 0.0}
+              "house_solar_kwh": 0.0, "solar_kwh": 0.0, "export_kwh": 0.0, **_car_keys()}
+    tags = _ev_car_tags()
     prev_t = None
     for r in rows:
         c = r.get("charger") or {}
@@ -349,8 +380,11 @@ def ev_state():
             h = (t - prev_t) / 3600
             e = car_w / 1000 * h
             totals["car_kwh"] += e
+            cid = _row_car(r, tags)
+            totals[f"car_{cid}_kwh"] += e
             if r.get("window") == "offpeak":
                 totals["car_offpeak_kwh"] += e
+                totals[f"car_{cid}_offpeak_kwh"] += e
             elif r.get("window") == "day":
                 house_w = float(r["house_w"]) if r.get("house_w") is not None else max(0.0, home_w - car_w)
                 totals["house_solar_kwh"] += min(house_w, pv_w) / 1000 * h
@@ -359,6 +393,8 @@ def ev_state():
                 from_solar = min(car_w, max(0.0, pv_w - house_w))
                 totals["car_solar_kwh"] += from_solar / 1000 * h
                 totals["car_grid_day_kwh"] += (car_w - from_solar) / 1000 * h
+                totals[f"car_{cid}_solar_kwh"] += from_solar / 1000 * h
+                totals[f"car_{cid}_grid_day_kwh"] += (car_w - from_solar) / 1000 * h
         prev_t = t
     avg = lambda xs: round(sum(xs) / len(xs)) if xs else 0
     series = [{"t": b["t"], "pv": avg(b["pv"]), "home": avg(b["home"]), "car": avg(b["car"]), "target": b["target"]}
@@ -398,9 +434,15 @@ def ev_state():
             prev_t = t
         plugin = {"since": all_rows[start_i]["ts"], "kwh": round(kwh, 2),
                   "exact_start": start_i > 0}   # False = plugged in before the log window began
+    try:
+        with open(EV_CAR) as f:
+            car = json.load(f)
+    except (FileNotFoundError, ValueError):
+        car = None
     return jsonify({
         "latest": latest,
         "plugin": plugin,
+        "car": car,
         "mode": _ev_mode(),
         "offpeak": _ev_offpeak(),
         "series": series,
@@ -454,7 +496,8 @@ def _ev_day_summary(rows: list[dict]) -> dict:
     t_prev = None
     out = {"car_solar_kwh": 0.0, "car_offpeak_kwh": 0.0, "car_grid_day_kwh": 0.0,
            "solar_kwh": 0.0, "house_kwh": 0.0, "export_kwh": 0.0, "import_kwh": 0.0,
-           "house_solar_kwh": 0.0}
+           "house_solar_kwh": 0.0, **_car_keys()}
+    tags = _ev_car_tags()
     for r in rows:
         try:
             t = time.mktime(time.strptime(r["ts"][:19], "%Y-%m-%dT%H:%M:%S"))
@@ -473,11 +516,16 @@ def _ev_day_summary(rows: list[dict]) -> dict:
                 house = max(0.0, float(r.get("home_kw") or 0) * 1000 - car)
             house = float(house)
             from_solar = min(car, max(0.0, pv - house)) if r.get("window") == "day" else 0.0
+            cid = _row_car(r, tags)
+            out[f"car_{cid}_kwh"] += car / 1000 * h
             if r.get("window") == "offpeak":
                 out["car_offpeak_kwh"] += car / 1000 * h
+                out[f"car_{cid}_offpeak_kwh"] += car / 1000 * h
             else:
                 out["car_solar_kwh"] += from_solar / 1000 * h
                 out["car_grid_day_kwh"] += (car - from_solar) / 1000 * h
+                out[f"car_{cid}_solar_kwh"] += from_solar / 1000 * h
+                out[f"car_{cid}_grid_day_kwh"] += (car - from_solar) / 1000 * h
             out["solar_kwh"] += pv / 1000 * h
             out["house_kwh"] += house / 1000 * h
             out["house_solar_kwh"] += min(house, pv) / 1000 * h
@@ -485,6 +533,21 @@ def _ev_day_summary(rows: list[dict]) -> dict:
             out["export_kwh" if net > 0 else "import_kwh"] += abs(net) / 1000 * h
         t_prev = t
     return {k: round(v, 2) for k, v in out.items()}
+
+
+@app.post("/api/ev/car")
+def ev_car_set():
+    """{"car": "ev5"|"ioniq5"} -- tag the car on the charger now (until it's unplugged)."""
+    _require_bearer()
+    body = request.get_json(silent=True) or {}
+    car = body.get("car")
+    if car not in ("ev5", "ioniq5"):
+        return jsonify({"error": "car must be ev5 or ioniq5"}), 400
+    tmp = EV_CAR_MANUAL + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump({"car": car, "ts": time.strftime("%Y-%m-%dT%H:%M:%S")}, f)
+    os.replace(tmp, EV_CAR_MANUAL)
+    return jsonify({"ok": True, "car": car})
 
 
 @app.get("/api/ev/history")

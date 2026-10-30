@@ -111,3 +111,10 @@ The original "20 second" perception could not be reproduced. Likely was a worst-
 **Done:** 2026-04-28
 
 Removed all [PERF] console.log markers and associated performance.now() timing variables added in commit `7b0c5d4` for slow-load diagnosis. Production console is clean again.
+
+## Per-car tracking (added 30 Oct 2026)
+- [x] kia_poll.py service (kia-poll.service): Kia Connect AU, EV5 battery %, plugged, charging, limit; tags car on charger (EV5 by Kia, IONIQ 5 by elimination; home check by location). Writes ev_car.json. Creds in ~/solar-hub-pi/.kia (chmod 600), home coords in .kia_home.json, neither in the repo.
+- [x] ev_solar.py logs "car" on each row (label only, never control). Bridge splits totals/history per car; POST /api/ev/car for a manual pick; ev_car_tags.json back-tags past sessions.
+- [ ] Tag the 28-29 Oct and 29-30 Oct overnight sessions once Matt confirms which car.
+- [ ] WiCAN for the IONIQ 5 battery %, if wanted.
+- [ ] Watch Kia wake budget (10/day) and whether the stored status goes stale while charging.
