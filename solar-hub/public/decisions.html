@@ -297,7 +297,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
 
   function renderTotals(t){
     const solar = t.car_solar_kwh || 0, off = t.car_offpeak_kwh || 0, grid = t.car_grid_day_kwh || 0;
-    const total = solar + off + grid, saving = solar * (0.08 - 0.015);
+    const total = solar + off + grid, saving = solar * (0.27621 - 0.005);
     const pct = total > 0 ? Math.round(100 * solar / total) : 0;
     $('ring-solar').style.strokeDashoffset = 314.16 * (1 - pct / 100);
     $('g-solar').textContent = total > 0 ? pct : '–';
@@ -307,7 +307,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
       ['Solar into car', solar.toFixed(1), 'kWh', 'From spare solar'],
       ['Off-peak charge', off.toFixed(1), 'kWh', '12 – 6 am at 8c'],
       ['Grid used by day', grid.toFixed(1), 'kWh', 'Riding out clouds, or a manual charge'],
-      ['Saved vs off-peak', '$' + saving.toFixed(2), '', 'Solar instead of 8c grid, less 1.5c feed-in']
+      ['Saved vs on-peak', '$' + saving.toFixed(2), '', 'Solar instead of 27.6c grid, less 0.5c feed-in']
     ];
     $('totals').innerHTML = rows.map(r => `<div class="fact"><div class="label">${r[0]}</div><div class="v">${r[1]}${r[2] ? `<small> ${r[2]}</small>` : ''}</div><div class="sub">${r[3]}</div></div>`).join('');
   }

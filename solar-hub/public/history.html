@@ -233,7 +233,7 @@ table.days td{padding:8px;text-align:right;font-family:var(--mono);font-variant-
   function render(days){
     let solar=0, off=0, grid=0;
     days.forEach(d => { solar += d.car_solar_kwh; off += d.car_offpeak_kwh; grid += d.car_grid_day_kwh; });
-    const saved = solar * (RATE.offpeak - RATE.feedin), total = solar + off + grid;
+    const saved = solar * (RATE.general - RATE.feedin), total = solar + off + grid;
     const cost = off * RATE.offpeak + grid * RATE.general;
     const rows = [
       ['Solar into car', solar.toFixed(1), 'kWh', `${total ? Math.round(100*solar/total) : 0}% of all charging`],
@@ -269,7 +269,7 @@ table.days td{padding:8px;text-align:right;font-family:var(--mono);font-variant-
 
     $('days').innerHTML = '<tr><th>Day</th><th>Solar into car</th><th>Off-peak</th><th>Grid by day</th><th>Car total</th><th>Solar generated</th><th>Saved</th></tr>' +
       days.slice().reverse().map(d => { const t = d.car_solar_kwh + d.car_offpeak_kwh + d.car_grid_day_kwh;
-        return `<tr><td>${dayLabel(d.date)}</td><td>${d.car_solar_kwh.toFixed(1)}</td><td>${d.car_offpeak_kwh.toFixed(1)}</td><td>${d.car_grid_day_kwh.toFixed(1)}</td><td>${t.toFixed(1)}</td><td>${d.solar_kwh.toFixed(1)}</td><td>$${(d.car_solar_kwh*(RATE.offpeak-RATE.feedin)).toFixed(2)}</td></tr>`; }).join('');
+        return `<tr><td>${dayLabel(d.date)}</td><td>${d.car_solar_kwh.toFixed(1)}</td><td>${d.car_offpeak_kwh.toFixed(1)}</td><td>${d.car_grid_day_kwh.toFixed(1)}</td><td>${t.toFixed(1)}</td><td>${d.solar_kwh.toFixed(1)}</td><td>$${(d.car_solar_kwh*(RATE.general-RATE.feedin)).toFixed(2)}</td></tr>`; }).join('');
   }
   async function load(){
     try {
