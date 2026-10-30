@@ -187,7 +187,6 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
 .foot{font-size:11.5px;color:var(--text-dim);margin:12px 2px 0}
 @media (max-width:700px){.top-right{width:100%;justify-content:flex-start}.mode-msg{text-align:left}}
 </style>
-<script src="nav.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -234,7 +233,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
   </div>
   <div class="dash">
     <section class="panel span-4">
-      <div class="p-title"><span id="car-h" title="Efficiency: share of the car charging that came from solar. Grid, off-peak or on-peak, counts against it.">Car charging</span>
+      <div class="p-title"><span id="car-h" title="Efficiency: solar counts 100%, off-peak grid 72% (it avoids 72% of what solar saves: 27.6c less 8c, over 27.6c less the 0.5c feed-in), on-peak grid 0%.">Car charging</span>
         <div class="seg sm" role="tablist" aria-label="Which car">
           <button role="tab" data-carview="total" aria-pressed="true">Total</button>
           <button role="tab" data-carview="ioniq5" aria-pressed="false">IONIQ 5</button>
@@ -625,7 +624,11 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     return out;
   }
   // Donut chart with a legend beside it
-  const effColor = e => e == null ? '#d8d9da' : e >= 70 ? '#73bf69' : e >= 40 ? '#fade2a' : e >= 20 ? '#ff9830' : '#f2495c';
+  // Efficiency colours: green 85%+, yellow 60%+ (all off-peak lands here), orange 30%+, red below
+  const effColor = e => e == null ? '#d8d9da' : e >= 85 ? '#73bf69' : e >= 60 ? '#fade2a' : e >= 30 ? '#ff9830' : '#f2495c';
+  // How much an off-peak kWh is worth next to a solar one: the share of the on-peak cost it avoids,
+  // against what solar avoids. (27.6c - 8c) / (27.6c - 0.5c) = 72%. On-peak grid is worth 0.
+  const OFFPEAK_CREDIT = (RATE.general - RATE.offpeak) / (RATE.general - RATE.feedin);
   function pie(segs, total, eff, effLabel, totalLabel, note){
     const r = 54, C = 2 * Math.PI * r;
     let off = 0, arcs = '';
@@ -652,7 +655,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
       ['Solar', solar, '#fade2a', `$${(solar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs on-peak`],
       ['Off-peak grid', off, '#e89cbd', `$${(off * RATE.offpeak).toFixed(2)} at 8c`],
       ['On-peak grid', grid, '#f2495c', `$${(grid * RATE.general).toFixed(2)} at 27.6c`]
-    ], carTotal, carTotal > 0.05 ? Math.round(100 * solar / carTotal) : null, 'efficiency', carView === 'total' ? 'Into both cars' : 'Into the ' + (carView === 'ev5' ? 'EV5' : 'IONIQ 5'), `${carTotal.toFixed(1)} kWh into ${who} ${name}, ${carTotal > 0.05 ? Math.round(100 * solar / carTotal) : 0}% from solar.`);
+    ], carTotal, carTotal > 0.05 ? Math.round(100 * (solar + off * OFFPEAK_CREDIT) / carTotal) : null, 'efficiency', carView === 'total' ? 'Into both cars' : 'Into the ' + (carView === 'ev5' ? 'EV5' : 'IONIQ 5'), `${carTotal.toFixed(1)} kWh into ${who} ${name}, ${carTotal > 0.05 ? Math.round(100 * solar / carTotal) : 0}% from solar.`);
 
     const houseSolar = T.house_solar_kwh || 0, exp = T.export_kwh || 0, carSolarAll = T.car_solar_kwh || 0;
     const solarTotal = Math.max(T.solar_kwh || 0, carSolarAll + houseSolar + exp);
