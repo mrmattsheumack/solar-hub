@@ -232,13 +232,15 @@ a.note:hover{border-color:var(--border-strong)}
 .hr b{font-family:var(--mono);color:var(--text);font-weight:500;font-size:14px}
 .hr .p{font-family:var(--mono);font-size:11px;color:var(--rain);min-height:15px}
 .days{display:flex;flex-direction:column;gap:2px;flex:1;min-height:0;overflow:hidden}
-.day{display:grid;grid-template-columns:4.2ch 30px minmax(0,1fr) 8.5ch 6.5ch;align-items:center;gap:10px;padding:5px 4px;border-top:1px solid var(--border);font-size:14px}
+.day{display:grid;grid-template-columns:4.2ch 30px minmax(0,1fr) 8.5ch 4.6ch 6.5ch;align-items:center;gap:10px;padding:5px 4px;border-top:1px solid var(--border);font-size:14px}
 .day svg{width:28px;height:30px}
 .day .n{font-weight:600}
 .day .t{font-family:var(--mono);text-align:right;white-space:nowrap}
 .day .t span{color:var(--text-muted)}
 .day .r{font-family:var(--mono);font-size:12px;color:var(--rain);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.day .k{font-family:var(--mono);font-size:13px;text-align:right;white-space:nowrap;color:var(--sc,var(--text))}
+.day .k{font-family:var(--mono);font-size:13px;text-align:right;white-space:nowrap;color:var(--text-muted)}
+.day .sc{font-family:var(--mono);font-size:12px;text-align:right;white-space:nowrap;color:var(--text-muted)}
+.day .sc b{font-size:15px;color:var(--sc);font-weight:600}
 .day .k small{color:var(--text-muted);font-size:.85em}
 
 @media (max-height:880px) and (min-width:1001px){
@@ -449,10 +451,15 @@ body.dimmed .dim{opacity:.62}
     if (h.cloudCover < 70) return night ? 'partlyNight' : 'partly';
     return 'cloud';
   }
+  // Day verdicts match ev.html exactly (same kind rules, same labels, same 1-10 solar score), so the
+  // overview and the EV page never disagree about a day
+  const KIND_TXT = { storm: 'Thunderstorms', rain: 'Rain', showers: 'Sun and showers', drizzle: 'Cloudy, drizzle', fog: 'Fog, then sun', sun: 'Sunny', partly: 'Partly cloudy', cloud: 'Cloudy' };
+  const dayIcon = k => icon(k === 'fog' ? 'partly' : k);
   function dayKind(d) {
     if (d.code >= 95) return 'storm';
     if (d.rain >= 3 || (d.code >= 61 && d.code < 95)) return 'rain';
     if (d.rain > 0 || (d.code >= 51 && d.code <= 57)) return d.cloud < 60 ? 'showers' : 'drizzle';
+    if (d.code === 45 || d.code === 48) return 'fog';
     if (d.cloud < 30) return 'sun';
     if (d.cloud < 70) return 'partly';
     return 'cloud';
@@ -788,7 +795,8 @@ body.dimmed .dim{opacity:.62}
       const name = d.date === today ? 'Today' : d.date === tmw ? 'Tmrw' : new Date(d.date + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short' });
       const sc = solarScore(d);
       const rain = d.rain >= 0.2 ? `${f1(d.rain)} mm` : d.rainProb >= 20 ? `${f0(d.rainProb)}%` : '';
-      return `<div class="day"><span class="n">${name}</span>${icon(dayKind(d))}<span class="r">${rain}</span><span class="t">${f0(d.tmax)}° <span>${f0(d.tmin)}°</span></span><span class="k" style="--sc:${scoreColor(sc)}" title="Estimated solar">${d.kwh}<small> kWh</small></span></div>`;
+      const k = dayKind(d);
+      return `<div class="day" title="${KIND_TXT[k]} · solar ${sc}/10 · about ${d.kwh} kWh"><span class="n">${name}</span>${dayIcon(k)}<span class="r">${rain}</span><span class="t">${f0(d.tmax)}° <span>${f0(d.tmin)}°</span></span><span class="sc" style="--sc:${scoreColor(sc)}"><b>${sc}</b>/10</span><span class="k">${d.kwh}<small> kWh</small></span></div>`;
     }).join('');
     $('fc-meta').textContent = `Open-Meteo · ${S.fc.timestamp ? 'updated ' + clock(new Date(S.fc.timestamp)) : 'Dromana'}`;
   }
@@ -836,9 +844,13 @@ body.dimmed .dim{opacity:.62}
     if (now.h >= 7 && now.h < 16 && S.ev && !plugged && fcLeft >= 8 && !ex) add('sun', `About ${Math.round(fcLeft)} kWh of sun left today. Plug a car in to use it.`);
     if (now.h >= 17) {
       const t = fcDays().find(d => d.date === tomorrowKey());
-      if (t) t.kwh >= 35 ? add('sun', `Tomorrow looks strong for solar, about ${t.kwh} kWh`)
-        : t.kwh <= 15 ? add('warn', `Tomorrow is poor for solar (about ${t.kwh} kWh). Overnight off-peak will do the heavy lifting.`)
-        : add('sun', `Tomorrow: about ${t.kwh} kWh of solar expected`);
+      // Same score and colours as the EV page: 8+ good, 5-7 fair, under 5 poor
+      if (t) {
+        const sc = solarScore(t), what = KIND_TXT[dayKind(t)].toLowerCase();
+        if (sc >= 8) add('sun', `Tomorrow looks good for solar: ${sc}/10, ${what}, about ${t.kwh} kWh`);
+        else if (sc >= 5) add('sun', `Tomorrow is fair for solar: ${sc}/10, ${what}, about ${t.kwh} kWh`);
+        else add('warn', `Tomorrow is poor for solar: ${sc}/10, ${what}, about ${t.kwh} kWh. Overnight off-peak will do the heavy lifting.`);
+      }
     }
     warns.filter(x => x.level === 'info').forEach(x => out.push(x));
     if ((S.ev && at.ev && Date.now() - at.ev > STALE.ev) || (!S.ev && failed.ev)) add('warn', "Can't reach the Pi. The charger controller keeps running on its own.");

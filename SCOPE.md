@@ -221,6 +221,10 @@ Revision 4 (2026-10-30, Matt's feedback):
 - Wind over 50 km/h (speed or gust, station or next-12-hour forecast) and UV
   of 6 or more go red, bold and bigger: in the weather tile and as red notes.
 
+- Day verdicts match ev.html exactly: same weather labels and the same 1-10
+  solar score (8+ good, 5-7 fair, under 5 poor). The "tomorrow" note and the
+  forecast rows show that score, so the two pages can't disagree.
+
 Function changes made for it (2026-10-30):
 - `ecowitt.js`: zero readings are now 0 instead of null; reads the WS90's
   `rainfall_piezo` block (falls back to `rainfall`); adds feels like, dew point,
