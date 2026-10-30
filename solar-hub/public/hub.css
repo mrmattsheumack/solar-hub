@@ -305,3 +305,9 @@ body.radar-fs .sh-rail,body.radar-fs .sh-burger{visibility:hidden}
   .wx .wrow .v{font-size:14px}
   .wx .wrow.alert .v{font-size:17px}
 }
+
+/* radar town labels: suburbs and Peninsula close in, regional cities when showing the whole state */
+.town.state{display:none}
+.state-view .town.local{display:none}
+.state-view .town.state{display:flex}
+.radar.fs .radar-bar{bottom:calc(16px + env(safe-area-inset-bottom,0px))}

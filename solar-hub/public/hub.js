@@ -612,7 +612,11 @@ window.Hub = (() => {
     if (!$('map')) return;
     if (!window.L) { $('map').innerHTML = '<div class="empty" style="position:absolute;inset:0;display:flex">Map library didn\'t load.</div>'; return; }
     const md = $('map').dataset;
-    map = L.map('map', { center: md.centre ? md.centre.split(',').map(Number) : RADAR_CENTRE, zoom: md.zoom ? +md.zoom : RADAR_ZOOM, minZoom: 5, maxZoom: 11, zoomControl: false, attributionControl: true, zoomSnap: 0.5, fadeAnimation: false });   // tile fade-ins pass through partial opacity, which draws seams
+    // A page can pin the map to an area (data-bounds="S,W,N,E") and lock it, and give a different
+    // area for full screen (data-fs-bounds). The same area then shows whatever size the tile is.
+    const toBounds = v => { if (!v) return null; const [s1, w, n, e] = v.split(',').map(Number); return L.latLngBounds([s1, w], [n, e]); };
+    const viewB = toBounds(md.bounds), fsB = toBounds(md.fsBounds), locked = md.lock === '1';
+    map = L.map('map', { center: md.centre ? md.centre.split(',').map(Number) : RADAR_CENTRE, zoom: md.zoom ? +md.zoom : RADAR_ZOOM, minZoom: 5, maxZoom: 11, zoomControl: false, attributionControl: true, zoomSnap: viewB ? 0.1 : 0.5, fadeAnimation: false });   // tile fade-ins pass through partial opacity, which draws seams
     // BoM-style background: Esri's Ocean basemap (blue sea, pale land with relief), keyless.
     // (CARTO stopped serving keyless tiles in 2026; they come back watermarked.)
     const esri = n => `https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/${n}/MapServer/tile/{z}/{y}/{x}`;
@@ -622,26 +626,46 @@ window.Hub = (() => {
     [['Melbourne', -37.8136, 144.9631, 1], ['Geelong', -38.1499, 144.3617, 1], ['Frankston', -38.144, 145.123, 0], ['Dandenong', -37.987, 145.215, 0],
      ['Mornington', -38.218, 145.038, 0], ['Werribee', -37.9, 144.66, 0], ['Sorrento', -38.339, 144.741, 0], ['Cowes', -38.452, 145.238, 0],
      ['Lilydale', -37.757, 145.348, 0], ['Sunbury', -37.577, 144.725, 0], ['Torquay', -38.331, 144.326, 0], ['Pakenham', -38.07, 145.487, 0]]
-      .forEach(([n, lat, lon, big]) => L.marker([lat, lon], { icon: L.divIcon({ className: 'town' + (big ? ' big' : ''), html: `<i></i><span>${n}</span>`, iconSize: null }), keyboard: false, interactive: false, zIndexOffset: -100 }).addTo(map));
+      .map(t => [...t, 'local'])
+      .concat([['Ballarat', -37.562, 143.85, 1], ['Bendigo', -36.757, 144.279, 1], ['Mildura', -34.185, 142.16, 1], ['Shepparton', -36.38, 145.4, 1],
+        ['Wodonga', -36.12, 146.888, 1], ['Warrnambool', -38.383, 142.48, 1], ['Traralgon', -38.195, 146.54, 1], ['Horsham', -36.712, 142.2, 1],
+        ['Sale', -38.104, 147.068, 0], ['Bairnsdale', -37.823, 147.61, 0], ['Hamilton', -37.744, 142.022, 0], ['Swan Hill', -35.338, 143.554, 0],
+        ['Echuca', -36.13, 144.75, 0], ['Wangaratta', -36.358, 146.312, 0], ['Portland', -38.343, 141.604, 0], ['Lakes Entrance', -37.881, 147.981, 0],
+        ['Melbourne', -37.8136, 144.9631, 1], ['Geelong', -38.1499, 144.3617, 1]].map(t => [...t, 'state']))
+      .forEach(([n, lat, lon, big, set]) => L.marker([lat, lon], { icon: L.divIcon({ className: `town ${set}` + (big ? ' big' : ''), html: `<i></i><span>${n}</span>`, iconSize: null }), keyboard: false, interactive: false, zIndexOffset: -100 }).addTo(map));
     L.marker(HOME, { icon: L.divIcon({ className: '', html: '<div class="home-pin"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }), keyboard: false, title: 'Home' }).addTo(map);
     map.attributionControl.addAttribution('Radar <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>');
     // The grid puts the map at fractional pixel positions; on retina screens that makes the browser resample
     // every tile and draws hairline seams along tile edges. Nudge the map onto whole pixels whenever it moves.
+    const card = $('map').closest('.radar');
+    const fitView = () => {
+      const fs = card.classList.contains('fs'), b = fs ? (fsB || viewB) : viewB;
+      if (b) map.fitBounds(b, { animate: false, padding: fs ? [8, 8] : [0, 0] });
+      map.getContainer().classList.toggle('state-view', map.getZoom() < 7.6);
+    };
     const snap = () => {
       const m = $('map'), r = m.parentElement.getBoundingClientRect();
       m.style.left = (Math.round(r.left) - r.left) + 'px';     // full precision: even 0.01 px brings the seams back
       m.style.top = (Math.round(r.top) - r.top) + 'px';
       map.invalidateSize();
+      fitView();
     };
+    // Locked: no dragging or pinching on the wall screen, so a passing hand can't move it
+    const setLock = on => ['dragging', 'touchZoom', 'scrollWheelZoom', 'doubleClickZoom', 'boxZoom', 'keyboard'].forEach(k => map[k] && (on ? map[k].disable() : map[k].enable()));
+    if (locked) setLock(true);
+    map.on('zoomend', () => map.getContainer().classList.toggle('state-view', map.getZoom() < 7.6));
     new ResizeObserver(snap).observe($('map').parentElement);
     window.addEventListener('resize', snap);
     $('screen')?.addEventListener('transitionend', snap);   // after each burn-in nudge
     snap();
     // Tap the map for full screen (tap again, or Esc, to come back). The radar fills the window
     // straight away; on browsers that allow it, it also asks for true full screen.
-    const card = $('map').closest('.radar');
+    let before = null;
     const setFs = on => {
+      if (on && !viewB) before = [map.getCenter(), map.getZoom()];
+      if (!on && !viewB && before) setTimeout(() => map.setView(before[0], before[1], { animate: false }), 450);
       card.classList.toggle('fs', on);
+      if (locked) setLock(!on);              // free to pan and pinch in full screen
       document.body.classList.toggle('radar-fs', on);
       if (on && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
       if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
@@ -659,9 +683,11 @@ window.Hub = (() => {
     let mv; map.on('moveend', () => { clearTimeout(mv); mv = setTimeout(() => loadRadar(false), 500); });   // panned: re-stitch for the new view
   }
   let lastRadar = null, lastSig = '', rainByFrame = [];
+  // Radar tile zoom: 7 (the free tier's finest) close in; coarser when zoomed out to the whole state,
+  // which looks the same at that scale and keeps a frame to a handful of requests (limit: 100 a minute)
   function tileRange() {
-    const b = map.getBounds();
-    return { x0: lon2tile(b.getWest(), NATIVE_Z), x1: lon2tile(b.getEast(), NATIVE_Z), y0: lat2tile(b.getNorth(), NATIVE_Z), y1: lat2tile(b.getSouth(), NATIVE_Z) };
+    const b = map.getBounds(), z = Math.max(4, Math.min(NATIVE_Z, Math.floor(map.getZoom() + 0.3)));
+    return { z, x0: lon2tile(b.getWest(), z), x1: lon2tile(b.getEast(), z), y0: lat2tile(b.getNorth(), z), y1: lat2tile(b.getSouth(), z) };
   }
   async function loadRadar(refetch = true) {
     if (!map) return;
@@ -745,20 +771,20 @@ window.Hub = (() => {
   }
   const frameCache = new Map();              // frame path + tile range -> { ov, rain, url }
   async function buildFrame(host, f, R) {
-    const key = `${f.path}|${R.x0},${R.y0},${R.x1},${R.y1}`;
+    const key = `${f.path}|${R.z}|${R.x0},${R.y0},${R.x1},${R.y1}`;
     if (frameCache.has(key)) return { key, ...frameCache.get(key) };
     const c = document.createElement('canvas');
     c.width = (R.x1 - R.x0 + 1) * 256; c.height = (R.y1 - R.y0 + 1) * 256;
     const x = c.getContext('2d', { willReadFrequently: true });
     const jobs = [];
     for (let tx = R.x0; tx <= R.x1; tx++) for (let ty = R.y0; ty <= R.y1; ty++) {
-      jobs.push(loadImg(`${host}${f.path}/256/${NATIVE_Z}/${tx}/${ty}/2/0_0.png`).then(im => x.drawImage(im, (tx - R.x0) * 256, (ty - R.y0) * 256)).catch(() => {}));
+      jobs.push(loadImg(`${host}${f.path}/256/${R.z}/${tx}/${ty}/2/0_0.png`).then(im => x.drawImage(im, (tx - R.x0) * 256, (ty - R.y0) * 256)).catch(() => {}));
     }
     await Promise.all(jobs);
     let rain = 0;
     try { rain = recolour(x, c.width, c.height); } catch (e) { /* CORS refused: unconverted colours */ }
     const url = await new Promise(ok => c.toBlob(b => ok(URL.createObjectURL(b))));
-    const bounds = L.latLngBounds([tile2lat(R.y1 + 1, NATIVE_Z), tile2lon(R.x0, NATIVE_Z)], [tile2lat(R.y0, NATIVE_Z), tile2lon(R.x1 + 1, NATIVE_Z)]);
+    const bounds = L.latLngBounds([tile2lat(R.y1 + 1, R.z), tile2lon(R.x0, R.z)], [tile2lat(R.y0, R.z), tile2lon(R.x1 + 1, R.z)]);
     const ov = L.imageOverlay(url, bounds, { opacity: 0, pane: 'tilePane', className: 'radar-img', interactive: false });
     const out = { ov, rain, url };
     frameCache.set(key, out);

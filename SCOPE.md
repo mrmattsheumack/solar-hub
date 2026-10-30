@@ -261,6 +261,10 @@ Dashboard changes:
 - Weather tile opens with today in words and an icon (sunny, possible shower, rain, storms
   possible, clearing, windy...) and the EPA forecast for Dromana and Safety Beach.
 - Radar: tap for full screen; play bar is small and see-through.
+- Dashboard radar is pinned to Melbourne down to the Peninsula (Torquay to Lilydale, Melbourne to
+  Cowes) and locked against dragging/pinching. Tapping it goes full screen showing all of Victoria
+  (pan and pinch allowed there, regional cities labelled); tap again or Esc to return. Zoomed out,
+  radar tiles drop to zoom 6 or 5 so a frame stays a few requests (RainViewer limit 100/min).
 
 New data:
 - `ecowitt?history=today`: today's 5-minute WS90 readings (Ecowitt v3 device/history).
