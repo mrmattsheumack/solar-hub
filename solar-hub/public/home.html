@@ -932,7 +932,7 @@ body.dimmed .dim{opacity:.62}
 
   function showFrame(i) {
     if (!layers.length) return;
-    layers.forEach((l, k) => l.setOpacity(k === i ? 0.9 : 0));
+    layers.forEach((l, k) => l.setOpacity(k === i ? 1 : 0));   // full opacity: at 0.9 Chrome draws seams between radar tiles
     idx = i;
     [...$('frames').children].forEach((el, k) => el.className = k === i ? 'on' : k < i ? 'past' : '');
     const latest = i === frames.length - 1;
