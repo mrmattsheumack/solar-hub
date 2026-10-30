@@ -232,4 +232,40 @@ Function changes made for it (2026-10-30):
 - `forecast.js`: adds hourly wind speed and gusts, daily min/max temperature,
   max rain probability and max gust. Existing fields unchanged.
 
+## Site structure (added 2026-10-31)
+
+Agreed with Matt: the dashboard is the front page, with a left-hand menu across the site.
+
+| Page | File | What it is |
+|---|---|---|
+| Dashboard | `index.html` (was home.html; `/home.html` 301s to `/`) | Always-on wall display |
+| Weather | `weather.html` | WS90 in full, radar, today at the station, 48 h outlook, 7-day forecast, warnings, EPA beach water quality |
+| EV Charging | `ev.html` (+ history.html, decisions.html) | Unchanged, menu added |
+| Energy | `energy.html` (+ upload.html) | Live flow, today vs forecast, today's mix and cost, day-by-day history, links to the classic views |
+| Climate Control | `climate.html` (was index.html, the original app) | AC and zones. Its other tabs still work and can be deep-linked: `climate.html#live`, `#history`, `#battery`, `#forecast`, `#alerts`, `#izone` |
+
+Shared code:
+- `nav.js`: the menu. Slim icon rail with short labels on tablets, full names at 1600 px and
+  wider, a floating menu button on phones. Self-contained styles, so it works on every page.
+- `hub.css` / `hub.js`: tiles and data shared by the dashboard, Weather and Energy pages. Each
+  page lists the feeds it polls in `Hub.start({ sources, wall, extra })`; renderers skip tiles
+  the page doesn't have. `wall: true` (dashboard only) turns on wake lock, night dim,
+  burn-in shift and the 6-hourly reload.
+
+Dashboard changes:
+- Forecast tile moved to the Weather page. Its slot is now a Climate tile (AC on/off, mode,
+  fan, setpoint, return and supply air, which zones are open, room sensor temps). Read-only;
+  system state every minute, zones every 5 minutes so the iZone isn't hammered.
+- Every tile links to its page (Weather, Energy, EV Charging, Climate Control).
+- Energy flow has arrowheads showing the direction of each flow.
+- Weather tile opens with today in words and an icon (sunny, possible shower, rain, storms
+  possible, clearing, windy...) and the EPA forecast for Dromana and Safety Beach.
+- Radar: tap for full screen; play bar is small and see-through.
+
+New data:
+- `ecowitt?history=today`: today's 5-minute WS90 readings (Ecowitt v3 device/history).
+- `beaches`: EPA Victoria beach water quality, nearest sites to home within 8 km, from the
+  public feed behind their "Check air and water quality" map
+  (epa.vic.gov.au/api/environment/water/sites). Good / Fair / Poor, mostly rain driven.
+
 End of file.

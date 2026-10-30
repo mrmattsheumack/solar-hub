@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f1a">
+<title>Weather · Solar Hub</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="hub.css">
+<style>
+/* Weather page: the WS90 on the roof plus the Open-Meteo forecast, radar and official warnings.
+   Tiles and tokens come from hub.css; this is the layout and the page's own charts. */
+.screen{display:grid;gap:var(--gap);max-width:1800px;margin:0 auto;
+  padding:calc(var(--gap) + env(safe-area-inset-top,0px)) var(--gap) calc(var(--gap) + 24px + env(safe-area-inset-bottom,0px));
+  grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,1fr);
+  grid-template-areas:"head head head" "notes notes notes" "now radar fc" "today today fc" "next next warn" "next next beach";
+  grid-auto-rows:auto}
+.head h1{margin:0;font-size:clamp(22px,2vw,30px);font-weight:700;letter-spacing:-.02em}
+.head .sub{color:var(--text-muted);font-size:13px}
+.nowcard{grid-area:now} .radar{grid-area:radar;min-height:480px} .fc{grid-area:fc} .st{grid-area:today} .next{grid-area:next} .warncard{grid-area:warn} .beachcard{grid-area:beach}
+
+/* now */
+.big{display:flex;align-items:flex-end;justify-content:space-between;gap:14px}
+.big .temp{font-size:clamp(56px,5vw,88px)}
+.big .side{display:flex;flex-direction:column;align-items:flex-end;gap:3px;font-size:14px;color:var(--text-muted)}
+.big .side b{font-family:var(--mono);color:var(--text);font-weight:500}
+.nowgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cell{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;min-width:0}
+.cell .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
+.cell .v{font-family:var(--mono);font-size:clamp(18px,1.5vw,24px);font-weight:500;white-space:nowrap}
+.cell .v small{font-size:.6em;color:var(--text-muted);margin-left:3px;font-weight:400}
+.cell .s{font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell.alert{border-color:color-mix(in srgb,var(--import) 55%,transparent)}
+.cell.alert .v,.cell.alert .k{color:var(--import)} .cell.alert .v{font-weight:700}
+.windcell{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center}
+.windcell svg.compassbig{width:96px;height:96px}
+.rainrow{grid-column:1/-1;display:grid;grid-template-columns:repeat(5,1fr);gap:6px;text-align:center}
+.rainrow div{display:flex;flex-direction:column;gap:2px}
+.rainrow b{font-family:var(--mono);font-size:16px;font-weight:500}
+.rainrow span{font-size:11px;color:var(--text-muted)}
+.suninfo{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--text-muted)} .suninfo b{color:var(--text);font-family:var(--mono);font-weight:500}
+
+/* charts */
+.chart{position:relative;width:100%;height:230px}
+.chart svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.chart text{font-family:var(--sans)}
+.cleg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-muted)}
+.cleg span{display:flex;align-items:center;gap:6px}
+.cleg i{width:14px;height:3px;border-radius:2px;background:var(--c)}
+.cleg i.bar{width:8px;height:10px;opacity:.6}
+.cleg i.dash{background:repeating-linear-gradient(90deg,var(--c) 0 4px,transparent 4px 7px)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:var(--gap)}
+.two h3{margin:0 0 4px;font-size:13px;font-weight:600;color:var(--text-muted)}
+.stat-line{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--text-muted)} .stat-line b{font-family:var(--mono);color:var(--text);font-weight:500}
+
+/* forecast column: more hours and all 7 days */
+.fc .hours{grid-template-columns:repeat(6,1fr);row-gap:6px}
+.fc .days{overflow:visible}
+.fc .day{padding:8px 4px;grid-template-columns:4.2ch 30px minmax(0,1fr) 8.5ch 4.6ch}
+.fc .day .k{display:none}
+.windcell .s{white-space:normal}
+
+/* warnings */
+.wlist{display:flex;flex-direction:column;gap:8px}
+.witem{display:block;text-decoration:none;color:inherit;padding:10px 12px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);border-left:4px solid var(--c,var(--text-dim))}
+.witem b{display:block;font-size:14px}
+.witem span{display:block;font-size:12px;color:var(--text-muted);margin-top:3px}
+.witem p{margin:6px 0 0;font-size:13px;line-height:1.45;color:var(--text)}
+.witem.watch,.witem.emergency{--c:var(--import)} .witem.advice{--c:var(--warn)} .witem.info{--c:var(--text-dim)}
+.wnone{color:var(--text-muted);font-size:14px}
+.beach{display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;align-items:center;padding:10px 12px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);text-decoration:none;color:inherit}
+.beach + .beach{margin-top:8px}
+.beach i{width:12px;height:12px;border-radius:50%;background:var(--text-dim)}
+.beach b{font-size:14px} .beach em{font-style:normal;font-weight:700;font-size:14px}
+.beach.good i{background:var(--ok)} .beach.good em{color:var(--ok)}
+.beach.fair i{background:var(--warn)} .beach.fair em{color:var(--warn)}
+.beach.poor i{background:var(--import)} .beach.poor em{color:var(--import)}
+.beach p{grid-column:2/-1;margin:0;font-size:12px;color:var(--text-muted);line-height:1.4}
+
+.radar .card-head{flex-wrap:wrap}
+@media (max-width:1200px){
+  .screen{grid-template-columns:1fr 1fr;grid-template-areas:"head head" "notes notes" "now radar" "fc fc" "today today" "next next" "warn beach"}
+  .fc .hours{grid-template-columns:repeat(12,1fr)}
+}
+@media (max-width:760px){
+  .screen{grid-template-columns:1fr;grid-template-areas:"head" "notes" "now" "radar" "warn" "beach" "fc" "today" "next"}
+  .two{grid-template-columns:1fr} .fc .hours{grid-template-columns:repeat(6,1fr)} .rainrow{grid-template-columns:repeat(3,1fr)}
+  .radar{min-height:380px}
+}
+</style>
+<script src="nav.js"></script>
+</head>
+<body>
+<div class="screen" id="screen">
+  <header class="head">
+    <div class="head-left">
+      <div><h1>Weather</h1><div class="sub" id="sub">Dromana · WS90 on the roof and the Open-Meteo forecast</div></div>
+    </div>
+    <div class="head-right">
+      <div class="dots" title="Data sources">
+        <span class="dot" id="dot-wx"><i></i><b>STATION</b></span>
+        <span class="dot" id="dot-wxhist"><i></i><b>TODAY</b></span>
+        <span class="dot" id="dot-fc"><i></i><b>FORECAST</b></span>
+        <span class="dot" id="dot-radar"><i></i><b>RADAR</b></span>
+        <span class="dot" id="dot-warn"><i></i><b>WARNINGS</b></span>
+        <span class="dot" id="dot-beach"><i></i><b>EPA</b></span>
+      </div>
+      <a class="btn" href="https://www.bom.gov.au/vic/forecasts/melbourne.shtml" target="_blank" rel="noopener">BoM forecast ›</a>
+    </div>
+  </header>
+  <div class="notes" id="wnotes" aria-live="polite"></div>
+
+  <section class="card nowcard" aria-labelledby="now-h">
+    <div class="card-head"><h2 id="now-h">Outside now</h2><span class="meta" id="now-meta">Ecowitt WS90</span></div>
+    <div id="nowbody" style="display:flex;flex-direction:column;gap:12px"><div class="empty">Waiting for the weather station…</div></div>
+  </section>
+
+  <section class="card radar" id="radar" aria-labelledby="radar-h">
+    <div class="card-head">
+      <h2 id="radar-h">Rain radar · past 2 hours</h2>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="legend" aria-hidden="true">light<span><i style="background:#f5f5ff"></i><i style="background:#b4b4ff"></i><i style="background:#7878ff"></i><i style="background:#1414ff"></i><i style="background:#00d8c3"></i><i style="background:#009690"></i><i style="background:#006666"></i><i style="background:#ffff00"></i><i style="background:#ffc800"></i><i style="background:#ff9600"></i><i style="background:#ff6400"></i><i style="background:#ff0000"></i><i style="background:#c80000"></i><i style="background:#780000"></i></span>heavy</span>
+        <a class="card-link" href="https://www.bom.gov.au/products/IDR023.loop.shtml" target="_blank" rel="noopener">BoM radar ›</a>
+      </div>
+    </div>
+    <div class="map-wrap"><div id="map" data-zoom="8" role="img" aria-label="Animated rain radar centred on Dromana"></div>
+    <div class="radar-bar">
+      <button class="btn" id="radar-play" aria-label="Pause radar animation"><svg viewBox="0 0 24 24" fill="currentColor" id="radar-icon"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
+      <div class="frames" id="frames"></div>
+      <span class="rain-state" id="rain-state"></span><span class="radar-time" id="radar-time">--:--</span>
+    </div></div>
+  </section>
+
+  <section class="card fc" aria-labelledby="fc-h">
+    <div class="card-head"><h2 id="fc-h">Forecast</h2><span class="meta" id="fc-meta">Open-Meteo · Dromana</span></div>
+    <div class="hours" id="hours" data-hours="12"></div>
+    <div class="days" id="days" data-days="7"><div class="empty">Loading forecast…</div></div>
+    <div class="suninfo" id="suninfo"></div>
+  </section>
+
+  <section class="card st" aria-labelledby="st-h">
+    <div class="card-head"><h2 id="st-h">Today at the station</h2><span class="meta" id="st-meta">since midnight · 5-minute readings</span></div>
+    <div class="stat-line" id="st-stats"></div>
+    <div class="two">
+      <div><h3>Temperature and rain</h3><div class="chart" id="st-temp"><div class="empty">Loading today's readings…</div></div>
+        <div class="cleg"><span><i style="--c:var(--solar)"></i>Outside</span><span><i style="--c:var(--home)"></i>Inside</span><span><i class="bar" style="--c:var(--rain);background:var(--rain)"></i>Rain (mm per 5 min)</span></div></div>
+      <div><h3>Wind</h3><div class="chart" id="st-wind"></div>
+        <div class="cleg"><span><i style="--c:var(--home)"></i>Average</span><span><i style="--c:var(--import)"></i>Gusts</span><span><i class="dash" style="--c:var(--text-muted)"></i>50 km/h</span></div></div>
+    </div>
+  </section>
+
+  <section class="card next" aria-labelledby="next-h">
+    <div class="card-head"><h2 id="next-h">Next 48 hours</h2><span class="meta">Open-Meteo hourly</span></div>
+    <div class="two">
+      <div><h3>Temperature and rain</h3><div class="chart" id="nx-temp"></div>
+        <div class="cleg"><span><i style="--c:var(--solar)"></i>Temperature</span><span><i class="bar" style="--c:var(--rain);background:var(--rain)"></i>Chance of rain</span><span><i class="dash" style="--c:var(--rain)"></i>Rain (mm/h)</span></div></div>
+      <div><h3>Wind, cloud and sun</h3><div class="chart" id="nx-wind"></div>
+        <div class="cleg"><span><i style="--c:var(--home)"></i>Wind</span><span><i style="--c:var(--import)"></i>Gusts</span><span><i class="bar" style="--c:var(--text-dim);background:var(--text-dim)"></i>Cloud</span><span><i class="dash" style="--c:var(--solar)"></i>Sunshine</span></div></div>
+    </div>
+  </section>
+
+  <section class="card warncard" aria-labelledby="warn-h">
+    <div class="card-head"><h2 id="warn-h">Warnings and incidents</h2><a class="card-link" href="https://emergency.vic.gov.au/respond/" target="_blank" rel="noopener">VicEmergency ›</a></div>
+    <div class="wlist" id="warnlist"><div class="wnone">Checking VicEmergency…</div></div>
+  </section>
+
+  <section class="card beachcard" aria-labelledby="beach-h">
+    <div class="card-head"><h2 id="beach-h">Beach water quality</h2><a class="card-link" href="https://www.epa.vic.gov.au/check-air-and-water-quality?lat=-38.317417&lon=144.968950&z=12.6" target="_blank" rel="noopener">EPA Victoria ›</a></div>
+    <div id="beaches"><div class="wnone">Checking EPA forecasts…</div></div>
+    <div class="meta" id="beach-meta" style="font-size:12px;color:var(--text-dim)"></div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="hub.js"></script>
+<script>
+(() => {
+  const H = Hub, $ = H.$, { has, f0, f1, esc } = H;
+
+  // ---------- current conditions from the WS90 ----------
+  const compassBig = (deg, speed) => `<svg class="compassbig" viewBox="-50 -50 100 100" aria-hidden="true">
+    <circle r="44" fill="var(--surface-3)" stroke="var(--border-strong)" stroke-width="1.5"/>
+    ${['N', 'E', 'S', 'W'].map((l, i) => { const a = i * Math.PI / 2; return `<text x="${(Math.sin(a) * 34).toFixed(1)}" y="${(-Math.cos(a) * 34 + 4).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--text-muted)">${l}</text>`; }).join('')}
+    ${has(deg) ? `<g transform="rotate(${deg + 180})"><path d="M0-30l9 22H-9z" fill="var(--home)"/><rect x="-2.5" y="-10" width="5" height="34" rx="2.5" fill="var(--home)"/></g>` : ''}
+    <circle r="15" fill="var(--surface)"/><text y="5" text-anchor="middle" font-size="14" font-family="var(--mono)" fill="var(--text)">${f0(speed)}</text></svg>`;
+  const dewAlert = () => false;
+  function renderNow() {
+    const w = H.S.wx, box = $('nowbody');
+    if (!w) { if (H.failed.wx) box.innerHTML = '<div class="empty">Weather station not reachable right now.</div>'; return; }
+    const r12 = H.next12Range(), windy = (w.windSpeed || 0) > H.WIND_ALERT || (w.windGust || 0) > H.WIND_ALERT, uvHigh = has(w.uvi) && w.uvi >= H.UV_ALERT;
+    const raining = has(w.rainRate) && w.rainRate > 0;
+    const cell = (k, v, s = '', cls = '') => `<div class="cell ${cls}"><div class="k">${k}</div><div class="v">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
+    box.innerHTML = `
+      <div class="big">
+        <div><div class="label">Outside</div><div class="temp">${f1(w.temperature)}<sup>°</sup></div></div>
+        <div class="side">
+          <span>Feels like <b>${f1(w.feelsLike)}°</b></span>
+          <span>Humidity <b>${f0(w.humidity)}%</b></span>
+          <span>Dew point <b>${f1(w.dewPoint)}°</b></span>
+          ${r12 ? `<span>Next 12 h <b class="hi">${f0(r12.hi)}°</b> ${r12.hiAt} · <b class="lo">${f0(r12.lo)}°</b> ${r12.loAt}</span>` : ''}
+        </div>
+      </div>
+      <div class="nowgrid">
+        <div class="cell windcell ${windy ? 'alert' : ''}">${compassBig(w.windDirection, w.windSpeed)}
+          <div><div class="k">Wind</div><div class="v">${f0(w.windSpeed)}<small>km/h</small> ${H.cardinal(w.windDirection) ? `<small>from ${H.cardinal(w.windDirection)} (${f0(w.windDirection)}°)</small>` : ''}</div>
+          <div class="s">Gusting ${f0(w.windGust)} km/h${H.maxGust12().v > H.WIND_ALERT ? ` · up to ${Math.round(H.maxGust12().v)} expected ${H.maxGust12().at === 'now' ? 'now' : 'around ' + H.maxGust12().at}` : ''}</div></div></div>
+        ${cell('Inside', `${f1(w.indoorTemp)}<small>°C</small>`, has(w.indoorHumidity) ? `${f0(w.indoorHumidity)}% humidity` : '')}
+        ${cell('Pressure', `${f1(w.pressure)}<small>hPa</small>`, pressureTrend())}
+        ${cell('UV', has(w.uvi) ? f1(w.uvi) : '--', H.uvLabel(w.uvi) + (uvHigh ? ' · sun protection' : ''), uvHigh ? 'alert' : '')}
+        ${cell('Sunlight', `${f0(w.solarIrradiance ?? 0)}<small>W/m²</small>`, 'on the station')}
+        <div class="cell rainrow">
+          <div><b class="${raining ? 'raining' : ''}">${f1(w.rainRate ?? 0)}</b><span>mm/h now</span></div>
+          <div><b>${f1(w.rainDaily ?? 0)}</b><span>today</span></div>
+          <div><b>${f1(w.rainWeekly)}</b><span>this week</span></div>
+          <div><b>${f0(w.rainMonthly)}</b><span>this month</span></div>
+          <div><b>${f0(w.rainYearly)}</b><span>this year</span></div>
+        </div>
+      </div>`;
+    const t = w.stationTime ? new Date(w.stationTime) : (H.at.wx ? new Date(H.at.wx) : null);
+    $('now-meta').textContent = t ? `WS90 · ${H.clock(t)}` : 'Ecowitt WS90';
+  }
+  // Pressure trend over the last 3 hours from today's readings
+  function pressureTrend() {
+    const p = H.S.wxhist?.pressure || [];
+    if (p.length < 6) return 'trend after a few readings';
+    const now = p[p.length - 1], then = p.find(([t]) => t >= now[0] - 3 * 3600e3) || p[0], d = now[1] - then[1];
+    return Math.abs(d) < 0.6 ? 'steady over 3 h' : `${d > 0 ? 'rising' : 'falling'} ${Math.abs(d).toFixed(1)} over 3 h`;
+  }
+
+  // ---------- small SVG chart helper ----------
+  // series: [{ pts:[[ms,v]], col, axis:'l'|'r', kind:'line'|'bar'|'dash', w }], x range [t0,t1]
+  function chart(el, { t0, t1, series, left, right, ticks, now, hline }) {
+    if (!el) return;
+    const W = Math.max(280, el.clientWidth), Hh = Math.max(140, el.clientHeight), L = 34, R = right ? 34 : 8, T = 8, B = 22;
+    const pw = W - L - R, ph = Hh - T - B, x = t => L + pw * (t - t0) / (t1 - t0);
+    const y = (v, ax) => { const [lo, hi] = ax === 'r' ? right : left; return T + ph - ph * (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo || 1); };
+    let s = '';
+    const [lo, hi] = left, step = niceStep(hi - lo);
+    for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--border)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--text-dim)" font-family="var(--mono)">${Math.round(v)}</text>`;
+    if (right) { const rs = niceStep(right[1] - right[0]); for (let v = right[0]; v <= right[1] + 1e-9; v += rs) s += `<text x="${W - R + 6}" y="${y(v, 'r') + 4}" font-size="11" fill="var(--text-dim)" font-family="var(--mono)">${rs < 1 ? v.toFixed(1) : Math.round(v)}</text>`; }
+    ticks.forEach(([t, lab]) => s += `<text x="${x(t)}" y="${Hh - 5}" text-anchor="middle" font-size="11" fill="var(--text-dim)">${lab}</text><line x1="${x(t)}" x2="${x(t)}" y1="${T}" y2="${T + ph}" stroke="var(--border)" stroke-dasharray="2 4"/>`);
+    if (hline) s += `<line x1="${L}" x2="${W - R}" y1="${y(hline.v, hline.axis)}" y2="${y(hline.v, hline.axis)}" stroke="${hline.col}" stroke-dasharray="5 4" opacity=".7"/>`;
+    for (const se of series) {
+      const pts = se.pts.filter(([t, v]) => t >= t0 && t <= t1 && has(v));
+      if (!pts.length) continue;
+      if (se.kind === 'bar') {
+        const bw = Math.max(1.5, pw * (se.dt || 3600e3) / (t1 - t0) * 0.7);
+        pts.forEach(([t, v]) => { if (v > 0) s += `<rect x="${(x(t) - bw / 2).toFixed(1)}" y="${y(v, se.axis).toFixed(1)}" width="${bw.toFixed(1)}" height="${(T + ph - y(v, se.axis)).toFixed(1)}" fill="${se.col}" opacity="${se.op || .45}" rx="1"/>`; });
+      } else {
+        s += `<path d="${pts.map(([t, v], i) => (i ? 'L' : 'M') + x(t).toFixed(1) + ',' + y(v, se.axis).toFixed(1)).join(' ')}" fill="none" stroke="${se.col}" stroke-width="${se.w || 2}" stroke-linejoin="round" stroke-linecap="round"${se.kind === 'dash' ? ' stroke-dasharray="5 4"' : ''}/>`;
+      }
+    }
+    if (now) s += `<line x1="${x(now)}" x2="${x(now)}" y1="${T}" y2="${T + ph}" stroke="var(--text-muted)" stroke-dasharray="2 3"/><text x="${x(now) + 4}" y="${T + 10}" font-size="10" fill="var(--text-muted)">now</text>`;
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img">${s}</svg>`;
+  }
+  function niceStep(span) { const raw = span / 4, p = 10 ** Math.floor(Math.log10(raw || 1)), n = raw / p; return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * p; }
+  const range = (vals, pad, minSpan) => { const v = vals.filter(has); if (!v.length) return [0, minSpan]; let lo = Math.min(...v), hi = Math.max(...v); if (hi - lo < minSpan) { const m = (hi + lo) / 2; lo = m - minSpan / 2; hi = m + minSpan / 2; } return [Math.floor(lo - pad), Math.ceil(hi + pad)]; };
+  // Melbourne midnight for a YYYY-MM-DD key, as epoch ms (works whatever the device's timezone)
+  const melMidnight = key => { const g = new Date(key + 'T00:00:00Z').getTime(); const off = new Date(g).toLocaleString('en-US', { timeZone: H.TZ, timeZoneName: 'shortOffset' }).match(/GMT([+-]\d+)/); return g - (off ? +off[1] : 11) * 3600e3; };
+  const fcMs = t => { const day = melMidnight(t.slice(0, 10)); return day + (+t.slice(11, 13)) * 3600e3; };
+
+  // ---------- today at the station ----------
+  function renderStation() {
+    const d = H.S.wxhist, el = $('st-temp');
+    if (!d) { if (H.failed.wxhist) el.innerHTML = '<div class="empty">Today\'s station history isn\'t available right now.</div>'; return; }
+    const t0 = melMidnight(H.mel().key), t1 = t0 + 24 * 3600e3, now = Date.now();
+    const ticks = [0, 3, 6, 9, 12, 15, 18, 21].map(h => [t0 + h * 3600e3, h === 0 ? '12a' : h === 12 ? '12p' : h < 12 ? h + 'a' : (h - 12) + 'p']);
+    // Rain per 5 minutes from the running daily total
+    const daily = d.rainDaily || [], rain5 = daily.map(([t, v], i) => [t, i ? Math.max(0, v - daily[i - 1][1]) : v]);
+    const temps = [...(d.temperature || []), ...(d.indoorTemp || [])].map(p => p[1]);
+    const rmax = Math.max(1, ...rain5.map(p => p[1])) * 1.2;
+    chart(el, { t0, t1, now, ticks, left: range(temps, 1, 6), right: [0, Math.ceil(rmax)], series: [
+      { pts: rain5, col: 'var(--rain)', kind: 'bar', axis: 'r', dt: 300e3, op: .6 },
+      { pts: d.indoorTemp || [], col: 'var(--home)', w: 1.6 },
+      { pts: d.temperature || [], col: 'var(--solar)', w: 2.2 }] });
+    const gusts = d.windGust || [];
+    chart($('st-wind'), { t0, t1, now, ticks, left: [0, Math.max(60, ...gusts.map(p => p[1] + 5))], hline: { v: 50, col: 'var(--text-muted)' }, series: [
+      { pts: d.windSpeed || [], col: 'var(--home)', w: 2 },
+      { pts: gusts, col: 'var(--import)', w: 1.4 }] });
+    const T = d.temperature || [], mx = T.reduce((a, p) => p[1] > a[1] ? p : a, [0, -99]), mn = T.reduce((a, p) => p[1] < a[1] ? p : a, [0, 99]);
+    const gx = gusts.reduce((a, p) => p[1] > a[1] ? p : a, [0, 0]);
+    const tm = ms => new Date(ms).toLocaleTimeString('en-AU', { timeZone: H.TZ, hour: 'numeric', minute: '2-digit' }).replace(' ', '').toLowerCase();
+    $('st-stats').innerHTML = T.length ? [
+      `<span>High <b class="hi">${f1(mx[1])}°</b> at ${tm(mx[0])}</span>`,
+      `<span>Low <b class="lo">${f1(mn[1])}°</b> at ${tm(mn[0])}</span>`,
+      gx[1] ? `<span>Strongest gust <b>${f0(gx[1])} km/h</b> at ${tm(gx[0])}</span>` : '',
+      `<span>Rain <b>${f1(daily.length ? daily[daily.length - 1][1] : 0)} mm</b></span>`].join('') : '';
+  }
+
+  // ---------- next 48 hours (forecast) ----------
+  function renderNext() {
+    const hrs = H.nextHours(49); if (!hrs.length) return;
+    const pts = k => hrs.map(h => [fcMs(h.time), h[k]]);
+    const t0 = fcMs(hrs[0].time), t1 = fcMs(hrs[hrs.length - 1].time);
+    const ticks = hrs.filter(h => fcHour(h.time) % 6 === 0).map(h => { const hh = fcHour(h.time); return [fcMs(h.time), hh === 0 ? new Date(h.time.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short' }) : hh === 12 ? '12p' : hh < 12 ? hh + 'a' : (hh - 12) + 'p']; });
+    const pmax = Math.max(2, ...hrs.map(h => h.precipitation || 0));
+    chart($('nx-temp'), { t0, t1, ticks, left: range(hrs.map(h => h.temperature), 1, 6), right: [0, 100], series: [
+      { pts: pts('precipProbability'), col: 'var(--rain)', kind: 'bar', axis: 'r', op: .35 },
+      { pts: hrs.map(h => [fcMs(h.time), (h.precipitation || 0) / pmax * 100]), col: 'var(--rain)', kind: 'dash', axis: 'r', w: 1.6 },
+      { pts: pts('temperature'), col: 'var(--solar)', w: 2.2 }] });
+    chart($('nx-wind'), { t0, t1, ticks, left: [0, Math.max(60, ...hrs.map(h => (h.windGust || 0) + 5))], right: [0, 100], hline: { v: 50, col: 'var(--text-muted)' }, series: [
+      { pts: pts('cloudCover'), col: 'var(--text-dim)', kind: 'bar', axis: 'r', op: .3 },
+      { pts: hrs.map(h => [fcMs(h.time), Math.min(100, h.ghi / 9)]), col: 'var(--solar)', kind: 'dash', axis: 'r', w: 1.6 },
+      { pts: pts('windSpeed'), col: 'var(--home)', w: 2 },
+      { pts: pts('windGust'), col: 'var(--import)', w: 1.4 }] });
+  }
+  const fcHour = H.fcHour;
+
+  // ---------- sun ----------
+  function renderSun() {
+    const d = H.fcDays().find(x => x.date === H.mel().key); if (!d?.sunrise) return;
+    const t = s => { const h = +s.slice(11, 13), m = s.slice(14, 16); return `${h % 12 || 12}:${m} ${h < 12 ? 'am' : 'pm'}`; };
+    const mins = (+d.sunset.slice(11, 13) * 60 + +d.sunset.slice(14, 16)) - (+d.sunrise.slice(11, 13) * 60 + +d.sunrise.slice(14, 16));
+    $('suninfo').innerHTML = `<span>Sunrise <b>${t(d.sunrise)}</b></span><span>Sunset <b>${t(d.sunset)}</b></span><span>Daylight <b>${Math.floor(mins / 60)} h ${mins % 60} min</b></span>${has(d.uv) ? `<span>UV max <b>${f1(d.uv)}</b></span>` : ''}`;
+    $('sub').textContent = `Dromana · ${new Date().toLocaleDateString('en-AU', { timeZone: H.TZ, weekday: 'long', day: 'numeric', month: 'long' })}`;
+  }
+
+  // ---------- warnings, in full ----------
+  function renderWarnList() {
+    const box = $('warnlist'), list = H.S.warn?.items;
+    if (!list) { if (H.failed.warn) box.innerHTML = '<div class="wnone">VicEmergency isn\'t reachable right now.</div>'; return; }
+    if (!list.length) { box.innerHTML = '<div class="wnone">No warnings or incidents affecting Dromana.</div>'; return; }
+    box.innerHTML = list.map(i => `<a class="witem ${i.level}" href="${esc(i.url)}" target="_blank" rel="noopener">
+      <b>${esc(i.title)}</b><span>${esc([i.kind, i.location, i.covers ? 'covers Dromana' : (i.distanceKm != null ? `${Math.round(i.distanceKm)} km away` : '')].filter(Boolean).join(' · '))}</span>
+      ${i.headline ? `<p>${esc(i.headline)}</p>` : ''}</a>`).join('');
+  }
+
+  // ---------- beach water quality (EPA Victoria forecast) ----------
+  function renderBeaches() {
+    const box = $('beaches'), b = H.S.beach?.sites;
+    if (!b) { if (H.failed.beach) box.innerHTML = '<div class="wnone">EPA water quality isn\'t reachable right now.</div>'; return; }
+    if (!b.length) { box.innerHTML = '<div class="wnone">No EPA beach sites near Dromana.</div>'; return; }
+    box.innerHTML = b.map(x => `<a class="beach ${H.ADVICE_CLS[x.advice] || ''}" href="${esc(x.url)}" target="_blank" rel="noopener"><i></i><b>${esc(x.name)}</b><em>${esc(x.advice || 'No forecast')}</em><p>${esc(x.reason)} ${f1(x.km)} km from home.</p></a>`).join('');
+    const u = b.find(x => x.updated)?.updated;
+    $('beach-meta').textContent = u ? `EPA forecast issued ${new Date(u).toLocaleString('en-AU', { timeZone: H.TZ, weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : '';
+  }
+
+  // ---------- weather-only notes ----------
+  function renderWNotes() {
+    const out = [], w = H.S.wx;
+    (H.warnNotes() || []).filter(x => x.level !== 'info').forEach(x => out.push(x));
+    const g = H.maxGust12(), now = Math.max(w?.windSpeed || 0, w?.windGust || 0);
+    if (now > H.WIND_ALERT) out.push({ cls: 'alert', text: `Strong wind now: ${Math.round(w.windSpeed || 0)} km/h, gusting ${Math.round(w.windGust || 0)}` });
+    else if (g.v > H.WIND_ALERT) out.push({ cls: 'alert', text: `Gusts up to ${Math.round(g.v)} km/h in the next 12 hours (around ${g.at})` });
+    if (w && has(w.uvi) && w.uvi >= H.UV_ALERT) out.push({ cls: 'alert', text: `UV ${f1(w.uvi)}, ${H.uvLabel(w.uvi).toLowerCase()}. Sun protection needed` });
+    if (w && has(w.rainRate) && w.rainRate > 0) out.push({ cls: 'rain', text: `Raining now, ${f1(w.rainRate)} mm/h` });
+    else { const wet = H.nextHours(12).slice(1, 7).find(h => h.precipProbability >= 50); if (wet) out.push({ cls: 'rain', text: `Rain likely around ${H.ampm(fcHour(wet.time))} (${wet.precipProbability}%)` }); }
+    $('wnotes').innerHTML = out.slice(0, 5).map(n => n.href ? `<a class="note ${n.cls}" href="${esc(n.href)}" target="_blank" rel="noopener"><i></i>${esc(n.text)}</a>` : `<span class="note ${n.cls}"><i></i>${esc(n.text)}</span>`).join('');
+  }
+
+  H.start({ sources: ['wx', 'wxhist', 'fc', 'warn', 'beach', 'radar'], extra: [renderNow, renderStation, renderNext, renderSun, renderWarnList, renderBeaches, renderWNotes] });
+  if (location.hash === '#radar') setTimeout(() => $('radar').scrollIntoView({ block: 'center' }), 300);
+})();
+</script>
+</body>
+</html>

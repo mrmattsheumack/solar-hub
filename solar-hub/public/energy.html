@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f1a">
+<title>Energy · Solar Hub</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="hub.css">
+<style>
+/* Energy page: solar, house, car and grid. Live flow and today's totals come from the Pi controller's
+   log (inverter over Modbus, house load from SEMS), daily history from the Pi's per-day summaries. */
+.screen{display:grid;gap:var(--gap);max-width:1800px;margin:0 auto;
+  padding:calc(var(--gap) + env(safe-area-inset-top,0px)) var(--gap) calc(var(--gap) + 24px + env(safe-area-inset-bottom,0px));
+  grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr);
+  grid-template-areas:"head head head" "flow day mix" "flow day sum" "hist hist links"}
+.head h1{margin:0;font-size:clamp(22px,2vw,30px);font-weight:700;letter-spacing:-.02em}
+.head .sub{color:var(--text-muted);font-size:13px}
+.flowcard{grid-area:flow;min-height:460px} .daycard{grid-area:day} .mix{grid-area:mix;min-height:330px} .sumcard{grid-area:sum} .histcard{grid-area:hist} .links{grid-area:links}
+.chart{position:relative;width:100%;flex:1;min-height:260px}
+.chart svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.chart text{font-family:var(--sans)}
+.cleg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-muted)}
+.cleg span{display:flex;align-items:center;gap:6px}
+.cleg i{width:14px;height:3px;border-radius:2px;background:var(--c)}
+.cleg i.dash{background:repeating-linear-gradient(90deg,var(--c) 0 4px,transparent 4px 7px)}
+.cleg i.sq{width:10px;height:10px;border-radius:2px}
+.stats{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--text-muted)} .stats b{font-family:var(--mono);color:var(--text);font-weight:500;font-size:15px}
+.sumgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sumgrid .cell{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:10px 12px}
+.sumgrid .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
+.sumgrid .v{font-family:var(--mono);font-size:clamp(18px,1.6vw,24px);font-weight:500}
+.sumgrid .v small{font-size:.6em;color:var(--text-muted);margin-left:3px}
+.sumgrid .s{font-size:12px;color:var(--text-muted)}
+.seg{display:inline-flex;gap:3px;padding:3px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border)}
+.seg button{border:0;background:none;padding:5px 10px;border-radius:7px;font-size:12px;color:var(--text-muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface-3);color:var(--text)}
+.htable{width:100%;border-collapse:collapse;font-size:13px}
+.htable th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600;text-align:right;padding:6px 8px;border-bottom:1px solid var(--border)}
+.htable th:first-child,.htable td:first-child{text-align:left}
+.htable td{font-family:var(--mono);text-align:right;padding:6px 8px;border-bottom:1px solid var(--border)}
+.htable tr.tot td{font-weight:700;border-top:2px solid var(--border-strong)}
+.hwrap{max-height:320px;overflow:auto}
+.linkgrid{display:flex;flex-direction:column;gap:8px}
+.linkgrid a{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);text-decoration:none}
+.linkgrid a:hover{border-color:var(--border-strong)}
+.linkgrid b{font-size:14px;font-weight:600} .linkgrid span{display:block;font-size:12px;color:var(--text-muted)}
+@media (max-width:1200px){
+  .screen{grid-template-columns:1fr 1fr;grid-template-areas:"head head" "flow mix" "day day" "sum links" "hist hist"}
+}
+@media (max-width:760px){
+  .screen{grid-template-columns:1fr;grid-template-areas:"head" "flow" "mix" "day" "sum" "hist" "links"}
+  .flowcard{min-height:420px}
+}
+</style>
+<script src="nav.js"></script>
+</head>
+<body>
+<div class="screen" id="screen">
+  <header class="head">
+    <div class="head-left"><div><h1>Energy</h1><div class="sub">GoodWe 10 kW inverter · 13.2 kW of panels · AGL Night Saver EV</div></div></div>
+    <div class="head-right">
+      <div class="dots" title="Data sources">
+        <span class="dot" id="dot-ev"><i></i><b>PI</b></span>
+        <span class="dot" id="dot-sems"><i></i><b>SEMS</b></span>
+        <span class="dot" id="dot-fc"><i></i><b>FORECAST</b></span>
+        <span class="dot" id="dot-evhist"><i></i><b>HISTORY</b></span>
+      </div>
+    </div>
+  </header>
+
+  <section class="card flowcard" aria-labelledby="flow-h">
+    <div class="card-head"><h2 id="flow-h">Energy flow · now</h2><a class="card-link" href="ev.html"><span id="en-mode"></span>EV charging ›</a></div>
+    <div id="flow-body" style="display:flex;flex-direction:column;gap:10px;flex:1;min-height:0"><div class="empty">Waiting for solar and charger data…</div></div>
+  </section>
+
+  <section class="card daycard" id="today" aria-labelledby="day-h">
+    <div class="card-head"><h2 id="day-h">Today · solar, house and car</h2><div class="stats" id="day-stats"></div></div>
+    <div class="chart" id="daychart"><div class="empty">Building today's chart…</div></div>
+    <div class="cleg"><span><i style="--c:var(--solar)"></i>Solar</span><span><i class="dash" style="--c:var(--solar)"></i>Solar forecast</span><span><i style="--c:var(--home)"></i>House</span><span><i style="--c:var(--car)"></i>Car</span><span><i class="sq" style="background:var(--offpeak)"></i>Off-peak 12–6 am</span></div>
+  </section>
+
+  <section class="card mix" aria-labelledby="mix-h">
+    <div class="card-head"><h2 id="mix-h">Today's electricity</h2><span class="meta" id="mix-meta">since midnight</span></div>
+    <div class="pies" id="pies"><div class="empty">Adding up today…</div></div>
+  </section>
+
+  <section class="card sumcard" aria-labelledby="sum-h">
+    <div class="card-head"><h2 id="sum-h">Today's cost</h2><span class="meta">AGL rates, estimate</span></div>
+    <div class="sumgrid" id="sum"><div class="empty">Adding up today…</div></div>
+  </section>
+
+  <section class="card histcard" aria-labelledby="hist-h">
+    <div class="card-head"><h2 id="hist-h">Day by day</h2>
+      <div class="seg" role="group" aria-label="Period"><button data-n="7" aria-pressed="false">7 days</button><button data-n="14" aria-pressed="true">14 days</button><button data-n="30" aria-pressed="false">30 days</button><button data-n="0" aria-pressed="false">All</button></div></div>
+    <div class="chart" id="histchart" style="height:260px;min-height:0;flex:none"><div class="empty">Loading history from the Pi…</div></div>
+    <div class="cleg"><span><i class="sq" style="background:var(--solar)"></i>Solar used at home</span><span><i class="sq" style="background:var(--gridout)"></i>Solar exported</span><span><i class="sq" style="background:var(--import-soft)"></i>Grid off-peak</span><span><i class="sq" style="background:var(--import)"></i>Grid peak</span></div>
+    <div class="hwrap"><table class="htable" id="htable"></table></div>
+  </section>
+
+  <section class="card links" aria-labelledby="links-h">
+    <div class="card-head"><h2 id="links-h">More energy</h2></div>
+    <div class="linkgrid">
+      <a href="ev.html"><div><b>EV charging</b><span>Cars, charging sessions and savings</span></div>›</a>
+      <a href="climate.html#history"><div><b>AGL bill history</b><span>Half-hourly usage from the AGL CSVs</span></div>›</a>
+      <a href="upload.html"><div><b>Upload an AGL CSV</b><span>Add the latest bill data</span></div>›</a>
+      <a href="climate.html#battery"><div><b>Battery simulator</b><span>What a home battery would save</span></div>›</a>
+      <a href="climate.html#live"><div><b>Classic live power</b><span>The original Live Power view</span></div>›</a>
+      <a href="climate.html#alerts"><div><b>Export and import alerts</b><span>Browser notifications</span></div>›</a>
+    </div>
+  </section>
+</div>
+
+<script src="hub.js"></script>
+<script>
+(() => {
+  const H = Hub, $ = H.$, { has, f0, f1, kw, esc } = H;
+  const SUPPLY = 1.10781;   // $ a day (AGL Night Saver EV, Oct 2026 bill)
+
+  // ---------- today's chart ----------
+  function renderDay() {
+    const wrap = $('daychart'), series = H.S.ev?.series || [], hrs = H.todayHourly();
+    if (!series.length && !hrs.length) { if (H.failed.ev && H.failed.fc) wrap.innerHTML = '<div class="empty">No data for today yet.</div>'; return; }
+    const W = Math.max(300, wrap.clientWidth), Hh = Math.max(200, wrap.clientHeight), L = 34, R = 8, T = 8, B = 22, pw = W - L - R, ph = Hh - T - B;
+    const pts = series.map(p => ({ h: +p.t.slice(0, 2) + +p.t.slice(3, 5) / 60, pv: p.pv / 1000, car: p.car / 1000, house: Math.max(0, p.home - p.car) / 1000 }));
+    const fc = hrs.map(h => ({ h: H.fcHour(h.time), kw: H.fcKw(h.ghi) }));
+    const ymax = Math.ceil(Math.max(4, ...pts.map(p => Math.max(p.pv, p.car + 0.1, p.house)), ...fc.map(f => f.kw)) / 2) * 2;
+    const x = h => L + pw * h / 24, y = v => T + ph - ph * Math.min(v, ymax) / ymax;
+    let s = `<rect x="${x(0)}" y="${T}" width="${x(6) - x(0)}" height="${ph}" fill="var(--offpeak)"/>`;
+    for (let v = 0; v <= ymax; v += ymax > 8 ? 4 : 2) s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--border)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--text-dim)" font-family="var(--mono)">${v}</text>`;
+    [0, 3, 6, 9, 12, 15, 18, 21].forEach(h => s += `<text x="${x(h)}" y="${Hh - 5}" text-anchor="middle" font-size="11" fill="var(--text-dim)">${h === 0 ? '12a' : h === 12 ? '12p' : h < 12 ? h + 'a' : (h - 12) + 'p'}</text>`);
+    s += `<text x="${L - 6}" y="${T - 1}" text-anchor="end" font-size="10" fill="var(--text-dim)">kW</text>`;
+    if (fc.length) s += `<path d="${fc.map((f, i) => (i ? 'L' : 'M') + x(f.h + 0.5).toFixed(1) + ',' + y(f.kw).toFixed(1)).join(' ')}" fill="none" stroke="var(--solar)" stroke-width="1.6" stroke-dasharray="5 4" opacity=".75"/>`;
+    if (pts.length) {
+      const area = (k, col, op) => `<path d="M${x(pts[0].h).toFixed(1)},${y(0)} ${pts.map(p => 'L' + x(p.h).toFixed(1) + ',' + y(p[k]).toFixed(1)).join(' ')} L${x(pts[pts.length - 1].h).toFixed(1)},${y(0)} Z" fill="${col}" fill-opacity="${op}"/>`;
+      const line = (k, col, w) => `<path d="${pts.map((p, i) => (i ? 'L' : 'M') + x(p.h).toFixed(1) + ',' + y(p[k]).toFixed(1)).join(' ')}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round"/>`;
+      s += area('pv', 'var(--solar)', .22) + line('pv', 'var(--solar)', 2.2) + area('car', 'var(--car)', .25) + line('car', 'var(--car)', 2) + line('house', 'var(--home)', 1.8);
+    }
+    const nh = H.mel().hf;
+    s += `<line x1="${x(nh)}" x2="${x(nh)}" y1="${T}" y2="${T + ph}" stroke="var(--text-muted)" stroke-dasharray="2 3"/><text x="${x(nh) + 4}" y="${T + ph - 4}" font-size="10" fill="var(--text-muted)">now</text>`;
+    wrap.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Today's solar, house and car against the solar forecast">${s}</svg>`;
+    const gen = H.S.sems?.dailyGeneration, dfc = H.fcDays().find(d => d.date === H.mel().key);
+    const left = fc.filter(f => f.h + 1 > nh).reduce((a, f) => a + (f.h < nh ? f.kw * (f.h + 1 - nh) : f.kw), 0);
+    const peak = pts.reduce((a, p) => p.pv > a.pv ? p : a, { pv: 0, h: 0 });
+    $('day-stats').innerHTML = [has(gen) ? `<span>So far <b>${f1(gen)}</b> kWh</span>` : '', dfc ? `<span>Forecast <b>${dfc.kwh}</b> kWh · ${H.solarScore(dfc)}/10</span>` : '',
+      nh < 20 && left >= 0.5 ? `<span>Still to come <b>≈${Math.round(left)}</b> kWh</span>` : '', peak.pv > 0.2 ? `<span>Peak <b>${peak.pv.toFixed(1)}</b> kW</span>` : ''].join('');
+  }
+
+  // ---------- today's cost ----------
+  function renderSum() {
+    const T = H.todayTotals(), box = $('sum');
+    if (!T) { if (H.failed.ev) box.innerHTML = '<div class="empty">Needs the Pi for today\'s totals.</div>'; return; }
+    const R = H.RATE, cost = T.gridOff * R.offpeak + T.gridPeak * R.general + SUPPLY - T.exp * R.feedin;
+    const saved = T.solarUsed * R.general;
+    const self = T.house + T.car > 0 ? Math.round(100 * T.solarUsed / (T.house + T.car)) : 0;
+    const cell = (k, v, s) => `<div class="cell"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+    box.innerHTML = cell('Grid cost so far', `$${cost.toFixed(2)}`, `incl. $${SUPPLY.toFixed(2)} supply`) +
+      cell('Solar saved', `$${saved.toFixed(2)}`, `${f1(T.solarUsed)} kWh at peak rate`) +
+      cell('Self-powered', `${self}<small>%</small>`, 'of today\'s use from solar') +
+      cell('Exported', `${f1(T.exp)}<small>kWh</small>`, `$${(T.exp * R.feedin).toFixed(2)} at 0.5c`);
+  }
+
+  // ---------- day-by-day history ----------
+  let N = 14;
+  try { const raw = localStorage.getItem('energy-n'); if (raw !== null && [0, 7, 14, 30].includes(+raw)) N = +raw; } catch (e) {}
+  document.querySelectorAll('.seg button').forEach(b => { b.setAttribute('aria-pressed', +b.dataset.n === N); b.addEventListener('click', () => { N = +b.dataset.n; try { localStorage.setItem('energy-n', N); } catch (e) {} document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', x === b)); renderHist(); }); });
+  function renderHist() {
+    const all = H.S.evhist?.days, el = $('histchart');
+    if (!all) { if (H.failed.evhist) el.innerHTML = '<div class="empty">The Pi\'s daily history isn\'t reachable right now.</div>'; return; }
+    const days = (N ? all.slice(-N) : all).map(d => {
+      const used = (d.house_solar_kwh || 0) + (d.car_solar_kwh || 0), off = d.import_offpeak_kwh || 0, peak = Math.max(0, (d.import_kwh || 0) - off);
+      return { ...d, used, off, peak, exp: d.export_kwh || 0, car: (d.car_solar_kwh || 0) + (d.car_offpeak_kwh || 0) + (d.car_grid_day_kwh || 0),
+        cost: off * H.RATE.offpeak + peak * H.RATE.general + SUPPLY - (d.export_kwh || 0) * H.RATE.feedin };
+    });
+    if (!days.length) { el.innerHTML = '<div class="empty">No history yet.</div>'; return; }
+    const W = Math.max(300, el.clientWidth), Hh = Math.max(200, el.clientHeight), L = 36, R = 8, T = 8, B = 24, pw = W - L - R, ph = Hh - T - B;
+    const top = Math.max(10, ...days.map(d => d.used + d.exp), ...days.map(d => d.off + d.peak)), ymax = Math.ceil(top / 10) * 10;
+    const y = v => T + ph / 2 - (ph / 2) * v / ymax, slot = pw / days.length, bw = Math.max(3, Math.min(34, slot * 0.66));
+    let s = '';
+    for (let v = -ymax; v <= ymax; v += ymax / 2) s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="${v === 0 ? 'var(--border-strong)' : 'var(--border)'}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--text-dim)" font-family="var(--mono)">${Math.abs(v)}</text>`;
+    s += `<text x="${L + 4}" y="${T + 10}" font-size="10" fill="var(--text-dim)">solar ↑</text><text x="${L + 4}" y="${T + ph - 4}" font-size="10" fill="var(--text-dim)">grid ↓ (kWh)</text>`;
+    days.forEach((d, i) => {
+      const cx = L + slot * (i + 0.5), x0 = (cx - bw / 2).toFixed(1);
+      const bar = (from, to, col) => to > from ? `<rect x="${x0}" y="${Math.min(y(from), y(to)).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.abs(y(to) - y(from)).toFixed(1)}" fill="${col}"/>` : '';
+      s += `<g><title>${d.date}: solar used ${d.used.toFixed(1)}, exported ${d.exp.toFixed(1)}, grid off-peak ${d.off.toFixed(1)}, peak ${d.peak.toFixed(1)} kWh</title>`;
+      s += bar(0, d.used, 'var(--solar)') + bar(d.used, d.used + d.exp, 'var(--gridout)');
+      s += `<rect x="${x0}" y="${y(0).toFixed(1)}" width="${bw.toFixed(1)}" height="${(y(-d.off) - y(0)).toFixed(1)}" fill="var(--import-soft)"/><rect x="${x0}" y="${y(-d.off).toFixed(1)}" width="${bw.toFixed(1)}" height="${(y(-d.off - d.peak) - y(-d.off)).toFixed(1)}" fill="var(--import)"/></g>`;
+      if (days.length <= 16 || i % Math.ceil(days.length / 12) === 0) s += `<text x="${cx}" y="${Hh - 6}" text-anchor="middle" font-size="10.5" fill="var(--text-dim)">${new Date(d.date + 'T12:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: days.length > 16 ? 'short' : undefined, weekday: days.length <= 16 ? 'short' : undefined }).replace(',', '')}</text>`;
+    });
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Daily solar used, exported and grid imports">${s}</svg>`;
+    const sum = k => days.reduce((a, d) => a + (d[k] || 0), 0);
+    const row = d => `<tr><td>${new Date(d.date + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}</td><td>${f1(d.solar_kwh)}</td><td>${f1(d.house_kwh)}</td><td>${f1(d.car)}</td><td>${f1(d.exp)}</td><td>${f1(d.off)}</td><td>${f1(d.peak)}</td><td>$${d.cost.toFixed(2)}</td></tr>`;
+    $('htable').innerHTML = `<thead><tr><th>Day</th><th>Solar</th><th>House</th><th>Car</th><th>Export</th><th>Grid off-peak</th><th>Grid peak</th><th>Grid cost</th></tr></thead>
+      <tbody>${days.slice().reverse().map(row).join('')}<tr class="tot"><td>${days.length} days</td><td>${f1(sum('solar_kwh'))}</td><td>${f1(sum('house_kwh'))}</td><td>${f1(sum('car'))}</td><td>${f1(sum('exp'))}</td><td>${f1(sum('off'))}</td><td>${f1(sum('peak'))}</td><td>$${sum('cost').toFixed(2)}</td></tr></tbody>`;
+  }
+
+  H.start({ sources: ['ev', 'sems', 'fc', 'evhist'], extra: [renderDay, renderSum, renderHist] });
+  if (location.hash === '#today') setTimeout(() => $('today').scrollIntoView({ block: 'start' }), 300);
+})();
+</script>
+</body>
+</html>

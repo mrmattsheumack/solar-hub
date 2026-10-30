@@ -10,3 +10,9 @@
   for = "/*"
   [headers.values]
     Access-Control-Allow-Origin = "*"
+
+# The dashboard moved to the front page on 2026-10-31; keep old wall-tablet bookmarks working
+[[redirects]]
+  from = "/home.html"
+  to = "/"
+  status = 301

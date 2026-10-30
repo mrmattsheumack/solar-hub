@@ -24,6 +24,47 @@ exports.handler = async (event) => {
     };
   }
 
+  // ?history=today -> today's readings from midnight (Melbourne time), 5-minute steps, for the Weather page
+  if ((event.queryStringParameters || {}).history === "today") {
+    try {
+      const melDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Melbourne" }).format(new Date());
+      const melNow = new Intl.DateTimeFormat("sv-SE", { timeZone: "Australia/Melbourne", hour12: false,
+        year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date());
+      const hp = new URLSearchParams({
+        application_key: APPLICATION_KEY, api_key: apiKey, mac: MAC,
+        start_date: `${melDate} 00:00:00`, end_date: melNow, cycle_type: "5min",
+        call_back: "outdoor.temperature,outdoor.humidity,outdoor.feels_like,wind.wind_speed,wind.wind_gust,wind.wind_direction,rainfall_piezo.rain_rate,rainfall_piezo.daily,rainfall.rain_rate,rainfall.daily,pressure.relative,solar_and_uvi.solar,solar_and_uvi.uvi,indoor.temperature",
+        temp_unitid: "1", pressure_unitid: "3", wind_speed_unitid: "7", rainfall_unitid: "12", solar_irradiance_unitid: "16",
+      });
+      const r = await fetch(`${ECOWITT_BASE}/device/history?${hp}`);
+      const h = await r.json();
+      if (h.code !== 0) throw new Error(`Ecowitt history error: ${h.msg}`);
+      const d = h.data || {};
+      // Each measure comes back as { unit, list: { "<unix seconds>": "<value>" } }
+      const series = (o) => {
+        const list = (o && o.list) || {};
+        return Object.entries(list).map(([t, v]) => [Number(t) * 1000, parseFloat(v)])
+          .filter(([t, v]) => Number.isFinite(t) && Number.isFinite(v)).sort((a, b) => a[0] - b[0]);
+      };
+      const pick = (...cands) => cands.map(series).find(s => s.length) || [];
+      const rain = d.rainfall_piezo && Object.keys(d.rainfall_piezo).length ? d.rainfall_piezo : (d.rainfall || {});
+      return {
+        statusCode: 200, headers: { ...headers, "Cache-Control": "public, max-age=300" },
+        body: JSON.stringify({
+          date: melDate,
+          temperature: pick(d.outdoor?.temperature), humidity: pick(d.outdoor?.humidity), feelsLike: pick(d.outdoor?.feels_like),
+          windSpeed: pick(d.wind?.wind_speed), windGust: pick(d.wind?.wind_gust), windDirection: pick(d.wind?.wind_direction),
+          rainRate: pick(rain.rain_rate), rainDaily: pick(rain.daily),
+          pressure: pick(d.pressure?.relative), solar: pick(d.solar_and_uvi?.solar), uvi: pick(d.solar_and_uvi?.uvi),
+          indoorTemp: pick(d.indoor?.temperature),
+          timestamp: new Date().toISOString(),
+        }),
+      };
+    } catch (err) {
+      return { statusCode: 502, headers, body: JSON.stringify({ error: err.message }) };
+    }
+  }
+
   try {
     // Fetch real-time data
     const params = new URLSearchParams({

@@ -1,0 +1,4606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="theme-color" content="#0a0e1a" media="(prefers-color-scheme: dark)"/>
+  
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Home Dashboard"/>
+  <title>Climate Control · Solar Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<style>
+/* ─────────────────────────────────────────────────────────────────
+   DESIGN TOKENS
+   Dark is default; light variables override via media query + .light
+   ─────────────────────────────────────────────────────────────── */
+:root {
+  /* Surfaces */
+  --bg:        #0b0f1a;
+  --surface:   #121828;
+  --surface-2: #1a2137;
+  --surface-3: #242c46;
+  --border:    rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.16);
+
+  /* Text */
+  --text:      #ecedf5;
+  --text-muted:#8890a8;
+  --text-dim:  #5a6178;
+
+  /* Brand colors (used consistently across all tabs) */
+  --solar:     #f5a623;  /* amber — generation */
+  --export:    #00d4a6;  /* teal — selling/good */
+  --import:    #ff5470;  /* pink-red — buying */
+  --home:      #7ba3f7;  /* soft blue — consumption */
+  --battery:   #5bb3ff;  /* blue — battery */
+
+  /* Climate palette (Airtouch-inspired) */
+  --cool:      #4fb3ff;
+  --heat:      #ff7849;
+  --neutral:   #a8b0c4;
+  --zone-open: #00d4a6;
+  --zone-shut: #3a4262;
+
+  /* Radii & shadows */
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 8px 24px -8px rgba(0,0,0,0.5);
+  --shadow-lg: 0 24px 48px -16px rgba(0,0,0,0.6);
+
+  /* Motion */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur: 240ms;
+
+  /* Sizing */
+  --nav-w: 280px;
+  --safe-top:    env(safe-area-inset-top,    0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Dark is default. Light theme only via explicit .light class (toggle). */
+
+.light {
+  --bg:        #f6f5ef;
+  --surface:   #ffffff;
+  --surface-2: #faf9f3;
+  --surface-3: #f0ede2;
+  --border:    rgba(0,0,0,0.08);
+  --border-strong: rgba(0,0,0,0.16);
+  --text:      #1b1f2a;
+  --text-muted:#6b7286;
+  --text-dim:  #9aa0b4;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 6px 24px -8px rgba(0,0,0,0.12);
+  --shadow-lg: 0 24px 48px -16px rgba(0,0,0,0.18);
+  --solar:   #d68900;
+  --export:  #009b7a;
+  --import:  #e03855;
+  --home:    #3f6fd9;
+  --battery: #2e8adf;
+  --zone-shut:#d4d8e1;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RESET & BASE
+   ─────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  font-feature-settings: 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  min-height: 100vh;
+  min-height: 100dvh;
+  position: relative;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+/* Subtle ambient background glow */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 0%, color-mix(in srgb, var(--solar) 6%, transparent), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 100%, color-mix(in srgb, var(--battery) 4%, transparent), transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+}
+
+button { cursor: pointer; }
+
+a { color: inherit; text-decoration: none; }
+
+img { display: block; max-width: 100%; }
+
+/* Typography scales */
+.font-display { font-family: 'Inter', sans-serif; font-weight: 700; letter-spacing: -0.02em; }
+.font-mono    { font-family: 'JetBrains Mono', monospace; font-feature-settings: 'zero'; }
+
+/* ─────────────────────────────────────────────────────────────────
+   APP SHELL — hamburger + slide-out nav + main content
+   ─────────────────────────────────────────────────────────────── */
+.app {
+  position: relative;
+  z-index: 1;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--safe-top);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: var(--safe-top);
+  z-index: 40;
+}
+
+.hamburger {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  transition: all var(--dur) var(--ease);
+}
+.hamburger:hover, .hamburger:active { background: var(--surface-3); transform: scale(0.96); }
+
+.hamburger .bars {
+  width: 18px;
+  height: 14px;
+  position: relative;
+}
+.hamburger .bars span {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--text);
+  border-radius: 2px;
+  transition: all var(--dur) var(--ease);
+}
+.hamburger .bars span:nth-child(1) { top: 0; }
+.hamburger .bars span:nth-child(2) { top: 6px; width: 70%; }
+.hamburger .bars span:nth-child(3) { top: 12px; }
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.brand-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--solar), #ff6b00);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--solar) 60%, transparent);
+}
+.brand-text { overflow: hidden; }
+.brand-name {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.brand-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.02em;
+}
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  box-shadow: 0 0 0 0 transparent;
+  transition: all var(--dur) var(--ease);
+}
+.status-pill.live .status-dot  { background: var(--export); box-shadow: 0 0 0 3px color-mix(in srgb, var(--export) 25%, transparent); animation: pulse 2.2s ease-in-out infinite; }
+.status-pill.error .status-dot { background: var(--import); }
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--export) 25%, transparent); }
+  50%      { box-shadow: 0 0 0 7px color-mix(in srgb, var(--export) 0%, transparent); }
+}
+
+.theme-toggle {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  transition: all var(--dur) var(--ease);
+}
+.theme-toggle:hover { background: var(--surface-3); }
+
+/* ─── SLIDE-OUT NAV ───────────────────────────────────────────── */
+.nav-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--dur) var(--ease), visibility var(--dur) var(--ease);
+  z-index: 90;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.nav-open .nav-scrim { opacity: 1; visibility: visible; }
+
+.nav {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: min(var(--nav-w), 85vw);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: calc(var(--safe-top) + 20px) 16px calc(var(--safe-bottom) + 20px);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transform: translateX(-100%);
+  transition: transform 320ms var(--ease);
+  z-index: 100;
+  box-shadow: var(--shadow-lg);
+}
+.nav-open .nav { transform: translateX(0); }
+
+.nav-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 0 4px;
+}
+.nav-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.nav-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+  font-size: 15px;
+  font-weight: 500;
+  transition: all var(--dur) var(--ease);
+  position: relative;
+  width: 100%;
+  text-align: left;
+}
+.nav-item:hover { background: var(--surface-2); color: var(--text); }
+.nav-item.active {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 14px; bottom: 14px;
+  width: 3px;
+  background: var(--solar);
+  border-radius: 0 3px 3px 0;
+}
+.nav-item-icon {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+}
+
+.nav-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+  line-height: 1.7;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ─── MAIN CONTENT ─────────────────────────────────────────────── */
+.main {
+  flex: 1;
+  padding: 16px;
+  padding-bottom: calc(32px + var(--safe-bottom));
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.tab-panel { display: none; animation: fadeIn 300ms var(--ease); }
+.tab-panel.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── REUSABLE COMPONENTS ──────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 18px;
+  position: relative;
+}
+.card-compact { padding: 14px; border-radius: var(--r-md); }
+.card-heading {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+.card-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+/* Grid utilities */
+.grid { display: grid; gap: 12px; }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+@media (max-width: 700px) {
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(2, 1fr); }
+  .main { padding: 12px; }
+  .card { padding: 14px; border-radius: var(--r-md); }
+}
+
+/* Metric tile */
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  transition: border-color var(--dur) var(--ease);
+}
+.metric-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.metric-value {
+  font-family: 'Inter', sans-serif;
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+  color: var(--accent, var(--text));
+}
+.metric-unit {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-left: 2px;
+}
+.metric-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Colored dot for accents */
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+/* Toggle switch */
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 26px;
+  flex-shrink: 0;
+}
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  transition: all var(--dur) var(--ease);
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  height: 20px;
+  width: 20px;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--text);
+  border-radius: 50%;
+  transition: all var(--dur) var(--ease);
+}
+.toggle input:checked + .toggle-slider { background: var(--export); border-color: transparent; }
+.toggle input:checked + .toggle-slider::before { left: calc(100% - 22px); background: white; }
+
+/* Button styles */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 500;
+  font-size: 13px;
+  transition: all var(--dur) var(--ease);
+  min-height: 40px;
+  white-space: nowrap;
+}
+.btn:hover, .btn:active { background: var(--surface-3); transform: scale(0.98); }
+.btn-primary {
+  background: var(--solar);
+  color: #1b1f2a;
+  border-color: transparent;
+  font-weight: 600;
+}
+.btn-primary:hover { background: color-mix(in srgb, var(--solar) 85%, black); }
+.btn-ghost { background: transparent; border-color: var(--border); }
+.btn-sm { padding: 6px 12px; font-size: 12px; min-height: 32px; }
+.btn-icon {
+  width: 40px; height: 40px;
+  padding: 0;
+}
+
+/* Segmented control (for mode switch etc.) */
+.segmented {
+  display: inline-flex;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
+}
+.segmented-item {
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: all var(--dur) var(--ease);
+  white-space: nowrap;
+}
+.segmented-item.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Chart wrap */
+.chart-wrap {
+  position: relative;
+  width: 100%;
+}
+
+/* Banner (alerts, suggestions) */
+.banner {
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  border-left: 3px solid var(--border-strong);
+  background: var(--surface-2);
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.banner-info   { border-left-color: var(--battery); background: color-mix(in srgb, var(--battery) 8%, var(--surface)); }
+.banner-warn   { border-left-color: var(--solar); background: color-mix(in srgb, var(--solar) 8%, var(--surface)); }
+.banner-good   { border-left-color: var(--export); background: color-mix(in srgb, var(--export) 8%, var(--surface)); }
+.banner-alert  { border-left-color: var(--import); background: color-mix(in srgb, var(--import) 8%, var(--surface)); }
+
+.banner-title {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 4px;
+  opacity: 0.85;
+}
+.banner-body { font-size: 14px; line-height: 1.55; }
+
+/* Stack spacing helper */
+.stack > * + * { margin-top: 14px; }
+
+/* ─── SCROLLBAR ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 10px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+
+
+/* ═════════════════════════════════════════════════════════════════
+   OUTDOOR CONDITIONS + 12H FORECAST STRIP
+   Sits at the very top of the Home tab
+   ════════════════════════════════════════════════════════════════ */
+.outdoor-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 18px;
+  margin-bottom: 16px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 720px) {
+  .outdoor-card { grid-template-columns: minmax(260px, 340px) 1fr; gap: 22px; align-items: stretch; }
+}
+
+/* Left block: current outdoor temp */
+.outdoor-now {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.outdoor-now-icon {
+  font-size: 42px;
+  line-height: 1;
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+  flex-shrink: 0;
+}
+.outdoor-now-text { flex: 1; min-width: 0; }
+.outdoor-now-label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.outdoor-now-temp {
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  margin-top: 2px;
+}
+.outdoor-now-deg {
+  font-size: 18px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-left: 2px;
+  vertical-align: top;
+}
+.outdoor-now-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* High/Low range on the right of the "now" block */
+.outdoor-range {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+  margin-left: auto;
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+}
+.outdoor-range-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+}
+.outdoor-range-label {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.outdoor-range-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Right block: 12h forecast graph */
+.outdoor-forecast {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+@media (min-width: 720px) {
+  .outdoor-forecast {
+    padding-top: 0;
+    padding-left: 22px;
+    border-top: none;
+    border-left: 1px solid var(--border);
+  }
+}
+.outdoor-forecast-title {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.outdoor-forecast-graph {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  flex: 1;
+  min-height: 80px;
+}
+.fc-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 2px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  transition: border-color var(--dur) var(--ease);
+  position: relative;
+  overflow: hidden;
+}
+.fc-cell-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+.fc-cell-icon { font-size: 16px; line-height: 1; }
+.fc-cell-temp {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+/* Temp band colouring — subtle background tint based on temperature */
+.fc-cell[data-band="cold"]  { background: color-mix(in srgb, var(--battery) 10%, var(--surface-2)); border-color: color-mix(in srgb, var(--battery) 22%, var(--border)); }
+.fc-cell[data-band="cool"]  { background: color-mix(in srgb, var(--battery) 6%, var(--surface-2)); }
+.fc-cell[data-band="mild"]  { /* default */ }
+.fc-cell[data-band="warm"]  { background: color-mix(in srgb, var(--solar) 8%, var(--surface-2)); }
+.fc-cell[data-band="hot"]   { background: color-mix(in srgb, var(--heat) 12%, var(--surface-2)); border-color: color-mix(in srgb, var(--heat) 22%, var(--border)); }
+
+/* Current hour cell gets a subtle accent */
+.fc-cell.current { border-color: var(--export); box-shadow: inset 0 0 0 1px var(--export); }
+.fc-cell.current .fc-cell-time { color: var(--export); font-weight: 700; }
+
+@media (max-width: 400px) {
+  .outdoor-forecast-graph { grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  .fc-cell { padding: 5px 1px; }
+  .fc-cell-temp { font-size: 12px; }
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   MASTER AC CONTROL (iZone-style top row)
+   ════════════════════════════════════════════════════════════════ */
+.master-ac {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 18px;
+  margin-bottom: 16px;
+  transition: border-color var(--dur) var(--ease);
+}
+.master-ac[data-on="true"] {
+  border-color: color-mix(in srgb, var(--cool) 30%, var(--border));
+}
+
+.master-ac-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.master-ac-title {
+  min-width: 0;
+  flex: 1;
+}
+.master-ac-address {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.master-ac-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.master-power-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 14px;
+  min-width: 88px;
+  flex-shrink: 0;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  transition: all var(--dur) var(--ease);
+  cursor: pointer;
+}
+@media (max-width: 520px) {
+  .master-power-btn { min-width: 76px; padding: 10px 12px; }
+}
+.master-power-btn:active { transform: scale(0.96); }
+.master-power-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--import);
+  transition: color var(--dur) var(--ease);
+  line-height: 1;
+}
+.master-ac[data-on="true"] .master-power-icon { color: var(--export); }
+.master-power-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Chip row — Setpoint / Fan / Mode */
+.master-ac-chips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+@media (max-width: 520px) {
+  .master-ac-chips { grid-template-columns: 1fr; gap: 8px; }
+}
+.mac-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  transition: all var(--dur) var(--ease);
+  text-align: left;
+  min-height: 60px;
+}
+.mac-chip:hover, .mac-chip:active {
+  border-color: var(--border-strong);
+  background: var(--surface-3);
+}
+.mac-chip-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.mac-chip-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.mac-chip-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.mac-chip-value {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   MASTER CONTROL DRAWER — bottom sheet for Setpoint/Fan/Mode
+   ════════════════════════════════════════════════════════════════ */
+.master-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.master-drawer-bg {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: fadeIn 220ms var(--ease);
+}
+.master-drawer-sheet {
+  position: relative;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  padding: 12px 20px calc(24px + var(--safe-bottom));
+  width: 100%;
+  max-width: 560px;
+  box-shadow: var(--shadow-lg);
+  animation: drawer-up 320ms var(--ease);
+}
+@keyframes drawer-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.master-drawer-handle {
+  width: 48px;
+  height: 4px;
+  background: var(--surface-3);
+  border-radius: 4px;
+  margin: 0 auto 14px;
+}
+.master-drawer-title {
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 18px;
+  letter-spacing: -0.01em;
+}
+
+/* Setpoint drawer content */
+.drawer-setpoint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 14px 0 24px;
+}
+.drawer-setpoint-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 28px;
+  font-weight: 300;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  transition: all var(--dur) var(--ease);
+}
+.drawer-setpoint-btn:active { transform: scale(0.92); }
+.drawer-setpoint-value {
+  font-size: 56px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  min-width: 140px;
+  text-align: center;
+  line-height: 1;
+}
+.drawer-setpoint-unit {
+  font-size: 22px;
+  color: var(--text-muted);
+  font-weight: 500;
+  vertical-align: top;
+}
+
+/* Fan speed drawer — bar selector */
+.drawer-fan-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px 0 14px;
+  height: 160px;
+}
+.fan-bar {
+  width: 36px;
+  border-radius: 18px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  transition: all var(--dur) var(--ease);
+  cursor: pointer;
+}
+.fan-bar.active {
+  background: var(--cool);
+  border-color: transparent;
+}
+.fan-bar[data-level="low"]    { height: 40%; }
+.fan-bar[data-level="med"]    { height: 60%; }
+.fan-bar[data-level="high"]   { height: 80%; }
+.fan-bar[data-level="auto"]   { height: 100%; }
+.drawer-fan-label {
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+/* Mode drawer — grid of tiles */
+.drawer-modes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 10px 0;
+}
+.drawer-mode-tile {
+  aspect-ratio: 1;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  transition: all var(--dur) var(--ease);
+}
+.drawer-mode-tile:active { transform: scale(0.96); }
+.drawer-mode-tile.active[data-mode="cool"] { background: color-mix(in srgb, var(--cool) 22%, var(--surface-2)); border-color: var(--cool); color: var(--cool); }
+.drawer-mode-tile.active[data-mode="heat"] { background: color-mix(in srgb, var(--heat) 22%, var(--surface-2)); border-color: var(--heat); color: var(--heat); }
+.drawer-mode-tile.active[data-mode="vent"] { background: color-mix(in srgb, var(--battery) 22%, var(--surface-2)); border-color: var(--battery); color: var(--battery); }
+.drawer-mode-tile.active[data-mode="dry"],
+.drawer-mode-tile.active[data-mode="auto"] { background: color-mix(in srgb, var(--export) 22%, var(--surface-2)); border-color: var(--export); color: var(--export); }
+.drawer-mode-icon { font-size: 26px; line-height: 1; }
+
+/* ═════════════════════════════════════════════════════════════════
+   HOME TAB — Circular thermostat grid
+   Clean iZone-style: 6 circular cards, Inter font, dark theme
+   Each card: outer dial + power button + current/target temps + damper
+   ════════════════════════════════════════════════════════════════ */
+
+/* Mode pill centered above the grid */
+.home-mode-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+/* Thermostat grid: 3 cols desktop, 2 cols tablet/mobile (never 1) */
+.thermostats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 14px;
+}
+@media (max-width: 960px) { .thermostats { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
+@media (max-width: 420px) { .thermostats { gap: 8px; } }
+
+.thermo {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 18px 18px 16px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color var(--dur) var(--ease);
+  cursor: pointer;
+}
+@media (max-width: 540px) { .thermo { padding: 14px 12px 12px; } }
+.thermo:hover, .thermo:active { border-color: var(--border-strong); }
+/* Subtle mode glow in top-right corner */
+.thermo::before {
+  content: '';
+  position: absolute;
+  inset: -40% -30% auto auto;
+  width: 100%;
+  aspect-ratio: 1;
+  background: radial-gradient(circle, var(--thermo-glow, transparent) 0%, transparent 55%);
+  pointer-events: none;
+  transition: background 400ms var(--ease);
+  z-index: 0;
+}
+.thermo[data-state="cool"] { --thermo-glow: color-mix(in srgb, var(--cool) 14%, transparent); border-color: color-mix(in srgb, var(--cool) 24%, var(--border)); }
+.thermo[data-state="heat"] { --thermo-glow: color-mix(in srgb, var(--heat) 16%, transparent); border-color: color-mix(in srgb, var(--heat) 24%, var(--border)); }
+.thermo[data-state="idle"] { --thermo-glow: color-mix(in srgb, var(--export) 14%, transparent); border-color: color-mix(in srgb, var(--export) 24%, var(--border)); }
+.thermo[data-state="vent"] { --thermo-glow: color-mix(in srgb, #6db4d8 14%, transparent); border-color: color-mix(in srgb, #6db4d8 24%, var(--border)); }
+.thermo[data-state="dry"]  { --thermo-glow: color-mix(in srgb, #d4a64a 14%, transparent); border-color: color-mix(in srgb, #d4a64a 24%, var(--border)); }
+.thermo[data-state="off"]  { --thermo-glow: transparent; }
+
+/* Header: name + zone badge + state chip */
+.thermo-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  position: relative;
+  z-index: 1;
+}
+.thermo-name {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.thermo-zone {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 2px;
+  letter-spacing: 0.04em;
+}
+.thermo-mode-chip {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.thermo[data-state="cool"] .thermo-mode-chip { background: color-mix(in srgb, var(--cool) 22%, transparent); color: var(--cool); }
+.thermo[data-state="heat"] .thermo-mode-chip { background: color-mix(in srgb, var(--heat) 22%, transparent); color: var(--heat); }
+.thermo[data-state="idle"] .thermo-mode-chip { background: color-mix(in srgb, var(--export) 22%, transparent); color: var(--export); }
+.thermo[data-state="vent"] .thermo-mode-chip { background: color-mix(in srgb, #6db4d8 22%, transparent); color: #6db4d8; }
+.thermo[data-state="dry"]  .thermo-mode-chip { background: color-mix(in srgb, #d4a64a 22%, transparent); color: #d4a64a; }
+.thermo[data-state="off"]  .thermo-mode-chip { background: var(--surface-3); color: var(--text-dim); }
+
+/* Circular dial */
+.dial {
+  position: relative;
+  margin: 10px auto 12px;
+  width: 100%;
+  max-width: 200px;
+  aspect-ratio: 1;
+  z-index: 1;
+}
+@media (max-width: 540px) { .dial { max-width: 150px; margin: 8px auto 10px; } }
+.dial > svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.dial-track {
+  fill: none;
+  stroke: var(--surface-3);
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+.dial-fill {
+  fill: none;
+  stroke: var(--dial-color, var(--text-muted));
+  stroke-width: 10;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 500ms var(--ease), stroke 300ms var(--ease);
+}
+.thermo[data-state="cool"] { --dial-color: var(--cool); }
+.thermo[data-state="heat"] { --dial-color: var(--heat); }
+.thermo[data-state="idle"] { --dial-color: var(--export); }
+.thermo[data-state="vent"] { --dial-color: #6db4d8; }
+.thermo[data-state="dry"]  { --dial-color: #d4a64a; }
+.thermo[data-state="off"]  { --dial-color: var(--text-dim); }
+
+.dial-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding-bottom: 24px; /* leave room for power button */
+}
+.dial-temp-wrap { display: flex; align-items: flex-start; gap: 2px; }
+.dial-temp {
+  font-family: 'Inter', sans-serif;
+  font-size: 44px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+@media (max-width: 540px) {
+  .dial-temp { font-size: 32px; }
+  .dial-temp-deg { font-size: 14px; margin-top: 2px; }
+  .thermo-name { font-size: 14px; }
+  .dial-humidity { font-size: 10px; }
+}
+.dial-temp-deg {
+  font-family: 'Inter', sans-serif;
+  font-size: 20px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-weight: 500;
+}
+.dial-humidity {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.02em;
+}
+
+/* Power button — centered inside the dial at bottom */
+.power-btn {
+  position: absolute;
+  bottom: 14%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  transition: all var(--dur) var(--ease);
+  z-index: 2;
+  font-size: 14px;
+  color: var(--text-muted);
+  box-shadow: var(--shadow-sm);
+}
+.power-btn:hover { background: var(--surface-3); }
+.power-btn:active { transform: translateX(-50%) scale(0.9); }
+.thermo[data-on="true"] .power-btn {
+  background: var(--dial-color, var(--export));
+  color: #0b0f1a;
+  border-color: transparent;
+}
+
+/* Trend arrow at top of dial */
+.dial-trend {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  font-size: 14px;
+  color: var(--text-muted);
+  z-index: 2;
+  font-weight: 600;
+}
+.dial-trend.up { color: var(--import); }
+.dial-trend.down { color: var(--battery); }
+
+/* Target control row */
+.target-ctrl {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 4px 0 8px;
+  z-index: 1;
+  position: relative;
+}
+.target-ctrl-label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.target-ctrl-value {
+  font-family: 'Inter', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  min-width: 44px;
+  text-align: center;
+}
+.target-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 15px;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+  transition: all var(--dur) var(--ease);
+  color: var(--text);
+  flex-shrink: 0;
+}
+.target-btn:hover { background: var(--surface-3); }
+.target-btn:active { transform: scale(0.9); }
+
+/* Damper bar */
+.damper-row {
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  z-index: 1;
+  position: relative;
+}
+.damper-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.damper-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.damper-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+}
+.damper-bar {
+  position: relative;
+  height: 6px;
+  background: var(--surface-3);
+  border-radius: 3px;
+  overflow: visible;
+  cursor: pointer;
+}
+.damper-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--dial-color, var(--export)), color-mix(in srgb, var(--dial-color, var(--export)) 60%, white));
+  border-radius: 3px;
+  transition: width 400ms var(--ease);
+  position: relative;
+}
+.damper-fill::after {
+  content: '';
+  position: absolute;
+  right: -3px; top: 50%;
+  transform: translateY(-50%);
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--dial-color, var(--export));
+  box-shadow: 0 0 0 2px var(--surface), var(--shadow-sm);
+}
+
+/* Off state dims everything */
+.thermo[data-on="false"] .dial-temp,
+.thermo[data-on="false"] .target-ctrl-value { opacity: 0.4; }
+.thermo[data-on="false"] .damper-fill { opacity: 0.3; }
+.thermo[data-on="false"] .dial-fill { opacity: 0.4; }
+
+
+/* ═════════════════════════════════════════════════════════════════
+   ROOM DETAIL OVERLAY — full-screen panel for single room
+   Opens when a thermostat card is tapped. Shows:
+   • Back button
+   • Full-size dial + temp + humidity + damper
+   • Airflow min/max lock sliders
+   • Timer + recurring schedule
+   ════════════════════════════════════════════════════════════════ */
+.room-detail {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 150;
+  display: none;
+  flex-direction: column;
+  overflow-y: auto;
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+  animation: fadeIn 220ms var(--ease);
+}
+.room-detail.open { display: flex; }
+
+.rd-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.rd-back {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+}
+.rd-back:active { transform: scale(0.92); }
+.rd-title {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.rd-title-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+.rd-power {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  color: var(--import);
+  transition: all var(--dur) var(--ease);
+}
+.rd-power:active { transform: scale(0.92); }
+.rd-power[data-on="true"] {
+  background: var(--rd-color, var(--export));
+  color: #0b0f1a;
+  border-color: transparent;
+}
+
+.rd-body {
+  padding: 18px;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Hero block — big dial + temp */
+.rd-hero {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.rd-hero::before {
+  content: '';
+  position: absolute;
+  inset: -40% -20% auto auto;
+  width: 80%;
+  aspect-ratio: 1;
+  background: radial-gradient(circle, var(--rd-glow, transparent) 0%, transparent 55%);
+  pointer-events: none;
+}
+.room-detail[data-state="cool"] { --rd-color: var(--cool);   --rd-glow: color-mix(in srgb, var(--cool) 18%, transparent); }
+.room-detail[data-state="heat"] { --rd-color: var(--heat);   --rd-glow: color-mix(in srgb, var(--heat) 20%, transparent); }
+.room-detail[data-state="idle"] { --rd-color: var(--export); --rd-glow: color-mix(in srgb, var(--export) 18%, transparent); }
+.room-detail[data-state="vent"] { --rd-color: #6db4d8;       --rd-glow: color-mix(in srgb, #6db4d8 18%, transparent); }
+.room-detail[data-state="dry"]  { --rd-color: #d4a64a;       --rd-glow: color-mix(in srgb, #d4a64a 18%, transparent); }
+.room-detail[data-state="off"]  { --rd-color: var(--text-dim); --rd-glow: transparent; }
+
+.rd-hero-dial {
+  position: relative;
+  margin: 0 auto 16px;
+  width: 100%;
+  max-width: 280px;
+  aspect-ratio: 1;
+  z-index: 1;
+}
+.rd-hero-dial svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.rd-hero-track { fill: none; stroke: var(--surface-3); stroke-width: 12; stroke-linecap: round; }
+.rd-hero-fill  { fill: none; stroke: var(--rd-color, var(--text-muted)); stroke-width: 12; stroke-linecap: round; transition: stroke-dashoffset 500ms var(--ease), stroke 300ms var(--ease); }
+
+.rd-hero-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.rd-hero-temp {
+  font-size: 72px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.rd-hero-temp-deg { font-size: 32px; color: var(--text-muted); font-weight: 500; vertical-align: top; }
+.rd-hero-humidity { font-size: 13px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+
+/* Target row */
+.rd-target {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  position: relative;
+  z-index: 1;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.rd-target-label { font-size: 11px; color: var(--text-muted); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600; }
+.rd-target-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 22px;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  transition: all var(--dur) var(--ease);
+}
+.rd-target-btn:active { transform: scale(0.9); }
+.rd-target-value {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  min-width: 80px;
+  text-align: center;
+}
+
+/* Section card inside room detail */
+.rd-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 16px;
+}
+.rd-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.rd-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.rd-section-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Dual range slider for min/max airflow */
+.rd-range {
+  position: relative;
+  height: 44px;
+  margin: 14px 0 8px;
+}
+.rd-range-track {
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  transform: translateY(-50%);
+  height: 6px;
+  background: var(--surface-3);
+  border-radius: 3px;
+}
+.rd-range-active {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 6px;
+  background: linear-gradient(90deg, var(--rd-color, var(--battery)), color-mix(in srgb, var(--rd-color, var(--battery)) 60%, white));
+  border-radius: 3px;
+}
+.rd-range input[type=range] {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  width: 100%; height: 44px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: none;
+  pointer-events: none;
+}
+.rd-range input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--rd-color, var(--battery));
+  border: 3px solid var(--surface);
+  box-shadow: var(--shadow-md);
+  pointer-events: auto;
+  cursor: pointer;
+}
+.rd-range input[type=range]::-moz-range-thumb {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--rd-color, var(--battery));
+  border: 3px solid var(--surface);
+  box-shadow: var(--shadow-md);
+  pointer-events: auto;
+  cursor: pointer;
+}
+.rd-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  margin-top: 4px;
+}
+.rd-range-labels span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.rd-range-labels span b {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Schedule rows */
+.rd-schedule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rd-schedule {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.rd-schedule-action {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+.rd-schedule-action.on  { background: color-mix(in srgb, var(--export) 20%, transparent); color: var(--export); }
+.rd-schedule-action.off { background: color-mix(in srgb, var(--import) 20%, transparent); color: var(--import); }
+.rd-schedule-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  font-weight: 600;
+}
+.rd-schedule-days {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rd-schedule-del {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  display: grid;
+  place-items: center;
+}
+.rd-schedule-del:hover { background: var(--surface-3); color: var(--import); }
+
+.rd-schedule-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px;
+  border: 1px dashed var(--border);
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-top: 10px;
+}
+.rd-schedule-add:hover { border-color: var(--border-strong); color: var(--text); }
+
+/* Schedule add form */
+.rd-schedule-form {
+  padding: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  margin-top: 10px;
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+.rd-schedule-form.open { display: flex; }
+.rd-form-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.rd-form-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  width: 60px;
+}
+.rd-form-row input[type=time] {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 8px 12px;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color-scheme: dark;
+}
+.rd-form-action-select {
+  display: inline-flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px;
+}
+.rd-form-action-select button {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.rd-form-action-select button.active.on  { background: var(--export); color: #0b0f1a; }
+.rd-form-action-select button.active.off { background: var(--import); color: #fff; }
+
+.rd-day-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.rd-day-chip {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.rd-day-chip.active {
+  background: var(--rd-color, var(--battery));
+  color: #0b0f1a;
+  border-color: transparent;
+}
+
+.rd-form-save {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   LIVE TAB (compact dashboard)
+   ════════════════════════════════════════════════════════════════ */
+.live-hero-bar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.live-hero-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.live-hero-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.live-hero-subtitle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Horizontal power flow bar */
+.flow-bar {
+  height: 40px;
+  border-radius: 10px;
+  background: var(--surface-3);
+  overflow: hidden;
+  display: flex;
+  position: relative;
+}
+.flow-seg {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: width 700ms var(--ease);
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(0,0,0,0.8);
+  white-space: nowrap;
+  padding: 0 8px;
+}
+.flow-seg-selfuse { background: var(--home); }
+.flow-seg-export  { background: var(--export); }
+.flow-seg-import  { background: var(--import); }
+
+.flow-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 12px;
+}
+.flow-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.flow-item-label { color: var(--text-muted); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+.flow-item-value { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+/* ═════════════════════════════════════════════════════════════════
+   FORECAST / HISTORY / BATTERY
+   ════════════════════════════════════════════════════════════════ */
+.forecast-day-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+.forecast-day-card:hover, .forecast-day-card.selected {
+  border-color: var(--solar);
+  background: var(--surface-2);
+}
+.fdc-day { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; }
+.fdc-date { font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 600; margin-top: 2px; }
+.fdc-icon { font-size: 28px; margin: 6px 0; }
+.fdc-temp { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+
+.range-chip {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: all var(--dur) var(--ease);
+}
+.range-chip.active {
+  background: var(--text);
+  color: var(--bg);
+  border-color: transparent;
+}
+
+/* Battery gauge (Sim tab) */
+.bat-gauge {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 16px 0 12px;
+}
+.bat-body {
+  flex: 1;
+  height: 48px;
+  background: var(--surface-3);
+  border: 2px solid var(--border-strong);
+  border-radius: 10px 0 0 10px;
+  position: relative;
+  overflow: hidden;
+}
+.bat-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--battery), color-mix(in srgb, var(--battery) 60%, white));
+  border-radius: 8px 0 0 8px;
+  transition: width 1s var(--ease), background var(--dur) var(--ease);
+  position: relative;
+  overflow: hidden;
+}
+.bat-fill::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+  animation: shimmer 2.4s ease-in-out infinite;
+}
+@keyframes shimmer { 0%{left:-100%} 100%{left:200%} }
+.bat-label-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Inter', sans-serif;
+  font-size: 18px;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  white-space: nowrap;
+}
+.bat-nub {
+  width: 10px; height: 26px;
+  background: var(--border-strong);
+  border-radius: 0 3px 3px 0;
+  flex-shrink: 0;
+}
+
+/* Responsive text size tweaks */
+@media (max-width: 500px) {
+  .focus-temp { font-size: 72px; }
+  .focus-temp-deg { font-size: 36px; }
+  .focus-name { font-size: 26px; }
+  .brand-name { font-size: 18px; }
+}
+
+/* Utility */
+.text-mute { color: var(--text-muted); }
+.text-dim  { color: var(--text-dim); }
+.text-solar { color: var(--solar); }
+.text-export { color: var(--export); }
+.text-import { color: var(--import); }
+.text-home { color: var(--home); }
+.text-battery { color: var(--battery); }
+.mono { font-family: 'JetBrains Mono', monospace; }
+.serif { font-family: 'Inter', sans-serif; font-weight: 700; letter-spacing: -0.01em; }
+
+.flex { display: flex; }
+.flex-1 { flex: 1; }
+.gap-sm { gap: 6px; }
+.gap-md { gap: 12px; }
+.gap-lg { gap: 20px; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.flex-col { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+
+.hidden { display: none !important; }
+</style>
+<style>
+/* Site menu (nav.js) sits on the left; this page's own view drawer opens beside it */
+html.has-rail .nav{left:var(--rail-w)}
+</style>
+<script src="nav.js"></script>
+</head>
+
+<body>
+<script>document.documentElement.classList.add("dark");</script>
+<div class="app" id="app">
+
+  <!-- ═══ TOPBAR ═══ -->
+  <header class="topbar">
+    <button class="hamburger" onclick="toggleNav()" aria-label="Menu">
+      <div class="bars"><span></span><span></span><span></span></div>
+    </button>
+    <div class="brand">
+      <div class="brand-mark">☀︎</div>
+      <div class="brand-text">
+        <div class="brand-name" id="brand-tab-title">Climate Control</div>
+        <div class="brand-sub">Dromana · <span id="live-clock">—</span></div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="status-pill" id="status-pill">
+        <span class="status-dot"></span>
+        <span id="status-text">Connecting</span>
+      </div>
+      <div class="status-pill" id="bridge-pill" title="Pi bridge connection">
+        <span class="status-dot" id="bridge-dot" style="background: var(--text-dim);"></span>
+        <span id="bridge-dot-label" style="font-size: 10px;">Bridge …</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══ SLIDE-OUT NAV ═══ -->
+  <div class="nav-scrim" onclick="toggleNav()"></div>
+  <nav class="nav" aria-label="Main navigation">
+    <div class="nav-header">
+      <div class="nav-title">Home Dashboard</div>
+      <button class="nav-close" onclick="toggleNav()" aria-label="Close menu">✕</button>
+    </div>
+    <button class="nav-item active" data-tab="home" onclick="switchTab('home')">
+      <span class="nav-item-icon">❄︎</span><span>Climate</span>
+    </button>
+    <button class="nav-item" data-tab="live" onclick="switchTab('live')">
+      <span class="nav-item-icon">⚡</span><span>Live Power</span>
+    </button>
+    <button class="nav-item" data-tab="forecast" onclick="switchTab('forecast')">
+      <span class="nav-item-icon">☁︎</span><span>Forecast</span>
+    </button>
+    <button class="nav-item" data-tab="alerts" onclick="switchTab('alerts')">
+      <span class="nav-item-icon">🔔</span><span>Alerts</span>
+    </button>
+    <button class="nav-item" data-tab="izone" onclick="switchTab('izone')">
+      <span class="nav-item-icon">🔧</span><span>iZone Direct</span>
+    </button>
+    <button class="nav-item" data-tab="history" onclick="switchTab('history')">
+      <span class="nav-item-icon">📅</span><span>History</span>
+    </button>
+    <button class="nav-item" data-tab="battery" onclick="switchTab('battery')">
+      <span class="nav-item-icon">🔋</span><span>Battery Sim</span>
+    </button>
+    <button class="nav-item" onclick="location.href='home.html'">
+      <span class="nav-item-icon">🖥️</span><span>Wall Overview</span>
+    </button>
+
+    <div class="nav-footer">
+      319 Boundary Road<br/>
+      Dromana, VIC 3936<br/>
+      <span id="nav-last-updated">—</span>
+    </div>
+  </nav>
+
+  <!-- ═══ MAIN ═══ -->
+  <main class="main">
+
+    <!-- ═══ HOME TAB ═══ -->
+    <section class="tab-panel active" id="tab-home" aria-labelledby="tab-home-title">
+      <div id="tab-home-title" class="sr-only">Home — Climate Control</div>
+
+      <!-- ═ MASTER AC CONTROL (iZone-style top row) ═ -->
+      <div class="master-ac" id="master-ac" data-on="false">
+        <div class="master-ac-top">
+          <div class="master-ac-title">
+            <div class="master-ac-address">AC Unit Control</div>
+            <div class="master-ac-sub">319 Boundary Road Dromana</div>
+          </div>
+          <button class="master-power-btn" id="master-power-btn" onclick="toggleMasterPower()" aria-label="AC Power">
+            <span class="master-power-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                <line x1="12" y1="2" x2="12" y2="12"/>
+              </svg>
+            </span>
+            <span class="master-power-label" id="master-power-label">AC Off</span>
+          </button>
+        </div>
+
+        <div class="master-ac-chips">
+          <button class="mac-chip" data-type="setpoint" onclick="openMasterControl('setpoint')">
+            <span class="mac-chip-icon">🌡</span>
+            <div class="mac-chip-body">
+              <span class="mac-chip-label">Setpoint</span>
+              <span class="mac-chip-value" id="mac-setpoint">20.0°C</span>
+            </div>
+          </button>
+          <button class="mac-chip" data-type="fan" onclick="openMasterControl('fan')">
+            <span class="mac-chip-icon">❋</span>
+            <div class="mac-chip-body">
+              <span class="mac-chip-label">Fan Speed</span>
+              <span class="mac-chip-value" id="mac-fan">Low</span>
+            </div>
+          </button>
+          <button class="mac-chip" data-type="mode" onclick="openMasterControl('mode')">
+            <span class="mac-chip-icon" id="mac-mode-icon">💨</span>
+            <div class="mac-chip-body">
+              <span class="mac-chip-label">Mode</span>
+              <span class="mac-chip-value" id="mac-mode">Vent</span>
+            </div>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- ═ MASTER CONTROL DRAWER (sliding bottom panel for Setpoint/Fan/Mode) ═ -->
+      <div id="master-drawer" class="master-drawer" style="display:none;">
+        <div class="master-drawer-bg" onclick="closeMasterControl()"></div>
+        <div class="master-drawer-sheet">
+          <div class="master-drawer-handle"></div>
+          <div class="master-drawer-title" id="master-drawer-title">Setpoint</div>
+          <div id="master-drawer-body"></div>
+        </div>
+      </div>
+
+      <!-- Mode switcher -->
+      <div class="home-mode-row">
+        <div class="segmented" id="mode-segmented">
+          <button class="segmented-item active" data-mode="auto" onclick="setClimateMode('auto')">AUTO</button>
+          <button class="segmented-item" data-mode="suggest" onclick="setClimateMode('suggest')">SUGGEST</button>
+          <button class="segmented-item" data-mode="manual" onclick="setClimateMode('manual')">MANUAL</button>
+        </div>
+      </div>
+
+      <!-- Smart suggestion banner -->
+      <div id="home-banner" class="banner banner-info hidden" style="margin-bottom: 14px;"></div>
+
+      <!-- Six circular thermostat cards -->
+      <div class="thermostats" id="thermostats"></div>
+
+      <!-- ═ OUTDOOR CONDITIONS + 12H FORECAST (moved to bottom) ═ -->
+      <div class="outdoor-card" id="outdoor-card" style="margin-top: 14px;">
+        <div class="outdoor-now">
+          <div class="outdoor-now-icon" id="outdoor-icon">☀</div>
+          <div class="outdoor-now-text">
+            <div class="outdoor-now-label">Outside</div>
+            <div class="outdoor-now-temp"><span id="outdoor-temp">—</span><span class="outdoor-now-deg">°C</span></div>
+            <div class="outdoor-now-sub" id="outdoor-sub">—</div>
+          </div>
+          <div class="outdoor-range" id="outdoor-range-box">
+            <div class="outdoor-range-item"><span class="outdoor-range-label">High</span><span class="outdoor-range-val" id="outdoor-high">—°</span></div>
+            <div class="outdoor-range-item"><span class="outdoor-range-label">Low</span><span class="outdoor-range-val" id="outdoor-low">—°</span></div>
+          </div>
+        </div>
+        <div class="outdoor-forecast">
+          <div class="outdoor-forecast-title">Next 12 hours</div>
+          <div class="outdoor-forecast-graph" id="outdoor-forecast-graph"></div>
+        </div>
+      </div>
+
+      <!-- Activity log -->
+      <details class="card">
+        <summary style="cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between;">
+          <span class="card-heading" style="margin: 0;">Today's activity</span>
+          <span class="text-mute mono" style="font-size: 11px;" id="log-count">0 entries</span>
+        </summary>
+        <div id="log-entries" style="margin-top: 12px; font-size: 12px; color: var(--text-muted); line-height: 1.8;">
+          <div class="text-dim" style="font-style: italic;">No activity yet</div>
+        </div>
+      </details>
+
+      <div class="text-dim" style="text-align: center; font-size: 11px; margin-top: 16px; font-family: 'JetBrains Mono', monospace;">
+        📡 Mock sensor data · Real sensors coming
+      </div>
+    </section>
+
+    <!-- ═══ ROOM DETAIL OVERLAY ═══ -->
+    <div class="room-detail" id="room-detail">
+      <div class="rd-head">
+        <button class="rd-back" onclick="closeRoomDetail()" aria-label="Back">←</button>
+        <div style="flex: 1;">
+          <div class="rd-title" id="rd-title">—</div>
+          <div class="rd-title-sub" id="rd-title-sub">—</div>
+        </div>
+        <button class="rd-power" id="rd-power" onclick="toggleRoomPowerFromDetail()" aria-label="Power"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></button>
+      </div>
+      <div class="rd-body">
+        <!-- Hero dial + target -->
+        <div class="rd-hero">
+          <div class="rd-hero-dial">
+            <svg viewBox="0 0 220 220">
+              <circle class="rd-hero-track" cx="110" cy="110" r="90" id="rd-dial-track-svg" transform="rotate(135 110 110)"/>
+              <circle class="rd-hero-fill"  cx="110" cy="110" r="90" id="rd-dial-fill-svg"  transform="rotate(135 110 110)"/>
+            </svg>
+            <div class="rd-hero-center">
+              <div>
+                <span class="rd-hero-temp" id="rd-hero-temp">—</span>
+                <span class="rd-hero-temp-deg">°</span>
+              </div>
+              <div class="rd-hero-humidity" id="rd-hero-humidity">— % humidity</div>
+            </div>
+          </div>
+          <div class="rd-target">
+            <span class="rd-target-label">Target</span>
+            <button class="rd-target-btn" onclick="adjustRoomDetailTarget(-0.5)">−</button>
+            <span class="rd-target-value" id="rd-target-val">—°</span>
+            <button class="rd-target-btn" onclick="adjustRoomDetailTarget(0.5)">+</button>
+          </div>
+        </div>
+
+        <!-- Airflow min/max lock -->
+        <div class="rd-section">
+          <div class="rd-section-head">
+            <div>
+              <div class="rd-section-title">Airflow limits</div>
+              <div class="rd-section-sub">Prevent this zone going below min or above max. Useful for keeping rooms quiet at night.</div>
+            </div>
+          </div>
+          <div class="rd-range">
+            <div class="rd-range-track"></div>
+            <div class="rd-range-active" id="rd-range-active"></div>
+            <input type="range" id="rd-range-min" min="0" max="100" step="5" value="0" oninput="updateAirflowRange()"/>
+            <input type="range" id="rd-range-max" min="0" max="100" step="5" value="100" oninput="updateAirflowRange()"/>
+          </div>
+          <div class="rd-range-labels">
+            <span>Min <b id="rd-range-min-val">0%</b></span>
+            <span>Current <b id="rd-range-cur-val">—%</b></span>
+            <span>Max <b id="rd-range-max-val">100%</b></span>
+          </div>
+        </div>
+
+        <!-- Schedule -->
+        <div class="rd-section">
+          <div class="rd-section-head">
+            <div>
+              <div class="rd-section-title">Schedule</div>
+              <div class="rd-section-sub">Timers to turn this zone on or off automatically. Optionally recurring by day.</div>
+            </div>
+          </div>
+          <div class="rd-schedule-list" id="rd-schedule-list"></div>
+          <button class="rd-schedule-add" onclick="toggleScheduleForm()">+ Add schedule</button>
+
+          <div class="rd-schedule-form" id="rd-schedule-form">
+            <div class="rd-form-row">
+              <span class="rd-form-label">Action</span>
+              <div class="rd-form-action-select">
+                <button id="rd-form-action-on" class="active on" onclick="setScheduleAction('on')">Turn ON</button>
+                <button id="rd-form-action-off" class="off" onclick="setScheduleAction('off')">Turn OFF</button>
+              </div>
+            </div>
+            <div class="rd-form-row">
+              <span class="rd-form-label">Time</span>
+              <input type="time" id="rd-form-time" value="07:00"/>
+            </div>
+            <div class="rd-form-row">
+              <span class="rd-form-label">Repeat</span>
+              <div class="rd-day-chips" id="rd-day-chips">
+                <button class="rd-day-chip" data-day="0" onclick="toggleScheduleDay(0)">S</button>
+                <button class="rd-day-chip" data-day="1" onclick="toggleScheduleDay(1)">M</button>
+                <button class="rd-day-chip" data-day="2" onclick="toggleScheduleDay(2)">T</button>
+                <button class="rd-day-chip" data-day="3" onclick="toggleScheduleDay(3)">W</button>
+                <button class="rd-day-chip" data-day="4" onclick="toggleScheduleDay(4)">T</button>
+                <button class="rd-day-chip" data-day="5" onclick="toggleScheduleDay(5)">F</button>
+                <button class="rd-day-chip" data-day="6" onclick="toggleScheduleDay(6)">S</button>
+              </div>
+            </div>
+            <div class="rd-form-save">
+              <button class="btn btn-ghost btn-sm" onclick="toggleScheduleForm()">Cancel</button>
+              <button class="btn btn-primary btn-sm" onclick="saveScheduleEntry()">Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ LIVE TAB ═══ -->
+    <section class="tab-panel" id="tab-live">
+      <div class="live-hero-bar">
+        <div class="live-hero-head">
+          <div>
+            <div class="live-hero-title" id="live-title">Live Power Flow</div>
+            <div class="live-hero-subtitle" id="live-subtitle">—</div>
+          </div>
+          <div class="segmented">
+            <button class="segmented-item active">NOW</button>
+            <button class="segmented-item">TODAY</button>
+          </div>
+        </div>
+        <div class="flow-bar" id="live-flow-bar">
+          <div class="flow-seg flow-seg-selfuse" id="flow-selfuse" style="width: 0%"></div>
+          <div class="flow-seg flow-seg-export" id="flow-export" style="width: 0%"></div>
+          <div class="flow-seg flow-seg-import" id="flow-import" style="width: 0%"></div>
+        </div>
+        <div class="flow-legend">
+          <div class="flow-item"><span class="dot" style="background:var(--solar)"></span><div><div class="flow-item-label">Generating</div><div class="flow-item-value text-solar" id="live-pv">0 W</div></div></div>
+          <div class="flow-item"><span class="dot" style="background:var(--home)"></span><div><div class="flow-item-label">Self-use</div><div class="flow-item-value text-home" id="live-selfuse">0 W</div></div></div>
+          <div class="flow-item"><span class="dot" style="background:var(--export)"></span><div><div class="flow-item-label">Exporting</div><div class="flow-item-value text-export" id="live-export">0 W</div></div></div>
+          <div class="flow-item"><span class="dot" style="background:var(--import)"></span><div><div class="flow-item-label">Importing</div><div class="flow-item-value text-import" id="live-import">0 W</div></div></div>
+          <div class="flow-item"><span class="dot" style="background:color-mix(in srgb, var(--home) 50%, transparent)"></span><div><div class="flow-item-label">Consuming</div><div class="flow-item-value" id="live-home">0 W</div></div></div>
+        </div>
+      </div>
+
+      <!-- Daily totals row -->
+      <div class="grid grid-4" style="margin-bottom: 14px;">
+        <div class="metric" style="--accent: var(--solar)">
+          <div class="metric-label">Generated today</div>
+          <div class="metric-value"><span id="daily-gen">—</span><span class="metric-unit">kWh</span></div>
+        </div>
+        <div class="metric" style="--accent: var(--export)">
+          <div class="metric-label">Exported</div>
+          <div class="metric-value"><span id="daily-export">—</span><span class="metric-unit">kWh</span></div>
+        </div>
+        <div class="metric" style="--accent: var(--import)">
+          <div class="metric-label">Imported</div>
+          <div class="metric-value"><span id="daily-import">—</span><span class="metric-unit">kWh</span></div>
+        </div>
+        <div class="metric" style="--accent: var(--home)">
+          <div class="metric-label">Consumed</div>
+          <div class="metric-value"><span id="daily-home">—</span><span class="metric-unit">kWh</span></div>
+        </div>
+      </div>
+
+      <!-- Cost row -->
+      <div class="grid grid-3" style="margin-bottom: 14px;">
+        <div class="metric">
+          <div class="metric-label"><span class="dot" style="background:var(--import)"></span>Grid cost today</div>
+          <div class="metric-value" style="color: var(--import)"><span id="cost-grid">$—</span></div>
+          <div class="metric-sub">at 26.53c/kWh</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label"><span class="dot" style="background:var(--export)"></span>Solar savings</div>
+          <div class="metric-value" style="color: var(--export)"><span id="cost-savings">$—</span></div>
+          <div class="metric-sub">avoided purchase</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label"><span class="dot" style="background:var(--solar)"></span>Feed-in credit</div>
+          <div class="metric-value" style="color: var(--solar)"><span id="cost-feedin">$—</span></div>
+          <div class="metric-sub">at 1.5c/kWh</div>
+        </div>
+      </div>
+
+      <!-- Hourly chart -->
+      <div class="card" style="margin-bottom: 14px;">
+        <div class="flex items-center justify-between" style="margin-bottom: 12px;">
+          <div class="card-title">Today's energy flow</div>
+          <div class="flow-legend">
+            <div class="flow-item"><span class="dot" style="background:var(--home)"></span><span class="text-mute">Self-use</span></div>
+            <div class="flow-item"><span class="dot" style="background:var(--import)"></span><span class="text-mute">From grid</span></div>
+            <div class="flow-item"><span class="dot" style="background:var(--export)"></span><span class="text-mute">Exported</span></div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height: 240px;"><canvas id="hourly-chart"></canvas></div>
+      </div>
+
+      <!-- Pies: live + today -->
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-heading">Solar destination — live</div>
+          <div class="chart-wrap" style="height: 180px;"><canvas id="pie-solar-live"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-heading">Home consumption — live</div>
+          <div class="chart-wrap" style="height: 180px;"><canvas id="pie-consumption-live"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-heading">Solar destination — today</div>
+          <div class="chart-wrap" style="height: 180px;"><canvas id="pie-solar-today"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-heading">Home consumption — today</div>
+          <div class="chart-wrap" style="height: 180px;"><canvas id="pie-consumption-today"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Tariff footer strip -->
+      <div class="card card-compact text-mute mono" style="margin-top: 14px; font-size: 11px; display: flex; flex-wrap: wrap; gap: 16px;">
+        <span><span class="text-dim">Plan</span> Night Saver EV</span>
+        <span><span class="text-dim">Usage</span> 26.53c/kWh</span>
+        <span><span class="text-dim">Night EV</span> 8c/kWh</span>
+        <span><span class="text-dim">Feed-in</span> 1.5c/kWh</span>
+        <span><span class="text-dim">Supply</span> $1.039/day</span>
+      </div>
+    </section>
+
+    <!-- ═══ FORECAST TAB ═══ -->
+    <section class="tab-panel" id="tab-forecast">
+      <div class="card" style="margin-bottom: 14px;">
+        <div class="card-heading">Today's solar forecast · GHI (W/m²)</div>
+        <div class="chart-wrap" style="height: 240px;"><canvas id="ghi-chart"></canvas></div>
+      </div>
+
+      <div class="card" style="margin-bottom: 14px;">
+        <div class="card-heading">7-day outlook</div>
+        <div class="grid" style="grid-template-columns: repeat(7, 1fr); gap: 8px;" id="forecast-week"></div>
+      </div>
+
+      <div class="card" id="forecast-detail" style="display: none;">
+        <div class="card-title" id="forecast-detail-title">—</div>
+        <div class="chart-wrap" style="height: 220px; margin-top: 12px;"><canvas id="forecast-day-chart"></canvas></div>
+      </div>
+    </section>
+
+    <!-- ═══ ALERTS TAB ═══ -->
+    <section class="tab-panel" id="tab-alerts">
+      <div class="card" style="margin-bottom: 14px;">
+        <div class="card-title">Push Notifications</div>
+        <div class="text-mute" style="font-size: 13px; margin: 6px 0 14px;">Enable browser notifications to receive alerts even when the dashboard is in the background.</div>
+        <button class="btn btn-primary" id="notif-btn" onclick="requestNotifPermission()">Enable Notifications</button>
+      </div>
+
+      <div class="card" style="margin-bottom: 14px;">
+        <div class="flex items-center justify-between" style="margin-bottom: 12px;">
+          <div class="card-title text-export">☀ Solar Excess Alert</div>
+          <label class="toggle"><input type="checkbox" id="toggle-export" checked onchange="saveAlertConfig()"/><span class="toggle-slider"></span></label>
+        </div>
+        <div class="text-mute" style="font-size: 13px; margin-bottom: 14px;">Notify when exporting more than the threshold to the grid — time to run appliances or charge the EV.</div>
+        <div class="grid grid-2">
+          <div>
+            <div class="metric-label">Export threshold (kW)</div>
+            <input type="number" id="export-threshold-kw" value="3" min="0.5" max="13" step="0.5" class="btn" style="width: 100%; margin-top: 4px; text-align: left;" onchange="saveAlertConfig()"/>
+          </div>
+          <div>
+            <div class="metric-label">Sustained for (min)</div>
+            <input type="number" id="export-duration-min" value="10" min="1" max="60" step="1" class="btn" style="width: 100%; margin-top: 4px; text-align: left;" onchange="saveAlertConfig()"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 14px;">
+        <div class="flex items-center justify-between" style="margin-bottom: 12px;">
+          <div class="card-title text-import">⬇ Grid Import Alert</div>
+          <label class="toggle"><input type="checkbox" id="toggle-import" checked onchange="saveAlertConfig()"/><span class="toggle-slider"></span></label>
+        </div>
+        <div class="text-mute" style="font-size: 13px; margin-bottom: 14px;">Notify when importing above threshold during daylight — suggests turning off appliances.</div>
+        <div class="grid grid-2">
+          <div>
+            <div class="metric-label">Import threshold (kW)</div>
+            <input type="number" id="import-threshold-kw" value="3" min="0.5" max="13" step="0.5" class="btn" style="width: 100%; margin-top: 4px; text-align: left;" onchange="saveAlertConfig()"/>
+          </div>
+          <div>
+            <div class="metric-label">Sustained for (min)</div>
+            <input type="number" id="import-duration-min" value="10" min="1" max="60" step="1" class="btn" style="width: 100%; margin-top: 4px; text-align: left;" onchange="saveAlertConfig()"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 14px;">
+        <div class="card-title">Cooldown</div>
+        <div class="text-mute" style="font-size: 13px; margin: 6px 0 14px;">Minimum time between repeated alerts of the same type.</div>
+        <div style="max-width: 220px;">
+          <div class="metric-label">Cooldown (min)</div>
+          <input type="number" id="cooldown-min" value="30" min="5" max="120" step="5" class="btn" style="width: 100%; margin-top: 4px; text-align: left;" onchange="saveAlertConfig()"/>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-heading">Alert log</div>
+        <div id="alert-log" class="text-mute" style="font-size: 13px;">No alerts fired yet this session.</div>
+      </div>
+    </section>
+
+    <!-- ═══ iZONE DIRECT TAB ═══ -->
+    <section class="tab-panel" id="tab-izone">
+      <div class="card" style="margin-bottom: 14px;">
+        <div class="flex items-center justify-between flex-wrap gap-md">
+          <div>
+            <div class="card-title">iZone Direct Control</div>
+            <div class="text-mute mono" style="font-size: 11px;">via Pi bridge · works anywhere</div>
+          </div>
+          <div class="flex items-center gap-md">
+            <div class="status-pill" id="izone-status-pill"><span class="status-dot"></span><span id="izone-status-text">Not connected</span></div>
+            <button class="btn btn-sm" onclick="fetchIzone()">↻ Refresh</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="izone-unit-card" style="margin-bottom: 14px;">
+        <div class="flex items-center justify-between flex-wrap gap-md">
+          <div>
+            <div class="card-heading">AC Unit</div>
+            <div class="flex gap-lg flex-wrap" style="margin-top: 6px;">
+              <div><div class="text-mute" style="font-size: 10px; text-transform: uppercase;">Mode</div><div class="serif" style="font-size: 20px;" id="iz-mode">—</div></div>
+              <div><div class="text-mute" style="font-size: 10px; text-transform: uppercase;">Setpoint</div><div class="serif" style="font-size: 20px;" id="iz-setpoint">—</div></div>
+              <div><div class="text-mute" style="font-size: 10px; text-transform: uppercase;">Return</div><div class="serif" style="font-size: 20px;" id="iz-temp">—</div></div>
+              <div><div class="text-mute" style="font-size: 10px; text-transform: uppercase;">Supply</div><div class="serif" style="font-size: 20px;" id="iz-supply">—</div></div>
+            </div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="iz-power-toggle" onchange="izSetPower(this.checked)"/><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-heading">Zones</div>
+        <div id="iz-zones" class="grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-top: 10px;">
+          <div class="text-mute" style="text-align: center; padding: 20px;">Loading zones…</div>
+        </div>
+      </div>
+
+      <div id="iz-offline-msg" class="banner banner-alert" style="display: none; margin-top: 14px;">
+        <div>
+          <div class="banner-title">Bridge unreachable</div>
+          <div class="banner-body">Cannot reach the Pi bridge at eaglecam.taile03fa1.ts.net. Check that the Pi is powered on and connected to WiFi, and that the iZone controller at 192.168.1.208 is responding. See README on the Pi for diagnostic commands.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ HISTORY TAB ═══ -->
+    <section class="tab-panel" id="tab-history">
+      <div class="card" style="margin-bottom: 14px;">
+        <div class="flex items-center justify-between flex-wrap gap-md" style="margin-bottom: 12px;">
+          <div class="card-heading" style="margin: 0;">Date range</div>
+          <span class="text-mute mono" style="font-size: 11px;" id="hist-status">—</span>
+        </div>
+        <div class="flex flex-wrap gap-sm" style="margin-bottom: 10px;">
+          <button class="range-chip active" onclick="setHistRange('day', this)">Today</button>
+          <button class="range-chip" onclick="setHistRange('week', this)">Week</button>
+          <button class="range-chip" onclick="setHistRange('month', this)">Month</button>
+          <button class="range-chip" onclick="setHistRange('year', this)">Year</button>
+          <button class="range-chip" onclick="setHistRange('custom', this)">Custom</button>
+        </div>
+        <div id="custom-range" class="flex gap-sm items-center flex-wrap" style="display: none;">
+          <input type="date" id="hist-from" class="btn" style="width: auto;"/>
+          <span class="text-mute">to</span>
+          <input type="date" id="hist-to" class="btn" style="width: auto;"/>
+          <button class="btn btn-primary btn-sm" onclick="loadHistory()">Go</button>
+        </div>
+      </div>
+
+      <div class="grid grid-4" id="hist-stats" style="display: none; margin-bottom: 14px;">
+        <div class="metric" style="--accent: var(--solar)"><div class="metric-label">Generated</div><div class="metric-value"><span id="hist-gen">—</span><span class="metric-unit">kWh</span></div></div>
+        <div class="metric" style="--accent: var(--export)"><div class="metric-label">Exported</div><div class="metric-value"><span id="hist-export">—</span><span class="metric-unit">kWh</span></div></div>
+        <div class="metric" style="--accent: var(--import)"><div class="metric-label">Imported</div><div class="metric-value"><span id="hist-import">—</span><span class="metric-unit">kWh</span></div></div>
+        <div class="metric" style="--accent: var(--home)"><div class="metric-label">Self-used</div><div class="metric-value"><span id="hist-selfuse">—</span><span class="metric-unit">kWh</span></div></div>
+      </div>
+
+      <div class="grid grid-3" id="hist-costs" style="display: none; margin-bottom: 14px;">
+        <div class="metric" style="--accent: var(--import)"><div class="metric-label">Grid cost</div><div class="metric-value"><span id="hist-cost-grid">$—</span></div></div>
+        <div class="metric" style="--accent: var(--solar)"><div class="metric-label">Feed-in earned</div><div class="metric-value"><span id="hist-cost-feedin">$—</span></div></div>
+        <div class="metric" style="--accent: var(--home)"><div class="metric-label">Net bill</div><div class="metric-value"><span id="hist-cost-net">$—</span></div></div>
+      </div>
+
+      <div class="card" style="margin-bottom: 14px;">
+        <div class="card-title" id="hist-chart-title">Energy history</div>
+        <div class="chart-wrap" style="height: 280px; margin-top: 12px;"><canvas id="hist-chart"></canvas></div>
+        <div id="hist-empty" class="text-mute" style="display: none; text-align: center; padding: 40px; font-size: 13px; line-height: 1.7;"></div>
+      </div>
+
+      <div style="text-align: right; font-size: 11px;">
+        <a href="/upload.html" class="text-mute" style="text-decoration: underline;">⬆ Upload AGL data →</a>
+      </div>
+    </section>
+
+    <!-- ═══ BATTERY SIM TAB ═══ -->
+    <section class="tab-panel" id="tab-battery">
+      <div class="card" style="margin-bottom: 14px;">
+        <div class="flex items-center justify-between flex-wrap gap-md">
+          <div>
+            <div class="card-title text-battery">🔋 Alpha ESS Smile T10</div>
+            <div class="text-mute mono" style="font-size: 11px;">10.1 kWh · LFP · Simulation on today's solar + consumption</div>
+          </div>
+          <div style="text-align: right;">
+            <div class="text-mute" style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;">Simulated SOC</div>
+            <div class="serif text-battery" style="font-size: 32px;" id="sim-soc">—%</div>
+            <div class="text-mute mono" style="font-size: 11px;" id="sim-soc-kwh">— kWh</div>
+          </div>
+        </div>
+        <div class="bat-gauge">
+          <div class="bat-body">
+            <div class="bat-fill" id="bat-fill"></div>
+            <div class="bat-label-center" id="bat-label">—</div>
+          </div>
+          <div class="bat-nub"></div>
+        </div>
+        <div class="text-mute mono" style="font-size: 10px; display: flex; justify-content: space-between; padding: 0 2px;">
+          <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100% · 10.1 kWh</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 14px;">
+        <div class="flex items-center justify-between" style="margin-bottom: 10px;">
+          <div>
+            <div class="card-heading" style="margin: 0;">🌙 Off-peak grid charging</div>
+            <div class="text-mute" style="font-size: 11px; margin-top: 2px;">12am–6am · 8c/kWh</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="sim-offpeak-enabled" checked onchange="runBatterySimulation()"/><span class="toggle-slider"></span></label>
+        </div>
+        <div id="sim-offpeak-decision" class="banner banner-info" style="font-size: 13px;">Calculating…</div>
+      </div>
+
+      <div class="grid grid-4" style="margin-bottom: 14px;">
+        <div class="metric" style="--accent: var(--export)"><div class="metric-label">Saved today</div><div class="metric-value"><span id="sim-saved-today">$—</span></div></div>
+        <div class="metric" style="--accent: var(--export)"><div class="metric-label">Saved this week</div><div class="metric-value"><span id="sim-saved-week">$—</span></div></div>
+        <div class="metric" style="--accent: var(--export)"><div class="metric-label">Saved this month</div><div class="metric-value"><span id="sim-saved-month">$—</span></div></div>
+        <div class="metric" style="--accent: var(--export)"><div class="metric-label">Annual saving</div><div class="metric-value"><span id="sim-saved-year">$—</span></div></div>
+      </div>
+
+      <div class="grid grid-3" style="margin-bottom: 14px;">
+        <div class="metric"><div class="metric-label">Battery cost</div><div class="metric-value" style="font-size: 20px;">~$8,500</div><div class="metric-sub">installed</div></div>
+        <div class="metric"><div class="metric-label">Payback period</div><div class="metric-value" style="font-size: 20px;" id="sim-payback">—</div></div>
+        <div class="metric"><div class="metric-label">Import avoided</div><div class="metric-value" style="font-size: 20px;"><span id="sim-import-avoided">—</span></div></div>
+      </div>
+
+      <div class="card" style="margin-bottom: 14px;">
+        <div class="card-title">Simulated hourly flow — with battery</div>
+        <div class="flow-legend" style="margin-top: 8px;">
+          <div class="flow-item"><span class="dot" style="background:var(--home)"></span><span class="text-mute">Self-use</span></div>
+          <div class="flow-item"><span class="dot" style="background:var(--battery)"></span><span class="text-mute">From battery</span></div>
+          <div class="flow-item"><span class="dot" style="background:var(--import)"></span><span class="text-mute">From grid</span></div>
+          <div class="flow-item"><span class="dot" style="background:var(--export)"></span><span class="text-mute">Excess export</span></div>
+        </div>
+        <div class="chart-wrap" style="height: 240px; margin-top: 12px;"><canvas id="sim-bar-chart"></canvas></div>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-heading">Without battery (actual)</div>
+          <div class="stack" style="font-size: 13px;">
+            <div class="flex justify-between"><span class="text-mute">Grid import</span><span class="mono text-import" id="comp-actual-import">—</span></div>
+            <div class="flex justify-between"><span class="text-mute">Exported</span><span class="mono text-export" id="comp-actual-export">—</span></div>
+            <div class="flex justify-between" style="padding-top: 8px; border-top: 1px solid var(--border);"><span class="text-mute">Grid cost</span><span class="mono text-import" id="comp-actual-cost">—</span></div>
+          </div>
+        </div>
+        <div class="card" style="border-color: color-mix(in srgb, var(--battery) 30%, transparent);">
+          <div class="card-heading text-battery">With Alpha ESS T10 (sim)</div>
+          <div class="stack" style="font-size: 13px;">
+            <div class="flex justify-between"><span class="text-mute">Grid import</span><span class="mono text-battery" id="comp-sim-import">—</span></div>
+            <div class="flex justify-between"><span class="text-mute">Exported</span><span class="mono text-export" id="comp-sim-export">—</span></div>
+            <div class="flex justify-between" style="padding-top: 8px; border-top: 1px solid var(--border);"><span class="text-mute">Grid cost</span><span class="mono text-battery" id="comp-sim-cost">—</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   SOLAR HUB v3 — JAVASCRIPT
+   Organised in clear sections:
+     1. Config & constants
+     2. App state
+     3. Utilities
+     4. API fetchers
+     5. Theme + nav
+     6. Tab routing
+     7. Live tab
+     8. Home tab (climate)
+     9. Forecast tab
+    10. History tab
+    11. Battery sim
+    12. Alerts
+    13. iZone direct
+    14. Init
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── 1. CONFIG ─────────────────────────────────────────────────── */
+const TARIFF = { usage: 0.26532, nightEV: 0.08, feedIn: 0.015, supply: 1.03884 };
+const PANEL_M2 = 37, PANEL_EFF = 0.18;
+const REFRESH_MS = 60000;
+const SUPABASE_URL = "https://uzdfjlddgeoelltnprpb.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6ZGZqbGRkZ2VvZWxsdG5wcnBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyODc3NzIsImV4cCI6MjA4OTg2Mzc3Mn0.mqs_ho9NP3Igwls4tI1CV2LqGYNBD1MgDvSGfOx2xZc";
+/* ═════════════════════════════════════════════════════════════════
+   PI BRIDGE — Tailscale Funnel endpoint → iZone local API 192.168.1.208
+   Replaces direct LAN access (blocked by mixed-content) with HTTPS bridge
+   Bridge code lives on Pi at /home/matt/solar-hub-pi/bridge.py
+   ════════════════════════════════════════════════════════════════ */
+// All Pi calls go through a same-origin Netlify function (netlify/functions/bridge.js),
+// which adds the bridge key server-side. The key is no longer in this page.
+const BRIDGE_URL   = '/.netlify/functions/bridge?p=';
+const IZONE_URL    = '';  // retained for compat with existing code paths; all calls now go through bridge
+
+let bridgeOnline   = null;  // null=unknown, true=reachable, false=offline
+let bridgeLastCheck= 0;
+
+/* Chart.js defaults */
+/* Chart.js config — guarded so a CDN load failure doesn't kill the whole script */
+try {
+  if (typeof Chart !== 'undefined') {
+    Chart.defaults.color = 'var(--text-muted)';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.05)';
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    Chart.defaults.font.size = 10;
+  } else {
+    console.warn('Chart.js not loaded — charts will be skipped but rest of app still works');
+  }
+} catch(e) { console.warn('Chart.js config failed:', e.message); }
+
+/* ── 2. STATE ──────────────────────────────────────────────────── */
+const state = {
+  sems: null,
+  ecowitt: null,
+  forecast: null,
+  hourlyHistory: {},
+  charts: {},
+  activeTab: 'home',
+  theme: localStorage.getItem('theme') || 'dark',
+};
+
+/* Persist hourlyHistory per day */
+const HIST_KEY = 'solarHistory_' + new Date().toISOString().slice(0,10);
+try { state.hourlyHistory = JSON.parse(localStorage.getItem(HIST_KEY) || '{}'); } catch(e) {}
+function saveHistory() {
+  try {
+    localStorage.setItem(HIST_KEY, JSON.stringify(state.hourlyHistory));
+    Object.keys(localStorage).filter(k => k.startsWith('solarHistory_')).sort().slice(0, -3).forEach(k => localStorage.removeItem(k));
+  } catch(e) {}
+}
+
+/* ── 3. UTILITIES ──────────────────────────────────────────────── */
+function $(id) { return document.getElementById(id); }
+function setText(id, txt) { const el = $(id); if (el) el.textContent = txt; }
+function setHtml(id, html) { const el = $(id); if (el) el.innerHTML = html; }
+function fmtW(w) {
+  w = Math.abs(Math.round(w || 0));
+  if (w >= 1000) return (w/1000).toFixed(2) + ' kW';
+  return w + ' W';
+}
+function fmtKwh(k) { return (k || 0).toFixed(1); }
+function fmtTime(d = new Date()) { return d.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false }); }
+function colorCss(name) { return getComputedStyle(document.documentElement).getPropertyValue('--' + name).trim(); }
+
+/* ── 4. API FETCHERS ───────────────────────────────────────────── */
+async function apiGet(path) {
+  const r = await fetch(path, { cache: 'no-store' });
+  if (!r.ok) throw new Error(path + ' → ' + r.status);
+  return r.json();
+}
+const fetchSems = () => apiGet('/.netlify/functions/sems');
+const fetchEcowitt = () => apiGet('/.netlify/functions/ecowitt');
+const fetchForecast = () => apiGet('/.netlify/functions/forecast');
+
+async function loadSupabaseToday() {
+  const today = new Date().toISOString().slice(0,10);
+  try {
+    const json = await apiGet(`/.netlify/functions/usage?from=${today}&to=${today}&granularity=30min`);
+    if (!json.data || json.data.length === 0) return;
+    const totalExportKwh = json.data.reduce((s,d) => s + d.solarKwh, 0);
+    const totalGenKwh = state.sems?.dailyGeneration || totalExportKwh;
+    const totalSelfUse = Math.max(0, totalGenKwh - totalExportKwh);
+    const nowKey = fmtTime();
+    for (const d of json.data) {
+      if (d.time === nowKey) continue;
+      const exportW = Math.round(d.solarKwh * 2000);
+      const importW = Math.round(d.gridKwh * 2000);
+      const exportFrac = totalExportKwh > 0 ? d.solarKwh / totalExportKwh : 0;
+      const selfUseW = Math.round(totalSelfUse * exportFrac * 2000);
+      state.hourlyHistory[d.time] = {
+        gridExport: exportW, gridImport: importW,
+        solar: exportW + selfUseW, selfUse: selfUseW,
+        consumption: selfUseW + importW,
+      };
+    }
+    saveHistory();
+    renderHourlyChart();
+  } catch(e) { console.warn('Supabase today:', e.message); }
+}
+
+async function refreshAll() {
+  setStatus('loading');
+  const [sems, eco, fc] = await Promise.allSettled([fetchSems(), fetchEcowitt(), fetchForecast()]);
+  if (sems.status === 'fulfilled') state.sems = sems.value;
+  if (eco.status === 'fulfilled')  state.ecowitt = eco.value;
+  if (fc.status === 'fulfilled')   state.forecast = fc.value;
+
+  if (state.sems) {
+    const key = fmtTime();
+    const pv = state.sems.pvPower || 0;
+    const exp = state.sems.exportPower || 0;
+    state.hourlyHistory[key] = {
+      solar: pv, selfUse: Math.max(0, pv - exp),
+      gridExport: exp, gridImport: state.sems.importPower || 0,
+      consumption: state.sems.homePower || 0,
+    };
+    saveHistory();
+  }
+
+  renderAll();
+  setStatus(sems.status === 'fulfilled' ? 'live' : 'error');
+  setText('nav-last-updated', 'Updated ' + fmtTime());
+  setText('live-clock', fmtTime());
+}
+
+function renderAll() {
+  if (state.activeTab === 'live')     renderLiveTab();
+  if (state.activeTab === 'home')     renderHomeTab();
+  if (state.activeTab === 'forecast') renderForecast();
+  if (state.activeTab === 'history')  loadHistory();
+  if (state.activeTab === 'battery')  runBatterySimulation();
+  if (state.activeTab === 'izone')    fetchIzone();
+  checkAlerts();
+}
+
+/* ── 5. THEME + NAV ────────────────────────────────────────────── */
+function applyTheme() {
+  const root = document.documentElement;
+  root.classList.remove('light', 'dark');
+  // Default to dark unless explicitly set to light
+  if (state.theme === 'light') root.classList.add('light');
+  else root.classList.add('dark');
+  const themeBtn = $('theme-btn');
+  if (themeBtn) themeBtn.textContent = state.theme === 'light' ? '☀︎' : '🌙';
+}
+function toggleTheme() {
+  state.theme = state.theme === 'light' ? 'dark' : 'light';
+  localStorage.setItem('theme', state.theme);
+  applyTheme();
+  setTimeout(renderAll, 100);
+}
+function toggleNav() { document.getElementById('app').classList.toggle('nav-open'); }
+
+/* ── 6. TAB ROUTING ────────────────────────────────────────────── */
+const TAB_TITLES = {
+  home: 'Climate Control', live: 'Live Power', forecast: 'Forecast',
+  alerts: 'Alerts', izone: 'iZone Direct', history: 'History', battery: 'Battery Sim',
+};
+function switchTab(tab) {
+  state.activeTab = tab;
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.toggle('active', i.dataset.tab === tab));
+  const panel = $('tab-' + tab);
+  if (panel) panel.classList.add('active');
+  setText('brand-tab-title', TAB_TITLES[tab] || 'Climate Control');
+  if (location.hash.slice(1) !== tab) history.replaceState(null, '', tab === 'home' ? location.pathname : '#' + tab);
+  document.getElementById('app').classList.remove('nav-open');
+  renderAll();
+}
+
+function setStatus(s) {
+  const pill = $('status-pill');
+  if (!pill) return;
+  pill.classList.remove('live', 'error');
+  if (s === 'live') pill.classList.add('live');
+  if (s === 'error') pill.classList.add('error');
+  setText('status-text', s === 'live' ? 'Live' : s === 'error' ? 'Error' : 'Updating');
+}
+
+/* ── 7. LIVE TAB ───────────────────────────────────────────────── */
+function renderLiveTab() {
+  if (!state.sems) return;
+  const d = state.sems;
+  const pv = d.pvPower || 0;
+  const exp = d.exportPower || 0;
+  const imp = d.importPower || 0;
+  const home = d.homePower || 0;
+  const selfUse = Math.max(0, pv - exp);
+
+  setText('live-title', pv > 0 ? 'Generating ' + fmtW(pv) : imp > 0 ? 'Importing ' + fmtW(imp) : 'Idle');
+  setText('live-subtitle', new Date().toLocaleString('en-AU', { weekday: 'long', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }));
+
+  setText('live-pv', fmtW(pv));
+  setText('live-selfuse', fmtW(selfUse));
+  setText('live-export', fmtW(exp));
+  setText('live-import', fmtW(imp));
+  setText('live-home', fmtW(home));
+
+  // Flow bar widths (scaled to total energy in motion)
+  const total = Math.max(selfUse + exp + imp, 100);
+  const segStyle = (id, w) => {
+    const el = $(id);
+    if (!el) return;
+    const pct = Math.max(0, (w / total) * 100);
+    el.style.width = pct.toFixed(1) + '%';
+    el.textContent = pct > 12 ? fmtW(w) : '';
+  };
+  segStyle('flow-selfuse', selfUse);
+  segStyle('flow-export', exp);
+  segStyle('flow-import', imp);
+
+  // Daily totals
+  setText('daily-gen', fmtKwh(d.dailyGeneration));
+  setText('daily-export', fmtKwh(d.dailyExport));
+  setText('daily-import', fmtKwh(d.dailyImport));
+  setText('daily-home', fmtKwh(d.dailyConsumption));
+
+  // Costs
+  const gen = d.dailyGeneration || 0;
+  const expKwh = d.dailyExport || 0;
+  const impKwh = d.dailyImport || 0;
+  const selfUseKwh = Math.max(0, gen - expKwh);
+  setText('cost-grid',    '$' + (impKwh * TARIFF.usage).toFixed(2));
+  setText('cost-savings', '$' + (selfUseKwh * TARIFF.usage).toFixed(2));
+  setText('cost-feedin',  '$' + (expKwh * TARIFF.feedIn).toFixed(2));
+
+  renderHourlyChart();
+  renderPies();
+}
+
+function renderHourlyChart() {
+  const ctx = $('hourly-chart');
+  if (!ctx) return;
+  const labels = Object.keys(state.hourlyHistory).sort();
+  if (!labels.length) return;
+
+  const selfUse = labels.map(k => Math.round(Math.max(0, state.hourlyHistory[k].selfUse || 0)));
+  const gridImp = labels.map(k => Math.round(state.hourlyHistory[k].gridImport || 0));
+  const excess  = labels.map(k => Math.round(state.hourlyHistory[k].gridExport || 0));
+
+  if (typeof Chart === "undefined") return;
+  if (state.charts.hourly) state.charts.hourly.destroy();
+  state.charts.hourly = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: 'Self-use',  data: selfUse, backgroundColor: colorCss('home'),   borderRadius: 3, stack: 's' },
+      { label: 'From grid', data: gridImp, backgroundColor: colorCss('import'), borderRadius: 3, stack: 's' },
+      { label: 'Exported',  data: excess,  backgroundColor: colorCss('export'), borderRadius: 3, stack: 's' },
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode: 'index', intersect: false, callbacks: { label: c => c.dataset.label + ': ' + fmtW(c.raw) } }
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 0, maxTicksLimit: 24, font: { size: 9 } } },
+        y: { stacked: true, grid: { color: 'rgba(128,128,128,0.08)' }, ticks: { callback: v => v >= 1000 ? (v/1000).toFixed(1) + 'kW' : v + 'W', font: { size: 9 } }, min: 0 }
+      }
+    }
+  });
+}
+
+function renderPies() {
+  const d = state.sems;
+  if (!d) return;
+  const gen = d.dailyGeneration || 0;
+  const exp = d.dailyExport || 0;
+  const imp = d.dailyImport || 0;
+  const pvNow = d.pvPower || 0;
+  const expNow = d.exportPower || 0;
+  const impNow = d.importPower || 0;
+  const selfUseNow = Math.max(0, pvNow - expNow);
+  const selfUseKwh = Math.max(0, gen - exp);
+
+  renderPie('pie-solar-live',      ['Self-use','Exported'], [selfUseNow, expNow], ['home','export'], 'W');
+  renderPie('pie-consumption-live',['From solar','From grid'], [selfUseNow, impNow], ['home','import'], 'W');
+  renderPie('pie-solar-today',     ['Self-used','Exported'], [selfUseKwh, exp], ['home','export'], 'kWh');
+  renderPie('pie-consumption-today',['From solar','From grid'], [selfUseKwh, imp], ['home','import'], 'kWh');
+}
+
+function renderPie(id, labels, data, colorKeys, unit) {
+  const ctx = $(id);
+  if (!ctx) return;
+  if (typeof Chart === "undefined") return;
+  if (state.charts[id]) state.charts[id].destroy();
+  state.charts[id] = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{
+      data, borderWidth: 0, hoverOffset: 4,
+      backgroundColor: colorKeys.map(k => colorCss(k)),
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '70%',
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 10, padding: 8, color: colorCss('text-muted') } },
+        tooltip: { callbacks: { label: c => c.label + ': ' + (typeof c.raw === 'number' ? c.raw.toFixed(unit === 'kWh' ? 2 : 0) : c.raw) + ' ' + unit } }
+      }
+    }
+  });
+}
+
+/* ── 8. HOME TAB (CLIMATE) ─────────────────────────────────────── */
+const CLIMATE_ROOMS = [
+  { id: 'master',  name: 'Master',    zone: 2 },
+  { id: 'lounge',  name: 'Lounge',    zone: 1 },
+  { id: 'charlie', name: "Charlie's", zone: 3 },
+  { id: 'mila',    name: "Mila's",    zone: 4 },
+  { id: 'office',  name: 'Office',    zone: 5 },
+  { id: 'bath',    name: 'Bathroom',  zone: 6 },
+];
+const DEFAULT_TARGETS = { master: 20, lounge: 22, charlie: 21, mila: 21, office: 22, bath: 22 };
+
+const climate = {
+  mode: localStorage.getItem('climateMode') || 'manual',   // manual / suggest / auto (auto is deprecated, retained for old saves)
+  systemMode: localStorage.getItem('systemMode') || 'off', // off / cool / heat / fan
+  focusedRoomId: localStorage.getItem('focusedRoom') || 'lounge',
+  // Master AC state
+  acOn: localStorage.getItem('acOn') === 'true',
+  acMode: localStorage.getItem('acMode') || 'vent',
+  acFan: localStorage.getItem('acFan') || 'low',
+  acSetpoint: (() => {
+    const v = parseFloat(localStorage.getItem('acSetpoint'));
+    return (typeof v === 'number' && !isNaN(v)) ? v : 20;
+  })(),
+  // Per-room config
+  targets: (() => {
+    try { return { ...DEFAULT_TARGETS, ...JSON.parse(localStorage.getItem('climateTargets') || '{}') }; }
+    catch(e) { return { ...DEFAULT_TARGETS }; }
+  })(),
+  airflowLimits: (() => {
+    try { return JSON.parse(localStorage.getItem('airflowLimits') || '{}'); }
+    catch(e) { return {}; }
+  })(),
+  schedules: (() => {
+    try { return JSON.parse(localStorage.getItem('climateSchedules') || '{}'); }
+    catch(e) { return {}; }
+  })(),
+  rooms: {},
+  log: (() => { try { return JSON.parse(localStorage.getItem('climateLog') || '[]'); } catch(e) { return []; } })(),
+  lastBannerKey: null,
+};
+
+function saveClimate() {
+  localStorage.setItem('climateMode', climate.mode);
+  localStorage.setItem('systemMode', climate.systemMode);
+  localStorage.setItem('focusedRoom', climate.focusedRoomId);
+  localStorage.setItem('climateTargets', JSON.stringify(climate.targets));
+  localStorage.setItem('climateLog', JSON.stringify(climate.log.slice(0, 30)));
+  localStorage.setItem('acOn', String(climate.acOn));
+  localStorage.setItem('acMode', climate.acMode);
+  localStorage.setItem('acFan', climate.acFan);
+  localStorage.setItem('acSetpoint', String(climate.acSetpoint));
+  localStorage.setItem('airflowLimits', JSON.stringify(climate.airflowLimits));
+  localStorage.setItem('climateSchedules', JSON.stringify(climate.schedules));
+}
+
+function logClimate(text) {
+  climate.log.unshift({ time: fmtTime(), text });
+  climate.log = climate.log.slice(0, 30);
+  saveClimate();
+  renderLog();
+}
+function renderLog() {
+  const host = $('log-entries');
+  const count = $('log-count');
+  if (!host) return;
+  count.textContent = climate.log.length + ' entries';
+  if (!climate.log.length) {
+    host.innerHTML = '<div class="text-dim" style="font-style: italic;">No activity yet</div>';
+    return;
+  }
+  host.innerHTML = climate.log.map(l => `<div><span class="mono text-dim" style="font-size: 11px;">${l.time}</span> &nbsp; ${l.text}</div>`).join('');
+}
+
+function generateMockRooms() {
+  const outdoor = state.ecowitt?.temperature ?? 14;
+  const now = Date.now();
+  const offsets = { master: -1.2, lounge: +1.8, charlie: -2.5, mila: -0.8, office: -0.5, bath: +0.3 };
+  CLIMATE_ROOMS.forEach(r => {
+    const target = climate.targets[r.id] || 21;
+    const seed = (now / 120000 + r.id.charCodeAt(0)) % (Math.PI * 2);
+    const noise = Math.sin(seed) * 0.4;
+    const temp = target + (offsets[r.id] || 0) + noise;
+    const prev = climate.rooms[r.id]?.temp ?? temp;
+    climate.rooms[r.id] = {
+      temp: +temp.toFixed(1),
+      humidity: Math.round(45 + Math.sin(seed * 1.3) * 8),
+      damper: Math.round(30 + Math.sin(seed * 0.7) * 50),
+      isOpen: false,  // overwritten on first iZone sync; default off avoids startup flicker
+      trend: +(temp - prev).toFixed(2),
+      target,
+      hasSensor: true,
+    };
+  });
+}
+
+function setClimateMode(mode) {
+  climate.mode = mode;
+  document.querySelectorAll('#mode-segmented .segmented-item').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+  saveClimate();
+  logClimate(`Mode set to ${mode.toUpperCase()}`);
+  renderHomeTab();
+}
+
+function setSystemMode(mode) {
+  climate.systemMode = mode;
+  saveClimate();
+  document.querySelectorAll('#system-segmented .segmented-item').forEach(b => {
+    b.classList.toggle('active', b.dataset.sys === mode);
+  });
+  renderThermostats();
+  logClimate(`AC mode → ${mode.toUpperCase()}`);
+}
+
+function renderHomeTab() {
+  // Each step wrapped so a single failure doesn't block others — especially
+  // critical that renderThermostats runs even if renderMasterAC fails
+  try { generateMockRooms(); } catch(e) { console.warn('generateMockRooms:', e.message); }
+
+  try {
+    document.querySelectorAll('#mode-segmented .segmented-item').forEach(b => {
+      b.classList.toggle('active', b.dataset.mode === climate.mode);
+    });
+  } catch(e) { console.warn('mode buttons:', e.message); }
+
+  try { renderOutdoor(); }       catch(e) { console.warn('renderOutdoor:', e.message); }
+  try { renderMasterAC(); }      catch(e) { console.warn('renderMasterAC:', e.message); }
+  try { renderThermostats(); }   catch(e) { console.warn('renderThermostats:', e.message); }
+  try { renderClimateBanner(); } catch(e) { console.warn('renderClimateBanner:', e.message); }
+  try { renderLog(); }           catch(e) { console.warn('renderLog:', e.message); }
+}
+
+/* ── Weather icon helper ──────────────────────────────────────── */
+function weatherIcon(code, cloud) {
+  if (code === 0) return '☀';
+  if (code <= 2) return '⛅';
+  if (code === 3) return '☁';
+  if (code <= 49) return '🌫';
+  if (code <= 69) return '🌧';
+  if (code <= 79) return '❄';
+  if (code <= 82) return '🌦';
+  if (code <= 99) return '⛈';
+  return (cloud || 0) > 70 ? '☁' : (cloud || 0) > 30 ? '⛅' : '☀';
+}
+
+/* ── Outdoor conditions + 12h forecast strip ──────────────────── */
+function renderOutdoor() {
+  const now = new Date();
+
+  // ── Current outdoor temperature from Ecowitt weather station ──
+  const curTemp = state.ecowitt && typeof state.ecowitt.temperature === 'number' ? state.ecowitt.temperature : null;
+  setText('outdoor-temp', curTemp != null ? curTemp.toFixed(1) : '—');
+
+  // Find current hour's forecast for the conditions description/icon
+  let curHour = null;
+  if (state.forecast && state.forecast.hourly) {
+    const curIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0,13);
+    curHour = state.forecast.hourly.find(h => h.time.slice(0,13) === curIso)
+           || state.forecast.hourly.find(h => h.time.slice(0,10) === now.toISOString().slice(0,10) && parseInt(h.time.slice(11,13)) === now.getHours());
+  }
+
+  if (curHour) {
+    setText('outdoor-icon', weatherIcon(curHour.weatherCode, curHour.cloudCover));
+    let desc = 'Clear';
+    if (curHour.cloudCover > 70)      desc = 'Cloudy';
+    else if (curHour.cloudCover > 30) desc = 'Partly cloudy';
+    if (curHour.precipProbability > 60) desc += ' · rain likely';
+    else if (curHour.precipProbability > 30) desc += ' · some rain';
+    if (curHour.weatherCode >= 80)    desc = 'Showers';
+    const humidity = state.ecowitt?.humidity;
+    const humidityStr = (typeof humidity === 'number') ? ' · ' + humidity + '% RH' : '';
+    setText('outdoor-sub', desc + humidityStr);
+  } else {
+    setText('outdoor-sub', '—');
+  }
+
+  // ── Today high/low ──
+  if (state.forecast && state.forecast.daily && state.forecast.daily[0]) {
+    const today = state.forecast.daily[0].date;
+    const todayHours = state.forecast.hourly.filter(h => h.time.slice(0,10) === today);
+    if (todayHours.length) {
+      const temps = todayHours.map(h => h.temperature);
+      setText('outdoor-high', Math.max(...temps).toFixed(0) + '°');
+      setText('outdoor-low',  Math.min(...temps).toFixed(0) + '°');
+    }
+  }
+
+  // ── 12h forecast graph (6 cells, every 2 hours) ──
+  const graph = $('outdoor-forecast-graph');
+  if (!graph || !state.forecast || !state.forecast.hourly) return;
+
+  // Build an index lookup of hourly forecast
+  const hourlyByKey = {};
+  state.forecast.hourly.forEach(h => { hourlyByKey[h.time.slice(0,13)] = h; });
+
+  const tempBand = t => {
+    if (t <= 8)  return 'cold';
+    if (t <= 14) return 'cool';
+    if (t <= 22) return 'mild';
+    if (t <= 30) return 'warm';
+    return 'hot';
+  };
+
+  const currentHour = now.getHours();
+  const cells = [];
+  for (let i = 0; i < 6; i++) {
+    const t = new Date(now.getTime() + i * 2 * 3600000);
+    const pad = n => String(n).padStart(2, '0');
+    const key = t.getFullYear() + '-' + pad(t.getMonth() + 1) + '-' + pad(t.getDate()) + 'T' + pad(t.getHours());
+    const h = hourlyByKey[key];
+    const hour = t.getHours();
+    const label = hour + (hour < 12 ? 'am' : hour === 12 ? 'pm' : 'pm').replace('12am', '12am');
+    const hourLabel = (hour === 0 ? '12am' : hour < 12 ? hour + 'am' : hour === 12 ? '12pm' : (hour - 12) + 'pm');
+    const temp = h ? h.temperature : null;
+    const icon = h ? weatherIcon(h.weatherCode, h.cloudCover) : '·';
+    const band = (temp != null) ? tempBand(temp) : 'mild';
+    const isCurrent = (i === 0);
+    cells.push(`<div class="fc-cell ${isCurrent ? 'current' : ''}" data-band="${band}">
+      <div class="fc-cell-time">${isCurrent ? 'Now' : hourLabel}</div>
+      <div class="fc-cell-icon">${icon}</div>
+      <div class="fc-cell-temp">${temp != null ? temp.toFixed(0) + '°' : '—'}</div>
+    </div>`);
+  }
+  graph.innerHTML = cells.join('');
+}
+
+
+/* ── Master AC control row ──────────────────────────────────────── */
+const MODE_META = {
+  cool: { label: 'Cool', icon: '❄' },
+  heat: { label: 'Heat', icon: '🔥' },
+  vent: { label: 'Vent', icon: '💨' },
+  dry:  { label: 'Dry',  icon: '💧' },
+  auto: { label: 'Auto', icon: '⟳' },
+};
+const FAN_META = {
+  low:  { label: 'Low',  level: 'low' },
+  med:  { label: 'Med',  level: 'med' },
+  high: { label: 'High', level: 'high' },
+  auto: { label: 'Auto', level: 'auto' },
+};
+
+function renderMasterAC() {
+  try {
+    const card = $('master-ac');
+    if (!card) return;
+    card.dataset.on = String(!!climate.acOn);
+
+    const sp = (typeof climate.acSetpoint === 'number' && !isNaN(climate.acSetpoint)) ? climate.acSetpoint : 20;
+    const fan = climate.acFan || 'low';
+    const mode = climate.acMode || 'vent';
+
+    setText('master-power-label', climate.acOn ? 'AC On' : 'AC Off');
+    setText('mac-setpoint', sp.toFixed(1) + '°C');
+    setText('mac-fan', (FAN_META[fan] && FAN_META[fan].label) || 'Low');
+    setText('mac-mode', (MODE_META[mode] && MODE_META[mode].label) || 'Vent');
+    setText('mac-mode-icon', (MODE_META[mode] && MODE_META[mode].icon) || '💨');
+  } catch(e) { console.warn('renderMasterAC failed:', e.message); }
+}
+
+function toggleMasterPower() {
+  // Optimistic — flip UI immediately, then send command
+  const newState = !climate.acOn;
+  climate.acOn = newState;
+  saveClimate();
+  renderMasterAC();
+  logClimate(`AC Unit ${newState ? 'turned on' : 'turned off'}`);
+  sendIzoneCommand({ SysOn: newState ? 1 : 0 });
+}
+
+/* ── Master control drawer (bottom sheet) ──────────────────────── */
+function openMasterControl(which) {
+  const drawer = $('master-drawer');
+  const title  = $('master-drawer-title');
+  const body   = $('master-drawer-body');
+  if (!drawer || !body) return;
+
+  if (which === 'setpoint') {
+    title.textContent = 'Setpoint';
+    body.innerHTML = `
+      <div class="drawer-setpoint">
+        <button class="drawer-setpoint-btn" onclick="adjustMasterSetpoint(-0.5)">−</button>
+        <div class="drawer-setpoint-value">
+          <span id="drawer-sp-val">${climate.acSetpoint.toFixed(1)}</span><span class="drawer-setpoint-unit">°C</span>
+        </div>
+        <button class="drawer-setpoint-btn" onclick="adjustMasterSetpoint(0.5)">+</button>
+      </div>`;
+  } else if (which === 'fan') {
+    title.textContent = 'Fan Speed';
+    const fans = ['low','med','high','auto'];
+    body.innerHTML = `
+      <div class="drawer-fan-label" id="drawer-fan-label">${FAN_META[climate.acFan]?.label || 'Low'}</div>
+      <div class="drawer-fan-bars">
+        ${fans.map(f => `<div class="fan-bar ${climate.acFan === f ? 'active' : ''}" data-level="${f}" onclick="setMasterFan('${f}')"></div>`).join('')}
+      </div>`;
+  } else if (which === 'mode') {
+    title.textContent = 'Mode';
+    const modes = ['cool','heat','vent','dry','auto'];
+    body.innerHTML = `
+      <div class="drawer-modes">
+        ${modes.map(m => `<button class="drawer-mode-tile ${climate.acMode === m ? 'active' : ''}" data-mode="${m}" onclick="setMasterMode('${m}')">
+          <span class="drawer-mode-icon">${MODE_META[m].icon}</span>
+          <span>${MODE_META[m].label}</span>
+        </button>`).join('')}
+      </div>`;
+  }
+
+  drawer.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeMasterControl() {
+  const drawer = $('master-drawer');
+  if (drawer) drawer.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function adjustMasterSetpoint(delta) {
+  const newSp = Math.max(16, Math.min(30, Math.round((climate.acSetpoint + delta) * 2) / 2));
+  climate.acSetpoint = newSp;
+  saveClimate();
+  const v = $('drawer-sp-val');
+  if (v) v.textContent = newSp.toFixed(1);
+  renderMasterAC();
+  logClimate(`AC setpoint → ${newSp}°`);
+  // iZone expects temperature × 100 (e.g. 22.5°C = 2250), command is SysSetpoint
+  sendIzoneCommand({ SysSetpoint: Math.round(newSp * 100) });
+}
+
+function setMasterFan(level) {
+  climate.acFan = level;
+  saveClimate();
+  document.querySelectorAll('.fan-bar').forEach(b => b.classList.toggle('active', b.dataset.level === level));
+  const lbl = $('drawer-fan-label');
+  if (lbl) lbl.textContent = FAN_META[level]?.label || '—';
+  renderMasterAC();
+  logClimate(`Fan speed → ${FAN_META[level].label}`);
+  sendIzoneCommand({ SysFan: IZONE_FAN_STR_TO_INT[level] ?? 1 });
+}
+
+function setMasterMode(mode) {
+  climate.acMode = mode;
+  saveClimate();
+  document.querySelectorAll('.drawer-mode-tile').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+  renderMasterAC();
+  logClimate(`AC mode → ${MODE_META[mode].label}`);
+  sendIzoneCommand({ SysMode: IZONE_MODE_STR_TO_INT[mode] ?? 3 });
+  // Auto-close after tap (like iZone)
+  setTimeout(closeMasterControl, 300);
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   ROOM DETAIL — full-screen panel with airflow limits + schedule
+   ════════════════════════════════════════════════════════════════ */
+let roomDetailState = { roomId: null, scheduleAction: 'on', scheduleDays: [] };
+
+function openRoomDetail(id, ev) {
+  // If click landed on an interactive inner element, don't open
+  if (ev && ev.target && ev.target.closest('.power-btn, .target-btn, .damper-bar')) return;
+  const cfg = CLIMATE_ROOMS.find(r => r.id === id);
+  if (!cfg) return;
+  roomDetailState.roomId = id;
+  climate.focusedRoomId = id;
+  saveClimate();
+  renderRoomDetail();
+  const ov = $('room-detail');
+  if (ov) {
+    ov.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeRoomDetail() {
+  const ov = $('room-detail');
+  if (ov) ov.classList.remove('open');
+  document.body.style.overflow = '';
+  // Close the schedule form if open
+  const form = $('rd-schedule-form');
+  if (form) form.classList.remove('open');
+}
+
+function renderRoomDetail() {
+  const id = roomDetailState.roomId;
+  if (!id) return;
+  const cfg = CLIMATE_ROOMS.find(r => r.id === id);
+  const r = climate.rooms[id];
+  if (!cfg || !r) return;
+
+  // Determine state (same logic as card)
+  const diff = r.temp - r.target;
+  let state;
+  if (!r.isOpen) {
+    state = 'off';
+  } else if (!climate.acOn) {
+    state = 'off';
+  } else if (climate.acMode === 'vent') {
+    state = 'vent';
+  } else if (climate.acMode === 'dry') {
+    state = 'dry';
+  } else if (climate.acMode === 'cool') {
+    state = (diff > 0.3) ? 'cool' : 'idle';   // only "cooling" if zone is above target
+  } else if (climate.acMode === 'heat') {
+    state = (diff < -0.3) ? 'heat' : 'idle';  // only "heating" if zone is below target
+  } else if (climate.acMode === 'auto') {
+    if (Math.abs(diff) < 0.5) state = 'idle';
+    else if (diff > 0)        state = 'cool';
+    else                      state = 'heat';
+  } else {
+    state = 'idle';
+  }
+  $('room-detail').dataset.state = state;
+
+  // Header
+  setText('rd-title', cfg.name);
+  setText('rd-title-sub', 'Zone ' + cfg.zone);
+
+  const powerBtn = $('rd-power');
+  if (powerBtn) powerBtn.dataset.on = String(r.isOpen);
+
+  // Dial fill
+  const RADIUS = 90;
+  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+  const arcLength = CIRCUMFERENCE * 0.75;
+  const minTemp = 16, maxTemp = 28;
+  const tempPct = Math.max(0, Math.min(1, (r.temp - minTemp) / (maxTemp - minTemp)));
+  const dashOffset = arcLength - (arcLength * tempPct);
+  const trackSvg = $('rd-dial-track-svg');
+  const fillSvg  = $('rd-dial-fill-svg');
+  if (trackSvg) trackSvg.setAttribute('stroke-dasharray', `${arcLength} ${CIRCUMFERENCE}`);
+  if (fillSvg) {
+    fillSvg.setAttribute('stroke-dasharray', `${arcLength} ${CIRCUMFERENCE}`);
+    fillSvg.setAttribute('stroke-dashoffset', dashOffset);
+  }
+
+  setText('rd-hero-temp', typeof r.sensorTemp === 'number' ? r.sensorTemp.toFixed(1) : '—');
+  setText('rd-hero-humidity', r.humidity + '% humidity');
+  setText('rd-target-val', r.target.toFixed(1) + '°');
+
+  // Airflow limits
+  const lim = climate.airflowLimits[id] || { min: 0, max: 100 };
+  const minSlider = $('rd-range-min');
+  const maxSlider = $('rd-range-max');
+  if (minSlider) minSlider.value = lim.min;
+  if (maxSlider) maxSlider.value = lim.max;
+  updateAirflowRange();
+
+  // Schedules list
+  renderScheduleList();
+}
+
+function adjustRoomDetailTarget(delta) {
+  const id = roomDetailState.roomId;
+  if (!id) return;
+  adjustRoomTarget(id, delta);
+  renderRoomDetail();
+}
+
+function toggleRoomPowerFromDetail() {
+  const id = roomDetailState.roomId;
+  if (!id) return;
+  toggleRoomPower(id);
+  renderRoomDetail();
+}
+
+/* ── Airflow limits ──────────────────────────────────────────── */
+function updateAirflowRange() {
+  const id = roomDetailState.roomId;
+  if (!id) return;
+  const minSlider = $('rd-range-min');
+  const maxSlider = $('rd-range-max');
+  if (!minSlider || !maxSlider) return;
+
+  let minV = parseInt(minSlider.value) || 0;
+  let maxV = parseInt(maxSlider.value) || 100;
+
+  // Prevent crossover
+  if (minV > maxV - 5) {
+    if (document.activeElement === minSlider) { minV = maxV - 5; minSlider.value = minV; }
+    else { maxV = minV + 5; maxSlider.value = maxV; }
+  }
+
+  setText('rd-range-min-val', minV + '%');
+  setText('rd-range-max-val', maxV + '%');
+  setText('rd-range-cur-val', (climate.rooms[id]?.damper ?? 0) + '%');
+
+  // Visual active range
+  const active = $('rd-range-active');
+  if (active) {
+    active.style.left  = minV + '%';
+    active.style.width = (maxV - minV) + '%';
+  }
+
+  // Persist and enforce on current damper
+  climate.airflowLimits[id] = { min: minV, max: maxV };
+  const r = climate.rooms[id];
+  if (r) {
+    if (r.damper < minV) r.damper = minV;
+    if (r.damper > maxV) r.damper = maxV;
+  }
+  saveClimate();
+  renderThermostats();
+}
+
+/* ── Schedules ──────────────────────────────────────────────── */
+function renderScheduleList() {
+  const id = roomDetailState.roomId;
+  if (!id) return;
+  const host = $('rd-schedule-list');
+  if (!host) return;
+  const sched = (climate.schedules[id] || []);
+  if (!sched.length) {
+    host.innerHTML = '<div class="text-mute" style="font-size: 12px; padding: 6px 2px; font-style: italic;">No schedules yet</div>';
+    return;
+  }
+  const dayAbbrev = ['S','M','T','W','T','F','S'];
+  host.innerHTML = sched.map((s, i) => {
+    const days = s.days && s.days.length
+      ? s.days.map(d => dayAbbrev[d]).join(' · ')
+      : 'One-time';
+    return `<div class="rd-schedule">
+      <span class="rd-schedule-action ${s.action}">${s.action === 'on' ? 'ON' : 'OFF'}</span>
+      <span class="rd-schedule-time">${s.time}</span>
+      <span class="rd-schedule-days">${days}</span>
+      <button class="rd-schedule-del" onclick="deleteSchedule(${i})" aria-label="Delete">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function toggleScheduleForm() {
+  const form = $('rd-schedule-form');
+  if (!form) return;
+  form.classList.toggle('open');
+  // Reset form state
+  if (form.classList.contains('open')) {
+    roomDetailState.scheduleAction = 'on';
+    roomDetailState.scheduleDays = [];
+    setScheduleAction('on');
+    document.querySelectorAll('#rd-day-chips .rd-day-chip').forEach(c => c.classList.remove('active'));
+    const tIn = $('rd-form-time');
+    if (tIn) tIn.value = '07:00';
+  }
+}
+
+function setScheduleAction(action) {
+  roomDetailState.scheduleAction = action;
+  $('rd-form-action-on').classList.toggle('active', action === 'on');
+  $('rd-form-action-off').classList.toggle('active', action === 'off');
+}
+
+function toggleScheduleDay(day) {
+  const idx = roomDetailState.scheduleDays.indexOf(day);
+  if (idx >= 0) roomDetailState.scheduleDays.splice(idx, 1);
+  else roomDetailState.scheduleDays.push(day);
+  const chip = document.querySelector(`#rd-day-chips .rd-day-chip[data-day="${day}"]`);
+  if (chip) chip.classList.toggle('active', idx < 0);
+}
+
+function saveScheduleEntry() {
+  const id = roomDetailState.roomId;
+  if (!id) return;
+  const time = $('rd-form-time').value;
+  if (!time) return;
+  if (!climate.schedules[id]) climate.schedules[id] = [];
+  climate.schedules[id].push({
+    action: roomDetailState.scheduleAction,
+    time,
+    days: [...roomDetailState.scheduleDays].sort(),
+  });
+  // Sort by time
+  climate.schedules[id].sort((a, b) => a.time.localeCompare(b.time));
+  saveClimate();
+  const cfg = CLIMATE_ROOMS.find(r => r.id === id);
+  logClimate(`${cfg.name}: schedule ${roomDetailState.scheduleAction.toUpperCase()} @ ${time}`);
+  toggleScheduleForm();
+  renderScheduleList();
+}
+
+function deleteSchedule(i) {
+  const id = roomDetailState.roomId;
+  if (!id) return;
+  if (!climate.schedules[id]) return;
+  climate.schedules[id].splice(i, 1);
+  saveClimate();
+  renderScheduleList();
+}
+
+/* Background schedule checker — runs every minute, fires actions if time matches */
+setInterval(() => {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2,'0');
+  const mm = String(now.getMinutes()).padStart(2,'0');
+  const timeStr = hh + ':' + mm;
+  const today = now.getDay();
+  Object.keys(climate.schedules || {}).forEach(roomId => {
+    (climate.schedules[roomId] || []).forEach(s => {
+      if (s.time !== timeStr) return;
+      const applies = (s.days && s.days.length) ? s.days.includes(today) : true;
+      if (!applies) return;
+      // Already triggered this minute? use a simple key
+      const key = `sched_fired_${roomId}_${s.time}_${now.toDateString()}`;
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, '1');
+      // Execute
+      if (climate.rooms[roomId]) {
+        climate.rooms[roomId].isOpen = (s.action === 'on');
+        const cfg = CLIMATE_ROOMS.find(r => r.id === roomId);
+        logClimate(`⏰ ${cfg.name} ${s.action === 'on' ? 'turned on' : 'turned off'} by schedule`);
+        if (document.getElementById('tab-home').classList.contains('active')) renderThermostats();
+      }
+    });
+  });
+}, 60 * 1000);
+
+
+/* Circular thermostat cards — one per room */
+function renderThermostats() {
+  const host = $('thermostats');
+  if (!host) return;
+  host.innerHTML = CLIMATE_ROOMS.map(cfg => buildThermoCard(cfg)).join('');
+}
+
+function buildThermoCard(cfg) {
+  const r = climate.rooms[cfg.id];
+  if (!r) return '';
+
+  const diff = r.temp - r.target;
+  let state;
+  if (!r.isOpen) {
+    state = 'off';
+  } else if (!climate.acOn) {
+    state = 'off';
+  } else if (climate.acMode === 'vent') {
+    state = 'vent';
+  } else if (climate.acMode === 'dry') {
+    state = 'dry';
+  } else if (climate.acMode === 'cool') {
+    state = (diff > 0.3) ? 'cool' : 'idle';   // only "cooling" if zone is above target
+  } else if (climate.acMode === 'heat') {
+    state = (diff < -0.3) ? 'heat' : 'idle';  // only "heating" if zone is below target
+  } else if (climate.acMode === 'auto') {
+    if (Math.abs(diff) < 0.5) state = 'idle';
+    else if (diff > 0)        state = 'cool';
+    else                      state = 'heat';
+  } else {
+    state = 'idle';
+  }
+
+  const RADIUS = 90;
+  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+  const arcLength = CIRCUMFERENCE * 0.75;
+  const minTemp = 16, maxTemp = 28;
+  // Dial fill follows sensor reading when available; otherwise sits at the user's target.
+  const dialTemp = (typeof r.sensorTemp === 'number') ? r.sensorTemp : r.target;
+  const tempPct = Math.max(0, Math.min(1, (dialTemp - minTemp) / (maxTemp - minTemp)));
+  const dashOffset = arcLength - (arcLength * tempPct);
+
+  const stateLabel = ({
+    'off':  'OFF',
+    'idle': 'IDLE',
+    'vent': 'VENT',
+    'dry':  'DRY',
+    'cool': 'COOLING',
+    'heat': 'HEATING',
+  })[state] || 'IDLE';
+  const trendIcon = r.trend > 0.15 ? '↗' : r.trend < -0.15 ? '↘' : '→';
+  const trendCls  = r.trend > 0.15 ? 'up' : r.trend < -0.15 ? 'down' : '';
+
+  return `<div class="thermo" data-state="${state}" data-on="${r.isOpen}" data-room="${cfg.id}" onclick="openRoomDetail('${cfg.id}', event)">
+    <div class="thermo-head">
+      <div>
+        <div class="thermo-name">${cfg.name}</div>
+        <div class="thermo-zone">Zone ${cfg.zone}</div>
+      </div>
+      <div class="thermo-mode-chip">${stateLabel}</div>
+    </div>
+
+    <div class="dial">
+      <svg viewBox="0 0 220 220">
+        <circle class="dial-track" cx="110" cy="110" r="${RADIUS}"
+          stroke-dasharray="${arcLength} ${CIRCUMFERENCE}"
+          transform="rotate(135 110 110)"/>
+        <circle class="dial-fill" cx="110" cy="110" r="${RADIUS}"
+          stroke-dasharray="${arcLength} ${CIRCUMFERENCE}"
+          stroke-dashoffset="${dashOffset}"
+          transform="rotate(135 110 110)"/>
+      </svg>
+      <div class="dial-trend ${trendCls}">${trendIcon}</div>
+      <div class="dial-center">
+        <div class="dial-temp-wrap">
+          <span class="dial-temp">${typeof r.sensorTemp === 'number' ? r.sensorTemp.toFixed(1) : '—'}</span>
+          <span class="dial-temp-deg">°</span>
+        </div>
+        <div class="dial-humidity">${typeof r.sensorHumidity === 'number' ? r.sensorHumidity.toFixed(0) + '% humidity' : 'No sensor'}</div>
+      </div>
+      <button class="power-btn" onclick="event.stopPropagation(); toggleRoomPower('${cfg.id}')" aria-label="Toggle zone"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></button>
+    </div>
+
+    <div class="target-ctrl">
+      <span class="target-ctrl-label">Target</span>
+      <button class="target-btn" onclick="event.stopPropagation(); adjustRoomTarget('${cfg.id}', -0.5)">−</button>
+      <span class="target-ctrl-value">${r.target.toFixed(1)}°</span>
+      <button class="target-btn" onclick="event.stopPropagation(); adjustRoomTarget('${cfg.id}', 0.5)">+</button>
+    </div>
+
+    <div class="damper-row">
+      <div class="damper-row-head">
+        <span class="damper-label">Airflow</span>
+        <span class="damper-value">${r.damper}%</span>
+      </div>
+      <div class="damper-bar" onclick="event.stopPropagation(); setDamperFromClick(event, '${cfg.id}')">
+        <div class="damper-fill" style="width: ${r.damper}%"></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleRoomPower(id) {
+  const r = climate.rooms[id];
+  if (!r) return;
+  const cfg = CLIMATE_ROOMS.find(x => x.id === id);
+  if (!cfg) return;
+  r.isOpen = !r.isOpen;
+  saveClimate();
+  renderThermostats();
+  // Send command to iZone — Index is 0-based, cfg.zone is 1-based
+  izToggleZone(cfg.zone - 1, r.isOpen);
+  logClimate(`${cfg.name} ${r.isOpen ? 'powered on' : 'powered off'}`);
+}
+
+function adjustRoomTarget(id, delta) {
+  const cur = climate.targets[id] || 21;
+  const newT = Math.max(16, Math.min(28, Math.round((cur + delta) * 2) / 2));
+  climate.targets[id] = newT;
+  if (climate.rooms[id]) climate.rooms[id].target = newT;
+  saveClimate();
+  renderThermostats();
+  renderClimateBanner();
+  logClimate(`${CLIMATE_ROOMS.find(x=>x.id===id).name} target → ${newT}°`);
+}
+
+function setDamperFromClick(e, id) {
+  const bar = e.currentTarget;
+  const rect = bar.getBoundingClientRect();
+  const pct = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+  const clamped = Math.max(0, Math.min(100, pct));
+  if (climate.rooms[id]) {
+    climate.rooms[id].damper = clamped;
+    climate.rooms[id].isOpen = clamped > 0;
+    renderThermostats();
+    logClimate(`${CLIMATE_ROOMS.find(x=>x.id===id).name} airflow → ${clamped}%`);
+  }
+}
+
+/* Legacy compat for banner apply callbacks */
+function focusRoom(id) { climate.focusedRoomId = id; saveClimate(); }
+function adjustTarget(delta) { adjustRoomTarget(climate.focusedRoomId, delta); }
+function toggleFocusZone(open) {
+  const roomId = climate.focusedRoomId;
+  const r = climate.rooms[roomId];
+  if (!r) return;
+  const cfg = CLIMATE_ROOMS.find(c => c.id === roomId);
+  if (!cfg) return;
+  r.isOpen = open;
+  saveClimate();
+  renderThermostats();
+  izToggleZone(cfg.zone - 1, open);
+  logClimate(`${cfg.name} ${open ? 'powered on' : 'powered off'}`);
+}
+function toggleAcPower() { /* placeholder — AC master power is per-zone in this UI */ }
+
+function buildClimateSuggestion() {
+  const rooms = CLIMATE_ROOMS.map(cfg => {
+    const r = climate.rooms[cfg.id];
+    return r ? { cfg, r, diff: r.temp - r.target } : null;
+  }).filter(Boolean);
+
+  const hot = rooms.filter(x => x.diff > 1.5 && x.r.isOpen).sort((a,b)=>b.diff-a.diff)[0];
+  const cold = rooms.filter(x => x.diff < -1.5).sort((a,b)=>a.diff-b.diff)[0];
+
+  if (hot && cold) {
+    return {
+      key: 'rebalance-' + hot.cfg.id + '-' + cold.cfg.id,
+      kind: 'info',
+      title: 'Rebalance zones',
+      body: `${hot.cfg.name} is <strong>${hot.r.temp.toFixed(1)}°</strong> (target ${hot.r.target}°) while ${cold.cfg.name} is <strong>${cold.r.temp.toFixed(1)}°</strong>. Close ${hot.cfg.name}, open ${cold.cfg.name} at max airflow.`,
+      apply() {
+        climate.rooms[hot.cfg.id].isOpen = false;
+        climate.rooms[cold.cfg.id].isOpen = true;
+        climate.rooms[cold.cfg.id].damper = 100;
+        logClimate(`Closed ${hot.cfg.name}, opened ${cold.cfg.name} @ 100%`);
+      }
+    };
+  }
+
+  if (state.sems && (state.sems.exportPower || 0) > 2000) {
+    const cool = rooms.filter(x => x.diff > 1);
+    const heat = rooms.filter(x => x.diff < -1);
+    if (cool.length || heat.length) {
+      const action = heat.length > cool.length ? 'heat' : 'cool';
+      const targets = (action === 'heat' ? heat : cool).map(x => x.cfg.name).join(', ');
+      return {
+        key: 'solar-' + action,
+        kind: 'good',
+        title: 'Free solar available',
+        body: `You have <strong>${fmtW(state.sems.exportPower)}</strong> of surplus. Run AC to ${action} these rooms at no cost: <strong>${targets}</strong>.`,
+        apply() {
+          (action === 'heat' ? heat : cool).forEach(x => { climate.rooms[x.cfg.id].isOpen = true; });
+          logClimate(`Activated solar ${action} for ${targets}`);
+        }
+      };
+    }
+  }
+  return null;
+}
+
+function renderClimateBanner() {
+  const banner = $('home-banner');
+  if (!banner) return;
+  if (climate.mode === 'manual') { banner.classList.add('hidden'); return; }
+
+  const sug = buildClimateSuggestion();
+  if (!sug) { banner.classList.add('hidden'); return; }
+
+  banner.className = 'banner banner-' + sug.kind;
+  const modeLabel = climate.mode === 'auto' ? 'Auto' : 'Suggestion';
+  banner.innerHTML = `
+    <div style="flex:1;">
+      <div class="banner-title">💡 ${modeLabel}: ${sug.title}</div>
+      <div class="banner-body">${sug.body}</div>
+      ${climate.mode === 'suggest' ? `
+      <div class="flex gap-sm" style="margin-top: 10px;">
+        <button class="btn btn-primary btn-sm" onclick="applyClimateSuggestion()">✓ Apply</button>
+        <button class="btn btn-sm" onclick="dismissClimateSuggestion()">Dismiss</button>
+      </div>` : `
+      <div class="text-mute" style="font-size: 11px; margin-top: 8px;">Auto-applied · ${fmtTime()}</div>`}
+    </div>`;
+  banner.classList.remove('hidden');
+  banner._suggestion = sug;
+
+  /* Auto-apply removed: it overrode iZone-synced state.
+     Suggestions are now informational only — user must click Apply. */
+}
+function applyClimateSuggestion() {
+  const banner = $('home-banner');
+  if (banner?._suggestion) {
+    banner._suggestion.apply();
+    if (typeof renderThermostats === 'function') renderThermostats();
+    banner.classList.add('hidden');
+  }
+}
+function dismissClimateSuggestion() { $('home-banner').classList.add('hidden'); }
+
+/* ── 9. FORECAST TAB ───────────────────────────────────────────── */
+let forecastSelectedDay = 0;
+
+function renderForecast() {
+  if (!state.forecast) return;
+  renderGhiChart();
+  renderForecastWeek();
+}
+
+function renderGhiChart() {
+  const ctx = $('ghi-chart');
+  if (!ctx || !state.forecast?.hourly) return;
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayHours = state.forecast.hourly.filter(h => h.time.slice(0,10) === todayStr);
+  if (!todayHours.length) return;
+
+  const currentHour = new Date().getHours();
+  const labels = todayHours.map(h => h.time.slice(11,13) + ':00');
+  const ghi = todayHours.map(h => h.ghi);
+
+  // Past hours show actual generation if available (from hourlyHistory)
+  const past = todayHours.map((h, i) => {
+    const hour = parseInt(h.time.slice(11,13));
+    if (hour > currentHour) return null;
+    const key = hour.toString().padStart(2,'0') + ':00';
+    const hist = state.hourlyHistory[key];
+    return hist ? Math.round(hist.solar / 13.2) : null; // rough: power→ghi estimate
+  });
+
+  // Colors: past = solid amber, current = green, future = faded amber, night = grey
+  const bgColors = todayHours.map((h, i) => {
+    const hour = parseInt(h.time.slice(11,13));
+    if (h.ghi === 0) return 'rgba(128,128,128,0.15)';
+    if (hour === currentHour) return colorCss('export');
+    if (hour < currentHour) return colorCss('solar');
+    return 'rgba(245,166,35,0.35)';
+  });
+
+  if (typeof Chart === "undefined") return;
+  if (state.charts.ghi) state.charts.ghi.destroy();
+  state.charts.ghi = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'GHI', data: ghi, backgroundColor: bgColors, borderRadius: 3 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.raw + ' W/m²' } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, maxTicksLimit: 12 } },
+        y: { grid: { color: 'rgba(128,128,128,0.08)' }, ticks: { font: { size: 9 } } }
+      }
+    }
+  });
+}
+
+function renderForecastWeek() {
+  const host = $('forecast-week');
+  if (!host || !state.forecast?.daily) return;
+  host.innerHTML = state.forecast.daily.slice(0, 7).map((d, i) => {
+    const date = new Date(d.date);
+    const dayName = date.toLocaleDateString('en-AU', { weekday: 'short' });
+    const dateNum = date.getDate();
+    const icon = weatherIcon(d.weatherCode, 50);
+    const rain = d.precipitationSum > 0 ? `${d.precipitationSum.toFixed(1)}mm` : '';
+    const selected = i === forecastSelectedDay ? 'selected' : '';
+    return `<div class="forecast-day-card ${selected}" onclick="selectForecastDay(${i})">
+      <div class="fdc-day">${dayName}</div>
+      <div class="fdc-date">${dateNum}</div>
+      <div class="fdc-icon">${icon}</div>
+      <div class="fdc-temp text-mute">${rain || 'UV ' + (d.uvIndexMax || '—').toFixed(1)}</div>
+    </div>`;
+  }).join('');
+  renderForecastDayDetail();
+}
+
+function selectForecastDay(i) {
+  forecastSelectedDay = i;
+  renderForecastWeek();
+}
+
+function renderForecastDayDetail() {
+  if (!state.forecast?.daily?.[forecastSelectedDay]) return;
+  const day = state.forecast.daily[forecastSelectedDay];
+  const dayHours = state.forecast.hourly.filter(h => h.time.slice(0,10) === day.date);
+  if (!dayHours.length) return;
+
+  const detail = $('forecast-detail');
+  detail.style.display = 'block';
+  const date = new Date(day.date);
+  setText('forecast-detail-title', date.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' }));
+
+  const ctx = $('forecast-day-chart');
+  if (typeof Chart === "undefined") return;
+  if (state.charts.forecastDay) state.charts.forecastDay.destroy();
+  state.charts.forecastDay = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: dayHours.map(h => h.time.slice(11,13)),
+      datasets: [{ label: 'GHI', data: dayHours.map(h => h.ghi), backgroundColor: colorCss('solar'), borderRadius: 3 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 9 } } },
+        y: { grid: { color: 'rgba(128,128,128,0.08)' }, ticks: { font: { size: 9 } } }
+      }
+    }
+  });
+}
+
+/* ── 10. HISTORY TAB ───────────────────────────────────────────── */
+let histRange = 'day';
+function setHistRange(range, btn) {
+  histRange = range;
+  document.querySelectorAll('#tab-history .range-chip').forEach(c => c.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  $('custom-range').style.display = range === 'custom' ? 'flex' : 'none';
+  if (range !== 'custom') loadHistory();
+}
+
+async function loadHistory() {
+  const status = $('hist-status');
+  setText('hist-status', 'Loading…');
+  const today = new Date();
+  let from, to;
+  if (histRange === 'day') { from = to = today.toISOString().slice(0,10); }
+  else if (histRange === 'week') {
+    const d = new Date(today); d.setDate(d.getDate() - 6);
+    from = d.toISOString().slice(0,10); to = today.toISOString().slice(0,10);
+  }
+  else if (histRange === 'month') {
+    const d = new Date(today); d.setDate(d.getDate() - 29);
+    from = d.toISOString().slice(0,10); to = today.toISOString().slice(0,10);
+  }
+  else if (histRange === 'year') {
+    const d = new Date(today); d.setFullYear(d.getFullYear() - 1);
+    from = d.toISOString().slice(0,10); to = today.toISOString().slice(0,10);
+  }
+  else if (histRange === 'custom') {
+    from = $('hist-from').value; to = $('hist-to').value;
+    if (!from || !to) { setText('hist-status', 'Select dates'); return; }
+  }
+
+  try {
+    const gran = histRange === 'year' ? 'day' : histRange === 'month' ? 'day' : histRange === 'week' ? 'day' : '30min';
+    const json = await apiGet(`/.netlify/functions/usage?from=${from}&to=${to}&granularity=${gran}`);
+    if (!json.data || json.data.length === 0) {
+      $('hist-stats').style.display = 'none';
+      $('hist-costs').style.display = 'none';
+      $('hist-empty').style.display = 'block';
+      $('hist-empty').innerHTML = `
+        <strong>No data for this range</strong><br/><br/>
+        <span class="text-mute">You may need to set up the Supabase table first.</span><br/>
+        <a href="/upload.html" class="text-export" style="text-decoration: underline;">Go to uploader →</a>`;
+      setText('hist-status', '');
+      return;
+    }
+    $('hist-empty').style.display = 'none';
+    $('hist-stats').style.display = 'grid';
+    $('hist-costs').style.display = 'grid';
+
+    const totalExp = json.data.reduce((s,d) => s + (d.solarKwh || 0), 0);
+    const totalImp = json.data.reduce((s,d) => s + (d.gridKwh || 0), 0);
+    const totalGen = totalExp; // AGL only shows exported; actual gen unknown historically
+    const selfUse = 0;
+    setText('hist-gen', fmtKwh(totalGen));
+    setText('hist-export', fmtKwh(totalExp));
+    setText('hist-import', fmtKwh(totalImp));
+    setText('hist-selfuse', fmtKwh(selfUse));
+    const gridCost = totalImp * TARIFF.usage;
+    const feedIn = totalExp * TARIFF.feedIn;
+    setText('hist-cost-grid', '$' + gridCost.toFixed(2));
+    setText('hist-cost-feedin', '$' + feedIn.toFixed(2));
+    setText('hist-cost-net', '$' + (gridCost - feedIn).toFixed(2));
+
+    renderHistChart(json.data);
+    setText('hist-status', json.data.length + ' points · ' + from + ' → ' + to);
+  } catch(e) {
+    setText('hist-status', 'Error: ' + e.message);
+    $('hist-empty').style.display = 'block';
+    $('hist-empty').innerHTML = '<strong>Could not load history</strong><br/>' + e.message;
+  }
+}
+
+function renderHistChart(data) {
+  const ctx = $('hist-chart');
+  if (!ctx) return;
+  if (typeof Chart === "undefined") return;
+  if (state.charts.hist) state.charts.hist.destroy();
+  state.charts.hist = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.time),
+      datasets: [
+        { label: 'Imported', data: data.map(d => d.gridKwh || 0), backgroundColor: colorCss('import'), borderRadius: 3, stack: 's' },
+        { label: 'Exported', data: data.map(d => d.solarKwh || 0), backgroundColor: colorCss('export'), borderRadius: 3, stack: 's' },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 10, padding: 8 } } },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 45, maxTicksLimit: 20, font: { size: 9 } } },
+        y: { stacked: true, grid: { color: 'rgba(128,128,128,0.08)' }, ticks: { font: { size: 9 }, callback: v => v.toFixed(1) + ' kWh' } }
+      }
+    }
+  });
+}
+
+/* ── 11. BATTERY SIMULATION ────────────────────────────────────── */
+function runBatterySimulation() {
+  const keys = Object.keys(state.hourlyHistory).sort();
+  if (!keys.length) return;
+
+  const CAP = 10.1;
+  const MAX_POWER = 5.0;  // 5 kW max charge/discharge
+  const EFF = 0.9;        // 90% round-trip
+  const actualGen = state.sems?.dailyGeneration || 0;
+  const actualImport = state.sems?.dailyImport || 0;
+  const offpeakEnabled = $('sim-offpeak-enabled')?.checked;
+
+  let soc = CAP * 0.5; // start at 50%
+  let totalSelfUse = 0, totalImportSim = 0, totalExportSim = 0;
+  let totalOffpeakKwh = 0;
+  const simBars = [];
+
+  keys.forEach(key => {
+    const h = state.hourlyHistory[key];
+    if (!h) return;
+    const hour = parseInt(key.slice(0,2));
+    const deltaH = 0.5; // assume 30-min interval
+    const solarKw = (h.solar || 0) / 1000;
+    const consumeKw = (h.consumption || 0) / 1000;
+
+    // Self-use first
+    const direct = Math.min(solarKw, consumeKw);
+    let remainingSolar = solarKw - direct;
+    let remainingConsume = consumeKw - direct;
+
+    // Charge battery from surplus
+    let fromBattery = 0, toBattery = 0;
+    if (remainingSolar > 0 && soc < CAP) {
+      const canCharge = Math.min(remainingSolar, MAX_POWER, (CAP - soc) / deltaH);
+      toBattery = canCharge;
+      soc += canCharge * deltaH * EFF;
+      remainingSolar -= canCharge;
+    }
+    if (remainingConsume > 0 && soc > 0) {
+      const canDischarge = Math.min(remainingConsume, MAX_POWER, soc / deltaH);
+      fromBattery = canDischarge;
+      soc -= canDischarge * deltaH;
+      remainingConsume -= canDischarge;
+    }
+
+    // Off-peak charge during 12am-6am
+    if (offpeakEnabled && hour < 6 && soc < CAP * 0.8) {
+      const charge = Math.min(MAX_POWER, (CAP * 0.8 - soc) / deltaH);
+      soc += charge * deltaH * EFF;
+      totalOffpeakKwh += charge * deltaH;
+    }
+
+    const netImport = remainingConsume;
+    const netExport = remainingSolar;
+
+    totalSelfUse += (direct + fromBattery) * deltaH;
+    totalImportSim += netImport * deltaH;
+    totalExportSim += netExport * deltaH;
+
+    simBars.push({ time: key, selfUse: direct, fromBattery, import: netImport, export: netExport });
+  });
+
+  const socPct = (soc / CAP) * 100;
+  setText('sim-soc', socPct.toFixed(0) + '%');
+  setText('sim-soc-kwh', soc.toFixed(2) + ' kWh');
+  const fill = $('bat-fill');
+  if (fill) {
+    fill.style.width = socPct + '%';
+    fill.style.background = socPct < 20 ? colorCss('import') : socPct < 50 ? colorCss('solar') : 'linear-gradient(90deg, ' + colorCss('battery') + ', color-mix(in srgb, ' + colorCss('battery') + ' 60%, white))';
+  }
+  setText('bat-label', soc.toFixed(1) + ' / ' + CAP + ' kWh');
+
+  // Savings calc
+  const offpeakCost = totalOffpeakKwh * TARIFF.nightEV;
+  const normalImportCost = actualImport * TARIFF.usage;
+  const simImportCost = (totalImportSim - totalOffpeakKwh) * TARIFF.usage;
+  const saved = normalImportCost - simImportCost - offpeakCost;
+  setText('sim-saved-today', '$' + saved.toFixed(2));
+  setText('sim-saved-week', '$' + (saved * 7).toFixed(0));
+  setText('sim-saved-month', '$' + (saved * 30).toFixed(0));
+  const annual = saved * 365;
+  setText('sim-saved-year', '$' + annual.toFixed(0));
+  setText('sim-payback', annual > 0 ? (8500 / annual).toFixed(1) + ' yrs' : '—');
+  const importAvoided = Math.max(0, actualImport - (totalImportSim - totalOffpeakKwh));
+  setText('sim-import-avoided', importAvoided.toFixed(2) + ' kWh');
+
+  // Off-peak decision explanation
+  const dec = $('sim-offpeak-decision');
+  if (dec) {
+    if (offpeakEnabled) {
+      dec.className = 'banner banner-info';
+      dec.innerHTML = `<div><div class="banner-title">Night charging active</div><div class="banner-body">Charged <strong>${totalOffpeakKwh.toFixed(2)} kWh</strong> overnight at 8c/kWh · cost <strong>$${offpeakCost.toFixed(2)}</strong>. Used during high-price hours instead of importing at 26.5c/kWh.</div></div>`;
+    } else {
+      dec.className = 'banner';
+      dec.innerHTML = `<div><div class="banner-title">Off-peak charging disabled</div><div class="banner-body">Battery will only charge from solar surplus. Enable off-peak to also charge overnight at 8c/kWh.</div></div>`;
+    }
+  }
+
+  // Comparison
+  setText('comp-actual-import', fmtKwh(actualImport) + ' kWh');
+  setText('comp-actual-export', fmtKwh(state.sems?.dailyExport || 0) + ' kWh');
+  setText('comp-actual-cost', '$' + (actualImport * TARIFF.usage).toFixed(2));
+  setText('comp-sim-import', fmtKwh(totalImportSim) + ' kWh');
+  setText('comp-sim-export', fmtKwh(totalExportSim) + ' kWh');
+  setText('comp-sim-cost', '$' + (simImportCost + offpeakCost).toFixed(2));
+
+  // Sim chart
+  const ctx = $('sim-bar-chart');
+  if (ctx) {
+    if (typeof Chart === "undefined") return;
+    if (state.charts.sim) state.charts.sim.destroy();
+    state.charts.sim = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: simBars.map(b => b.time),
+        datasets: [
+          { label: 'Self-use',     data: simBars.map(b => b.selfUse * 1000),     backgroundColor: colorCss('home'),    borderRadius: 3, stack: 's' },
+          { label: 'From battery', data: simBars.map(b => b.fromBattery * 1000), backgroundColor: colorCss('battery'), borderRadius: 3, stack: 's' },
+          { label: 'From grid',    data: simBars.map(b => b.import * 1000),      backgroundColor: colorCss('import'),  borderRadius: 3, stack: 's' },
+          { label: 'Excess export',data: simBars.map(b => b.export * 1000),      backgroundColor: colorCss('export'),  borderRadius: 3, stack: 's' },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 0, maxTicksLimit: 24, font: { size: 9 } } },
+          y: { stacked: true, grid: { color: 'rgba(128,128,128,0.08)' }, ticks: { font: { size: 9 }, callback: v => v >= 1000 ? (v/1000).toFixed(1) + 'kW' : v + 'W' } }
+        }
+      }
+    });
+  }
+}
+
+/* ── 12. ALERTS ────────────────────────────────────────────────── */
+const alertState = { exportTriggeredAt: 0, importTriggeredAt: 0, exportStart: 0, importStart: 0, logEntries: [] };
+
+function loadAlertConfig() {
+  try { return JSON.parse(localStorage.getItem('alertConfig') || '{}'); }
+  catch(e) { return {}; }
+}
+function saveAlertConfig() {
+  const cfg = {
+    exportEnabled: $('toggle-export')?.checked ?? true,
+    importEnabled: $('toggle-import')?.checked ?? true,
+    exportThreshKw: parseFloat($('export-threshold-kw')?.value) || 3,
+    exportDurMin:   parseFloat($('export-duration-min')?.value) || 10,
+    importThreshKw: parseFloat($('import-threshold-kw')?.value) || 3,
+    importDurMin:   parseFloat($('import-duration-min')?.value) || 10,
+    cooldownMin:    parseFloat($('cooldown-min')?.value) || 30,
+  };
+  localStorage.setItem('alertConfig', JSON.stringify(cfg));
+}
+
+function checkAlerts() {
+  if (!state.sems) return;
+  const cfg = loadAlertConfig();
+  const expKw = (state.sems.exportPower || 0) / 1000;
+  const impKw = (state.sems.importPower || 0) / 1000;
+  const now = Date.now();
+  const cooldown = (cfg.cooldownMin || 30) * 60000;
+
+  // Export alert
+  if (cfg.exportEnabled && expKw >= (cfg.exportThreshKw || 3)) {
+    if (!alertState.exportStart) alertState.exportStart = now;
+    if (now - alertState.exportStart >= (cfg.exportDurMin || 10) * 60000 &&
+        now - alertState.exportTriggeredAt >= cooldown) {
+      fireAlert('☀ Solar surplus', `Exporting ${expKw.toFixed(1)} kW to grid. Good time to run appliances or charge EV.`);
+      alertState.exportTriggeredAt = now;
+    }
+  } else { alertState.exportStart = 0; }
+
+  // Import alert
+  if (cfg.importEnabled && impKw >= (cfg.importThreshKw || 3)) {
+    if (!alertState.importStart) alertState.importStart = now;
+    if (now - alertState.importStart >= (cfg.importDurMin || 10) * 60000 &&
+        now - alertState.importTriggeredAt >= cooldown) {
+      fireAlert('⬇ Heavy grid import', `Importing ${impKw.toFixed(1)} kW from grid at ${(TARIFF.usage * 100).toFixed(0)}c/kWh.`);
+      alertState.importTriggeredAt = now;
+    }
+  } else { alertState.importStart = 0; }
+}
+
+function fireAlert(title, body) {
+  const entry = `[${fmtTime()}] ${title}: ${body}`;
+  alertState.logEntries.unshift(entry);
+  alertState.logEntries = alertState.logEntries.slice(0, 20);
+  const log = $('alert-log');
+  if (log) log.innerHTML = alertState.logEntries.length
+    ? alertState.logEntries.map(e => `<div style="padding: 6px 0; border-bottom: 1px solid var(--border);">${e}</div>`).join('')
+    : 'No alerts fired yet this session.';
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    new Notification(title, { body, tag: title });
+  }
+}
+
+function requestNotifPermission() {
+  if (typeof Notification === 'undefined') return;
+  Notification.requestPermission().then(p => updateNotifBtn(p));
+}
+function updateNotifBtn(p) {
+  const btn = $('notif-btn');
+  if (!btn) return;
+  if (p === 'granted') { btn.textContent = '✓ Notifications enabled'; btn.disabled = true; }
+  else if (p === 'denied') { btn.textContent = '✕ Notifications blocked'; btn.disabled = true; }
+  else { btn.textContent = 'Enable Notifications'; }
+}
+
+/* ── 13. iZONE DIRECT ─────────────────────────────────────────── */
+let izoneSetpoint = 22;
+/* Route legacy izPost calls through the bridge.
+   - Old path '/iZoneRequestV2'  → POST {BRIDGE_URL}/api/izone/query
+   - Old path '/iZoneCommandV2'  → POST {BRIDGE_URL}/api/izone/command
+   The bridge forwards the body to the iZone controller unchanged and returns the response.
+*/
+async function izPost(url, body) {
+  let endpoint;
+  if (typeof url === 'string' && url.endsWith('/iZoneCommandV2')) {
+    endpoint = BRIDGE_URL + '/api/izone/command';
+  } else {
+    endpoint = BRIDGE_URL + '/api/izone/query';
+  }
+  try {
+    const r = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) {
+      const txt = await r.text().catch(() => '');
+      throw new Error('Bridge HTTP ' + r.status + (txt ? ': ' + txt.slice(0, 120) : ''));
+    }
+    bridgeOnline = true;
+    updateBridgeStatusDot();
+    return await r.json();
+  } catch(e) {
+    // Network/timeout failures flip bridge status to offline
+    if (e.name === 'AbortError' || e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+      bridgeOnline = false;
+      updateBridgeStatusDot();
+    }
+    throw e;
+  }
+}
+
+/* Bulk fetch all zones via the bridge's /api/izone/zones endpoint.
+   The bridge handles sequencing, retries with backoff, and a stale-cache fallback,
+   so the browser can replace its 6-call loop with a single request.
+   Returns { zones: [...], missing: [int], stale: [int] }.
+   Timeout 15s — bridge worst case is ~5s (3 retry passes + base sweep). */
+async function izBulkZones() {
+  try {
+    const r = await fetch(BRIDGE_URL + '/api/izone/zones', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!r.ok) {
+      const txt = await r.text().catch(() => '');
+      throw new Error('Bridge HTTP ' + r.status + (txt ? ': ' + txt.slice(0, 120) : ''));
+    }
+    bridgeOnline = true;
+    updateBridgeStatusDot();
+    return await r.json();
+  } catch(e) {
+    if (e.name === 'AbortError' || e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+      bridgeOnline = false;
+      updateBridgeStatusDot();
+    }
+    throw e;
+  }
+}
+
+/* Fetch current room sensor readings via the bridge.
+   Today returns rooms = {} (no sensors connected). When sensors come online,
+   each entry has { temp: float, humidity: float, last_update_iso: str }.
+   Returns { rooms: {...}, expectedRooms: [...] }. */
+async function fetchSensors() {
+  try {
+    const r = await fetch(BRIDGE_URL + '/api/sensors/temps', {
+      method: 'GET',
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!r.ok) throw new Error('Sensors HTTP ' + r.status);
+    return await r.json();
+  } catch(e) {
+    console.warn('Sensor fetch failed:', e.message);
+    return { rooms: {}, expectedRooms: [] };
+  }
+}
+
+/* Merge sensor data into climate.rooms[roomId].sensorTemp / sensorHumidity.
+   Rooms not in sensorData.rooms are marked sensorTemp = null so the UI
+   can show "no sensor" indicators. */
+function applySensorData(sensorData) {
+  if (!sensorData || !climate.rooms) return;
+  const rooms = sensorData.rooms || {};
+  Object.keys(climate.rooms).forEach(roomId => {
+    const r = climate.rooms[roomId];
+    const s = rooms[roomId];
+    if (s && typeof s.temp === 'number') {
+      r.sensorTemp = s.temp;
+      r.sensorHumidity = s.humidity;
+      r.sensorLastUpdate = s.last_update_iso;
+    } else {
+      r.sensorTemp = null;
+      r.sensorHumidity = null;
+      r.sensorLastUpdate = null;
+    }
+  });
+  renderThermostats();
+}
+
+/* Bridge health check — fires every 60s independent of iZone polling.
+   Keeps the status dot accurate even when the user is on a tab that doesn't call iZone. */
+async function checkBridgeHealth() {
+  try {
+    const r = await fetch(BRIDGE_URL + '/health', { signal: AbortSignal.timeout(5000) });
+    bridgeOnline = r.ok;
+  } catch(e) {
+    bridgeOnline = false;
+  }
+  bridgeLastCheck = Date.now();
+  updateBridgeStatusDot();
+}
+
+/* Status dot in top nav — green=live, red=offline, grey=unknown */
+function updateBridgeStatusDot() {
+  const dot = document.getElementById('bridge-dot');
+  const lbl = document.getElementById('bridge-dot-label');
+  if (!dot) return;
+  let color, label;
+  if (bridgeOnline === true)       { color = 'var(--export)'; label = 'Bridge live'; }
+  else if (bridgeOnline === false) { color = 'var(--import)'; label = 'Bridge offline'; }
+  else                             { color = 'var(--text-dim)'; label = 'Bridge checking…'; }
+  dot.style.background = color;
+  if (lbl) lbl.textContent = label;
+}
+/* iZone command vocabulary ────────────────────────────────────── */
+/* iZone v2 enum values per official spec (developer.izone.com.au):
+   SysMode:  Cool=1, Heat=2, Vent=3, Dry=4, Auto=5, Exhaust=6, PumpOnly=7
+   SysFan:   Low=1,  Med=2,  High=3, Auto=4, Top=5 */
+const IZONE_MODE_STR_TO_INT = { cool: 1, heat: 2, vent: 3, dry: 4, auto: 5 };
+const IZONE_MODE_INT_TO_STR = { 1: 'cool', 2: 'heat', 3: 'vent', 4: 'dry', 5: 'auto' };
+const IZONE_FAN_STR_TO_INT  = { low: 1, med: 2, high: 3, auto: 4 };
+const IZONE_FAN_INT_TO_STR  = { 1: 'low', 2: 'med', 3: 'high', 4: 'auto' };
+
+/* Sync local master AC state from a real iZone system payload.
+   Called from inside fetchIzone() whenever we get fresh data.
+   This keeps the Home tab master AC card reflecting reality rather than stale local state. */
+function syncMasterACFromIzone(sys) {
+  if (!sys) return;
+  climate.acOn       = (sys.SysOn === 1);
+  climate.acMode     = IZONE_MODE_INT_TO_STR[sys.SysMode] || 'vent';
+  climate.acFan      = IZONE_FAN_INT_TO_STR[sys.SysFan] || 'low';
+  climate.acSetpoint = (sys.Setpoint ?? 2200) / 100;
+  saveClimate();
+  if (typeof renderMasterAC === 'function') renderMasterAC();
+}
+
+/* Sync per-room zone state from iZone's ZoneV2 array.
+   Real iZone payload uses: Index (0-indexed), Mode (1=on, 2=off), Setpoint (×100).
+   Temp is always 0 (no sensors installed, SensorFault=1) so we don't sync it.
+   A zone is "on" when Mode === 1 (user-intent). DmpPos fluctuates with airflow
+   balancing and is not a reliable signal of user-facing on/off state. */
+function syncRoomsFromIzone(zones) {
+  if (!zones || !Array.isArray(zones)) return;
+  const missing = [];
+  CLIMATE_ROOMS.forEach(cfg => {
+    const z = zones.find(zz => zz.Index + 1 === cfg.zone);
+    const room = climate.rooms[cfg.id];
+    if (!room) return;
+    if (!z) {
+      missing.push(cfg.name);
+      return;  // keep last known state for this room
+    }
+    // Mode 1 = zone enabled (open by setpoint); Mode 2 = user turned it off.
+    // DmpPos fluctuates regardless and is misleading for "is zone on".
+    room.isOpen = (z.Mode === 1);
+    // Setpoint comes through as integer × 100 (e.g. 2300 = 23.00°C)
+    if (z.Setpoint > 0) room.target = z.Setpoint / 100;
+    // Temp NOT synced — iZone returns 0 for all zones (no physical sensors)
+  });
+  if (missing.length) console.warn('iZone sync: missing zones', missing.join(', '));
+  saveClimate();
+  if (typeof renderThermostats === 'function') renderThermostats();
+}
+
+/* Fast system-only refresh used after a master AC command.
+   Single bridge call, no zone iteration, no full fetchIzone overhead.
+   Updates climate.acOn/acMode/acFan/acSetpoint and re-renders master AC card. */
+async function refreshMasterACFromIzone() {
+  try {
+    const sys = await izPost(IZONE_URL + '/iZoneRequestV2', { iZoneV2Request: { Type: 1, No: 0, No1: 0 } });
+    if (sys && sys.SystemV2) syncMasterACFromIzone(sys.SystemV2);
+  } catch(e) {
+    /* swallow — if it fails, next regular fetchIzone will catch up */
+  }
+}
+
+/* Send an iZone command through the bridge. Returns true on success.
+   Shows a transient toast on failure and reverts the optimistic UI. */
+/* Send an iZone command through the bridge.
+   Accepts a simple key/value payload matching iZone v2 spec directly at root.
+   Examples:
+     sendIzoneCommand({ SysOn: 1 })
+     sendIzoneCommand({ SysMode: 1 })         // 1=Cool
+     sendIzoneCommand({ SysFan: 2 })          // 2=Med
+     sendIzoneCommand({ SysSetpoint: 2250 })  // 22.5°C
+   Bridge forwards the body unchanged to iZone's /iZoneCommandV2 endpoint. */
+async function sendIzoneCommand(payload) {
+  const summary = Object.keys(payload).join(',');
+  try {
+    await izPost('/iZoneCommandV2', payload);
+    /* Wait long enough for iZone's internal state to settle, then do a fast system-only re-sync.
+       Avoids the green→red→green flicker that happens when iZone reports stale state too soon. */
+    setTimeout(() => { refreshMasterACFromIzone(); }, 4000);
+    return true;
+  } catch(e) {
+    console.error('iZone command failed:', summary, e.message);
+    showToast('Command failed: ' + summary + ' (' + e.message.slice(0, 60) + ')', 'error');
+    /* Command failed — snap UI back to reality fast */
+    setTimeout(() => { refreshMasterACFromIzone(); }, 300);
+    return false;
+  }
+}
+
+/* Toast helper — tiny ephemeral message at the top of the viewport */
+function showToast(msg, type) {
+  let host = document.getElementById('toast-host');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'toast-host';
+    host.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;flex-direction:column;gap:8px;pointer-events:none;';
+    document.body.appendChild(host);
+  }
+  const toast = document.createElement('div');
+  const bg = type === 'error' ? 'var(--import)' : type === 'success' ? 'var(--export)' : 'var(--surface-2)';
+  toast.style.cssText = `background:${bg};color:#0b0f1a;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:var(--shadow-md);max-width:90vw;animation:fadeIn 200ms var(--ease);`;
+  toast.textContent = msg;
+  host.appendChild(toast);
+  setTimeout(() => {
+    toast.style.transition = 'opacity 300ms, transform 300ms';
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(-10px)';
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
+
+async function fetchIzone() {
+  const pill = $('izone-status-pill');
+  const off = $('iz-offline-msg');
+  try {
+    const sys = await izPost(IZONE_URL + '/iZoneRequestV2', { iZoneV2Request: { Type: 1, No: 0, No1: 0 } });
+    const d = sys.SystemV2 || {};
+    pill.classList.add('live'); pill.classList.remove('error');
+    setText('izone-status-text', 'Connected');
+    off.style.display = 'none';
+
+    izoneSetpoint = (d.Setpoint ?? 2200) / 100;
+    setText('iz-mode', ({0:'Auto',1:'Cool',2:'Heat',3:'Fan',4:'Dry'})[d.SysMode] || '—');
+    setText('iz-setpoint', izoneSetpoint.toFixed(1) + '°');
+    setText('iz-temp', ((d.Temp ?? 0)/100).toFixed(1) + '°');
+    setText('iz-supply', ((d.Supply ?? 0)/100).toFixed(1) + '°');
+    $('iz-power-toggle').checked = d.SysOn === 1;
+
+    // Sync master AC state on Home tab to match real iZone state
+    syncMasterACFromIzone(d);
+
+    // Fetch all 6 zones via bridge bulk endpoint.
+    // Bridge handles retries + stale fallback, so this is now a single call.
+    let zones = [];
+    try {
+      const r = await izBulkZones();
+      zones = r.zones || [];
+      if (r.stale?.length)   console.warn('iZone zones served from cache:', r.stale);
+      if (r.missing?.length) console.warn('iZone zones unavailable:', r.missing);
+    } catch(e) {
+      console.error('iZone bulk fetch failed:', e.message);
+    }
+    syncRoomsFromIzone(zones);
+    renderIzoneZones(zones);
+    // Pull sensor data alongside iZone — fire and forget if it fails (helper swallows errors)
+    const sensorData = await fetchSensors();
+    applySensorData(sensorData);
+  } catch(e) {
+    pill.classList.remove('live'); pill.classList.add('error');
+    setText('izone-status-text', 'Offline');
+    off.style.display = 'flex';
+  }
+}
+
+function renderIzoneZones(zones) {
+  const host = $('iz-zones');
+  if (!zones.length) { host.innerHTML = '<div class="text-mute" style="text-align: center; padding: 20px;">No zone data</div>'; return; }
+  host.innerHTML = zones.map((z, i) => {
+    const temp = z.Temp ? (z.Temp/100).toFixed(1) + '°' : '—';
+    const setp = z.Setpoint ? (z.Setpoint/100).toFixed(1) + '°' : '—';
+    const open = z.Mode === 1;
+    return `<div class="card card-compact">
+      <div class="flex items-center justify-between" style="margin-bottom: 8px;">
+        <div style="font-weight: 600; font-size: 13px;">${z.Name || 'Zone ' + (i+1)}</div>
+        <label class="toggle"><input type="checkbox" ${open ? 'checked' : ''} onchange="izToggleZone(${i}, this.checked)"/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="flex gap-md">
+        <div><div class="text-mute" style="font-size: 9px; text-transform: uppercase;">Temp</div><div class="serif" style="font-size: 18px;">${temp}</div></div>
+        <div><div class="text-mute" style="font-size: 9px; text-transform: uppercase;">Target</div><div class="serif text-battery" style="font-size: 18px;">${setp}</div></div>
+        <div style="margin-left: auto; text-align: right;"><div class="text-mute" style="font-size: 9px; text-transform: uppercase;">Damper</div><div class="mono" style="font-size: 14px; font-weight: 600;">${z.DmpPos ?? z.MaxAir ?? 0}%</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function izSetPower(on) {
+  try { await izPost(IZONE_URL + '/iZoneCommandV2', { iZoneCommandV2: { Command: 'SysOn', Value: on ? 1 : 0 } }); setTimeout(fetchIzone, 1500); }
+  catch(e) { console.error('iZone:', e.message); }
+}
+/* Open or close a zone in iZone via bridge.
+   i = iZone's 0-indexed zone (0=Lounge, 1=Master, 2=Charlie's, 3=Mila's, 4=Office, 5=Bathroom)
+   open = true to open zone (Mode 1), false to close (Mode 2) */
+async function izToggleZone(i, open) {
+  try {
+    await izPost(IZONE_URL + '/iZoneCommandV2', { ZoneMode: { Index: i, Mode: open ? 1 : 2 } });
+    setTimeout(fetchIzone, 1500);
+  } catch(e) {
+    console.error('izToggleZone:', e.message);
+  }
+}
+
+/* ── 14. INIT ──────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  // Alert config
+  try {
+    const c = loadAlertConfig();
+    const setIf = (id, v) => { const el = $(id); if (el) el.value = v; };
+    const checkIf = (id, v) => { const el = $(id); if (el) el.checked = v; };
+    checkIf('toggle-export', c.exportEnabled !== false);
+    checkIf('toggle-import', c.importEnabled !== false);
+    setIf('export-threshold-kw', c.exportThreshKw || 3);
+    setIf('export-duration-min', c.exportDurMin || 10);
+    setIf('import-threshold-kw', c.importThreshKw || 3);
+    setIf('import-duration-min', c.importDurMin || 10);
+    setIf('cooldown-min', c.cooldownMin || 30);
+  } catch(e) { console.warn('Alert init:', e.message); }
+
+  try { if (typeof Notification !== 'undefined') updateNotifBtn(Notification.permission); }
+  catch(e) {}
+
+  applyTheme();
+  renderLog();
+
+  // Render Home tab immediately with mock data — don't wait for API
+  try { renderHomeTab(); } catch(e) { console.warn('Home render init:', e.message); }
+  // Deep links from the Energy page: climate.html#live, #history, #battery, #forecast, #alerts, #izone
+  try { const t = location.hash.slice(1); if (t && document.getElementById('tab-' + t)) switchTab(t); } catch(e) {}
+
+  // Set default date inputs
+  const today = new Date().toISOString().slice(0,10);
+  const weekAgo = new Date(Date.now() - 7*86400000).toISOString().slice(0,10);
+  const f = $('hist-from'); if (f) f.value = weekAgo;
+  const t = $('hist-to'); if (t) t.value = today;
+
+  // Kick off fetches
+  refreshAll();
+  loadSupabaseToday().catch(()=>{});
+  setInterval(refreshAll, REFRESH_MS);
+  setInterval(() => loadSupabaseToday().catch(()=>{}), 5 * 60 * 1000);
+  setInterval(() => setText('live-clock', fmtTime()), 30000);
+
+  // Bridge health check — immediate + every 60s
+  checkBridgeHealth().catch(()=>{});
+  setInterval(() => checkBridgeHealth().catch(()=>{}), 60 * 1000);
+
+  // iZone background poll — every 30s regardless of active tab
+  // so Home/iZone tabs show fresh data immediately on tab switch
+  fetchIzone().catch(()=>{});
+  setInterval(() => fetchIzone().catch(()=>{}), 30 * 1000);
+
+  // Swipe-to-close nav on mobile
+  let touchStartX = 0;
+  const nav = document.querySelector('.nav');
+  if (nav) {
+    nav.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+    nav.addEventListener('touchmove', e => {
+      const dx = e.touches[0].clientX - touchStartX;
+      if (dx < -50) toggleNav();
+    }, { passive: true });
+  }
+});
+</script>
+</body>
+</html>

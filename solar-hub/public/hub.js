@@ -1,376 +1,16 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b0f1a">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Home Overview · Solar Hub</title>
-<link rel="manifest" href="manifest.json">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<style>
-/* Solar Hub Home Overview. Always-on wall display that pulls weather, the WS90,
-   rain radar, solar and EV charging into one screen. Read-only: controls live on
-   ev.html and index.html. Tokens match ev.html (dark-first). */
-:root{
-  --bg:#0b0f1a; --surface:#121828; --surface-2:#1a2137; --surface-3:#242c46;
-  --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
-  --text:#ecedf5; --text-muted:#8890a8; --text-dim:#5a6178;
-  --solar:#f5a623; --export:#00d4a6; --import:#ff5470; --import-soft:rgba(255,84,112,.45);
-  --home:#7ba3f7; --car:#00d4a6; --gridout:#b18cff; --rain:#4fb3ff; --offpeak:rgba(123,163,247,.08);
-  --warn:#f5a623; --ok:#00d4a6;
-  --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
-  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
-  --gap:clamp(10px,1.1vw,18px); --pad:clamp(14px,1.4vw,22px); --radius:16px;
-  color-scheme:dark;
-}
-:root[data-theme="light"]{
-  --bg:#f6f5ef; --surface:#ffffff; --surface-2:#faf9f3; --surface-3:#f0ede2;
-  --border:rgba(0,0,0,.08); --border-strong:rgba(0,0,0,.16);
-  --text:#1b1f2a; --text-muted:#6b7286; --text-dim:#9aa0b4;
-  --solar:#d9890a; --export:#00a383; --import:#e0304f; --import-soft:rgba(224,48,79,.4);
-  --home:#4a76d8; --car:#00a383; --gridout:#7c4dde; --rain:#1f7fd1; --offpeak:rgba(74,118,216,.07);
-  --warn:#c77a00; --ok:#00a383; color-scheme:light;
-}
-*{box-sizing:border-box}
-html,body{margin:0;height:100%}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.45;
-  -webkit-font-smoothing:antialiased;overflow:hidden}
-.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
-.label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
-a{color:inherit}
-button{font:inherit;color:inherit}
-
-/* Whole screen. Shifted a pixel or two every few minutes to spare the panel. */
-.screen{height:100dvh;display:grid;gap:var(--gap);
-  padding:calc(var(--gap) + env(safe-area-inset-top,0px)) max(var(--gap),env(safe-area-inset-right,0px)) calc(var(--gap) + env(safe-area-inset-bottom,0px)) max(var(--gap),env(safe-area-inset-left,0px));
-  grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) minmax(0,1fr);
-  grid-template-rows:auto auto minmax(0,1.12fr) minmax(0,1fr);
-  grid-template-areas:"head head head" "notes notes notes" "wx radar flow" "fc mix car";
-  transition:transform 2s ease}
-
-/* ---------- header ---------- */
-.head{grid-area:head;display:flex;align-items:center;justify-content:space-between;gap:16px;min-width:0}
-.head-left{display:flex;align-items:baseline;gap:18px;min-width:0}
-.clock{font-family:var(--mono);font-size:clamp(34px,3.6vw,58px);font-weight:500;letter-spacing:-.03em;line-height:1}
-.date{display:flex;flex-direction:column;gap:2px}
-.date b{font-size:clamp(15px,1.2vw,19px);font-weight:600;white-space:nowrap}
-.date span{color:var(--text-muted);font-size:13px;white-space:nowrap}
-.notes{grid-area:notes;display:flex;flex-wrap:wrap;gap:6px 8px;min-width:0;max-height:70px;overflow:hidden}
-.notes:empty{display:none}
-.note{flex:none;display:flex;align-items:center;gap:8px;height:32px;padding:0 12px;border-radius:999px;background:var(--surface);border:1px solid var(--border);
-  font-size:13.5px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
-.note i{width:8px;height:8px;border-radius:50%;flex:none;background:var(--text-muted)}
-.note.rain i{background:var(--rain)} .note.sun i{background:var(--solar)} .note.car i{background:var(--car)}
-.note.warn i{background:var(--import)} .note.wind i{background:var(--home)}
-.note.strong{font-weight:700;color:var(--solar);border-color:color-mix(in srgb,var(--solar) 60%,transparent);background:color-mix(in srgb,var(--solar) 12%,var(--surface))}
-.note.strong i{background:var(--solar)}
-.note.alert{font-weight:700;font-size:15px;color:var(--import);border-color:color-mix(in srgb,var(--import) 65%,transparent);background:color-mix(in srgb,var(--import) 13%,var(--surface))}
-.note.alert i{background:var(--import);width:10px;height:10px}
-.note.emergency{animation:alertpulse 1.6s ease-in-out infinite}
-@keyframes alertpulse{50%{background:color-mix(in srgb,var(--import) 30%,var(--surface))}}
-.note.info i{background:var(--text-muted)}
-a.note{text-decoration:none}
-a.note:hover{border-color:var(--border-strong)}
-.head-right{display:flex;align-items:center;gap:10px;flex:none}
-.dots{display:flex;gap:6px;padding:8px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--border)}
-.dot{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted);letter-spacing:.04em}
-.dot i{width:7px;height:7px;border-radius:50%;background:var(--text-dim)}
-.dot b{font-weight:500}
-@media (max-width:1700px){ .dot b{display:none} .dots{gap:8px} }
-@media (max-width:1500px){ .dots,.head-right .btn-ev{display:none} }
-.dot.ok i{background:var(--ok)} .dot.stale i{background:var(--warn)} .dot.err i{background:var(--import)}
-.btn{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px;border-radius:12px;background:var(--surface);
-  border:1px solid var(--border);text-decoration:none;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap}
-.btn:hover{border-color:var(--border-strong)}
-.btn:focus-visible,.card-link:focus-visible{outline:2px solid var(--export);outline-offset:2px}
-.btn.icon{width:38px;padding:0;justify-content:center}
-.btn svg{width:16px;height:16px}
-
-/* ---------- cards ---------- */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:var(--pad);
-  min-width:0;min-height:0;display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden}
-.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none}
-.card-head h2{margin:0;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
-.card-head .meta{font-size:12px;color:var(--text-dim);white-space:nowrap}
-.card-link{text-decoration:none;font-size:13px;color:var(--text-muted);white-space:nowrap}
-.card-link:hover{color:var(--text)}
-.empty{color:var(--text-muted);font-size:14px;margin:auto;text-align:center;padding:10px}
-
-/* ---------- weather (WS90 + next 12 h) ---------- */
-.wx{grid-area:wx}
-.wx-title{color:inherit;text-decoration:none}
-.temps{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.temps .label{margin-bottom:2px}
-.temp{font-family:var(--mono);font-size:clamp(40px,3.9vw,68px);font-weight:500;letter-spacing:-.05em;line-height:1;white-space:nowrap}
-.temp sup{font-size:.4em;letter-spacing:0;vertical-align:1em;margin-left:2px;color:var(--text-muted)}
-.wgrid{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;flex:1;min-height:0;align-content:start}
-.wrow{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"k v" "s s";column-gap:8px;align-items:baseline;padding:7px 0;border-top:1px solid var(--border);min-width:0}
-.wrow .k{grid-area:k;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600;white-space:nowrap}
-.wrow .v{grid-area:v;justify-self:end;font-family:var(--mono);font-size:clamp(15px,1.25vw,19px);font-weight:500;white-space:nowrap;display:flex;align-items:center;gap:4px}
-.wrow .v small{font-size:.65em;color:var(--text-muted);font-weight:400}
-.wrow .s{grid-area:s;justify-self:end;font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.warrow{width:14px;height:14px}
-.raining{color:var(--rain)}
-.hi{color:var(--import)} .lo{color:var(--home)}
-.wrow.alert .k,.wrow.alert .s{color:var(--import)}
-.wrow.alert .v{color:var(--import);font-weight:700;font-size:clamp(20px,1.75vw,27px)}
-
-/* ---------- radar ---------- */
-.radar{grid-area:radar;padding:0;gap:0}
-.radar .card-head{padding:10px var(--pad);border-bottom:1px solid var(--border)}
-.radar .map-wrap{position:relative;flex:1;min-height:0}
-#map{position:absolute;inset:0;background:#dfe6ea}
-.leaflet-container{font-family:var(--sans);background:var(--surface-2)}
-.leaflet-control-attribution{background:color-mix(in srgb,var(--surface) 80%,transparent)!important;color:var(--text-dim)!important;font-size:10px!important}
-.leaflet-control-attribution a{color:var(--text-muted)!important}
-.radar-bar{position:absolute;left:var(--pad);right:var(--pad);bottom:calc(var(--pad) + 6px);z-index:500;display:flex;align-items:center;gap:10px;
-  padding:8px 12px;border-radius:12px;background:color-mix(in srgb,var(--surface) 86%,transparent);border:1px solid var(--border);backdrop-filter:blur(6px)}
-.radar-bar .btn{height:30px;width:30px;padding:0;justify-content:center;flex:none;border-radius:9px;background:var(--surface-2)}
-.frames{flex:1;display:flex;gap:3px}
-.frames i{flex:1;height:5px;border-radius:3px;background:var(--surface-3)}
-.frames i.on{background:var(--rain)}
-.frames i.past{background:color-mix(in srgb,var(--rain) 35%,var(--surface-3))}
-.radar-time{flex:none;font-family:var(--mono);font-size:13px;white-space:nowrap;min-width:7.5ch;text-align:right}
-.home-pin{width:16px;height:16px;border-radius:50%;background:var(--solar);border:3px solid var(--bg);box-shadow:0 0 0 2px var(--solar)}
-.legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted)}
-.legend span{display:flex;height:8px;border-radius:2px;overflow:hidden}
-.legend span i{display:block;width:7px;height:8px}
-
-.rain-state{flex:none;font-size:12px;color:var(--text-muted);white-space:nowrap}
-.radar-img{image-rendering:pixelated}
-.town{display:flex;align-items:center;gap:4px;white-space:nowrap;font:600 11px/1 var(--sans);color:#3b4250;transform:translate(-3px,-50%);
-  text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 2px #fff}
-.town i{width:5px;height:5px;border-radius:50%;background:#3b4250;box-shadow:0 0 0 1.5px #fff;flex:none}
-.town.big{font-size:13px;font-weight:700;color:#222833}
-/* Esri's Ocean tiles carry a faint light row on some edges; draw each a pixel larger and clip it off */
-.basemap img.leaflet-tile{width:258px!important;height:258px!important;margin:-1px 0 0 -1px;clip-path:inset(1px)}
-
-/* ---------- energy flow ---------- */
-.flowcard{grid-area:flow}
-.flow-svg{flex:1;min-height:0;width:100%}
-.flow-svg text{font-family:var(--sans)}
-.flow-svg .num{font-family:var(--mono);font-weight:500}
-.wire{fill:none;stroke-linecap:round}
-.wire.bg{stroke:var(--surface-3)}
-.wire.live{stroke-dasharray:3 9;animation:flow 1.1s linear infinite}
-.wire.rev{animation-direction:reverse}
-@keyframes flow{to{stroke-dashoffset:-12}}
-.split{display:flex;flex-direction:column;gap:6px;flex:none}
-.split-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--surface-3)}
-.split-bar i{display:block;height:100%;transition:width .6s ease}
-.split-leg{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--text-muted)}
-.split-leg span{display:flex;align-items:center;gap:5px}
-.split-leg span::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--c)}
-.split-leg b{color:var(--text);font-family:var(--mono);font-weight:500}
-.excess{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;flex:none;
-  background:color-mix(in srgb,var(--solar) 16%,transparent);border:1px solid color-mix(in srgb,var(--solar) 55%,transparent);animation:pulse 2.4s ease-in-out infinite}
-.excess svg{width:26px;height:26px;flex:none}
-.excess b{display:block;font-size:15px;color:var(--solar)}
-.excess span{font-size:12px;color:var(--text-muted)}
-@keyframes pulse{50%{border-color:color-mix(in srgb,var(--solar) 20%,transparent)}}
-.chip.over{font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid color-mix(in srgb,var(--solar) 50%,transparent);color:var(--solar);align-self:flex-start}
-
-/* ---------- today's mix (two donuts) ---------- */
-.mix{grid-area:mix;container-type:inline-size}
-.pies{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:var(--gap)}
-.pie{display:grid;grid-template-columns:minmax(110px,44%) 1fr;align-items:center;gap:14px;min-width:0;min-height:0}
-.pie h3{grid-column:1/-1;margin:0;font-size:14px;font-weight:600}
-.pie svg{width:100%;max-height:100%;aspect-ratio:1}
-.pie-leg{display:flex;flex-direction:column;gap:8px;min-width:0}
-.pie-leg div{display:grid;grid-template-columns:10px 1fr auto;gap:8px;align-items:baseline;font-size:13px}
-.pie-leg i{width:10px;height:10px;border-radius:3px;background:var(--c);align-self:center}
-.pie-leg span{color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pie-leg b{font-family:var(--mono);font-weight:500;white-space:nowrap}
-.pie-leg b small{color:var(--text-muted);font-weight:400;margin-left:6px}
-.pie-leg .sub{grid-column:2/-1;font-size:11px;color:var(--text-dim);margin-top:-6px}
-@container (max-width:620px){
-  .pies{grid-template-columns:1fr;grid-template-rows:1fr 1fr;gap:10px}
-  .pie{grid-template-columns:auto 1fr;grid-template-rows:auto minmax(0,1fr);column-gap:14px;row-gap:2px}
-  .pie h3{font-size:13px}
-  .pie svg{height:100%;width:auto;max-height:none;min-height:0}
-  .pie-leg{gap:5px} .pie-leg .sub{display:none}
-}
-
-/* ---------- car charging tile ---------- */
-.cars{grid-area:car}
-.carlink{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;text-decoration:none;color:inherit}
-.carlink:focus-visible{outline:2px solid var(--export);outline-offset:4px;border-radius:12px}
-.crow{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
-.crow.on{border-color:color-mix(in srgb,var(--car) 45%,transparent)}
-.ctop{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.cname{font-weight:600;font-size:15px;white-space:nowrap}
-.cchip{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--border-strong);color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cchip.sun{color:var(--solar);border-color:color-mix(in srgb,var(--solar) 50%,transparent)}
-.cchip.off{color:var(--home);border-color:color-mix(in srgb,var(--home) 50%,transparent)}
-.cchip.grid{color:var(--import);border-color:color-mix(in srgb,var(--import) 50%,transparent)}
-.cchip.full,.cchip.wait{color:var(--car);border-color:color-mix(in srgb,var(--car) 45%,transparent)}
-.cbatt{display:flex;align-items:center;gap:10px}
-.cbar{flex:1;height:14px;border-radius:4px;background:var(--surface-3);overflow:hidden;position:relative}
-.cbar i{display:block;height:100%;border-radius:4px;transition:width .6s ease}
-.cpct{font-family:var(--mono);font-size:clamp(18px,1.6vw,24px);font-weight:500;min-width:4.2ch;text-align:right}
-.clive{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--text-muted)}
-.clive b{font-family:var(--mono);font-size:17px;color:var(--car);font-weight:500}
-.cfoot{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--text-muted)}
-.cfoot span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cnote{font-size:12px;color:var(--warn)}
-
-/* ---------- internet pill (UniFi) ---------- */
-.net{display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;border-radius:999px;background:var(--surface);border:1px solid var(--border);font-size:12px;color:var(--text-muted);white-space:nowrap}
-.net[hidden]{display:none}
-.net i{width:8px;height:8px;border-radius:50%;background:var(--ok)}
-.net b{font-family:var(--mono);font-weight:500;color:var(--text)}
-.net.warn i{background:var(--warn)} .net.down i{background:var(--import)} .net.down{color:var(--import)}
-@media (max-width:1400px){ .net span:last-child{display:none} }
-
-/* ---------- forecast ---------- */
-.fc{grid-area:fc;container-type:inline-size}
-@container (max-width:400px){ .day{grid-template-columns:4.2ch 26px minmax(0,1fr) 7.5ch 4.6ch;gap:8px} .day .k{display:none} }
-.hours{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;flex:none}
-.hr{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;border-radius:10px;font-size:12px;color:var(--text-muted)}
-.hr.now{background:var(--surface-2)}
-.hr svg{width:30px;height:32px}
-.hr b{font-family:var(--mono);color:var(--text);font-weight:500;font-size:14px}
-.hr .p{font-family:var(--mono);font-size:11px;color:var(--rain);min-height:15px}
-.days{display:flex;flex-direction:column;gap:2px;flex:1;min-height:0;overflow:hidden}
-.day{display:grid;grid-template-columns:4.2ch 30px minmax(0,1fr) 8.5ch 4.6ch 6.5ch;align-items:center;gap:10px;padding:5px 4px;border-top:1px solid var(--border);font-size:14px}
-.day svg{width:28px;height:30px}
-.day .n{font-weight:600}
-.day .t{font-family:var(--mono);text-align:right;white-space:nowrap}
-.day .t span{color:var(--text-muted)}
-.day .r{font-family:var(--mono);font-size:12px;color:var(--rain);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.day .k{font-family:var(--mono);font-size:13px;text-align:right;white-space:nowrap;color:var(--text-muted)}
-.day .sc{font-family:var(--mono);font-size:12px;text-align:right;white-space:nowrap;color:var(--text-muted)}
-.day .sc b{font-size:15px;color:var(--sc);font-weight:600}
-.day .k small{color:var(--text-muted);font-size:.85em}
-
-@media (max-height:880px) and (min-width:1001px){
-  :root{--pad:14px;--gap:10px}
-  .temp{font-size:clamp(40px,4vw,64px)}
-  .fact{padding:8px 10px} .card{gap:10px}
-  .hr svg{width:26px;height:28px} .day{padding:3px 4px}
-}
-
-/* ---------- night dim ---------- */
-.dim{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 3s ease;z-index:2000}
-body.dimmed .dim{opacity:.62}
-
-/* ---------- smaller screens: stack and scroll ---------- */
-@media (max-width:1000px), (max-height:560px) and (max-width:1200px){
-  body{overflow:auto}
-  .screen{height:auto;grid-template-columns:1fr 1fr;grid-template-rows:auto;
-    grid-template-areas:"head head" "notes notes" "wx flow" "fc car" "radar radar" "mix mix"}
-  .radar{min-height:420px} .flowcard{min-height:420px} .mix{min-height:300px}
-  .head{flex-wrap:wrap}
-  .notes{max-height:none} .note{white-space:normal;height:auto;padding:8px 14px}
-}
-@media (max-width:640px){
-  .screen{grid-template-columns:1fr;grid-template-areas:"head" "notes" "wx" "flow" "car" "radar" "mix" "fc"}
-  .pies{grid-template-columns:1fr}
-  .head{flex-wrap:wrap} .dots{display:none}
-  .head-right{flex-wrap:wrap;flex:1 1 100%} .net span{display:none} #btn-fs{display:none}
-}
-@media (prefers-reduced-motion:reduce){ .note.emergency{animation:none} .screen,.split-bar i,.dim{transition:none} .wire.live,.excess{animation:none} }
-</style>
-</head>
-<body>
-<div class="screen" id="screen">
-
-  <!-- ===== header ===== -->
-  <header class="head">
-    <div class="head-left">
-      <div class="clock" id="clock">--:--</div>
-      <div class="date"><b id="date">Dromana</b><span id="sun">Sunrise and sunset loading</span></div>
-    </div>
-    <div class="head-right">
-      <div class="dots" id="dots" title="Data sources">
-        <span class="dot" id="dot-wx"><i></i><b>STATION</b></span>
-        <span class="dot" id="dot-sems"><i></i><b>SOLAR</b></span>
-        <span class="dot" id="dot-ev"><i></i><b>EV</b></span>
-        <span class="dot" id="dot-fc"><i></i><b>FORECAST</b></span>
-        <span class="dot" id="dot-radar"><i></i><b>RADAR</b></span>
-        <span class="dot" id="dot-net"><i></i><b>NET</b></span>
-        <span class="dot" id="dot-warn"><i></i><b>WARNINGS</b></span>
-      </div>
-      <div class="net" id="net" hidden></div>
-      <a class="btn btn-ev" href="ev.html">EV charging ›</a>
-      <a class="btn" href="index.html">Solar Hub ›</a>
-      <button class="btn icon" id="btn-dim" aria-label="Toggle night dimming" title="Night dimming"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
-      <button class="btn icon" id="btn-fs" aria-label="Full screen" title="Full screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
-    </div>
-  </header>
-  <div class="notes" id="notes" aria-live="polite"></div>
-
-  <!-- ===== weather: WS90 + next 12 h ===== -->
-  <section class="card wx" aria-labelledby="wx-h">
-    <!-- The title becomes a link to a detailed weather page later: set WX_DETAIL_URL in the script. -->
-    <div class="card-head"><h2 id="wx-h"><a class="wx-title" id="wx-title">Weather</a></h2><span class="meta" id="wx-meta">Ecowitt WS90</span></div>
-    <div id="wx-body" style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
-      <div class="empty">Waiting for the weather station…</div>
-    </div>
-  </section>
-
-  <!-- ===== radar ===== -->
-  <section class="card radar" aria-labelledby="radar-h">
-    <div class="card-head">
-      <h2 id="radar-h">Rain radar</h2>
-      <div style="display:flex;align-items:center;gap:12px">
-        <span class="legend" aria-hidden="true">light<span><i style="background:#f5f5ff"></i><i style="background:#b4b4ff"></i><i style="background:#7878ff"></i><i style="background:#1414ff"></i><i style="background:#00d8c3"></i><i style="background:#009690"></i><i style="background:#006666"></i><i style="background:#ffff00"></i><i style="background:#ffc800"></i><i style="background:#ff9600"></i><i style="background:#ff6400"></i><i style="background:#ff0000"></i><i style="background:#c80000"></i><i style="background:#780000"></i></span>heavy</span>
-        <a class="card-link" href="https://www.bom.gov.au/products/IDR023.loop.shtml" target="_blank" rel="noopener">BoM radar ›</a>
-      </div>
-    </div>
-    <div class="map-wrap"><div id="map" role="img" aria-label="Animated rain radar centred on Dromana"></div>
-    <div class="radar-bar">
-      <button class="btn" id="radar-play" aria-label="Pause radar animation">
-        <svg viewBox="0 0 24 24" fill="currentColor" id="radar-icon"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
-      </button>
-      <div class="frames" id="frames"></div>
-      <span class="rain-state" id="rain-state"></span><span class="radar-time" id="radar-time">--:--</span>
-    </div></div>
-  </section>
-
-  <!-- ===== energy flow ===== -->
-  <section class="card flowcard" aria-labelledby="flow-h">
-    <div class="card-head"><h2 id="flow-h">Energy flow</h2><a class="card-link" href="ev.html"><span id="en-mode"></span>Charging ›</a></div>
-    <div id="flow-body" style="display:flex;flex-direction:column;gap:10px;flex:1;min-height:0">
-      <div class="empty">Waiting for solar and charger data…</div>
-    </div>
-  </section>
-
-  <!-- ===== today's mix ===== -->
-  <section class="card mix" aria-labelledby="mix-h">
-    <div class="card-head"><h2 id="mix-h">Today's electricity</h2><span class="meta" id="mix-meta">since midnight</span></div>
-    <div class="pies" id="pies"><div class="empty">Adding up today…</div></div>
-  </section>
-
-  <!-- ===== car charging ===== -->
-  <section class="card cars" aria-labelledby="cars-h">
-    <div class="card-head"><h2 id="cars-h">Car charging</h2><a class="card-link" href="ev.html">EV charging ›</a></div>
-    <a class="carlink" href="ev.html" id="cars" aria-label="Open EV charging"><div class="empty">Waiting for the charger…</div></a>
-  </section>
-
-  <!-- ===== forecast ===== -->
-  <section class="card fc" aria-labelledby="fc-h">
-    <div class="card-head"><h2 id="fc-h">Forecast</h2><span class="meta" id="fc-meta">Open-Meteo · Dromana</span></div>
-    <div class="hours" id="hours"></div>
-    <div class="days" id="days"><div class="empty">Loading forecast…</div></div>
-  </section>
-</div>
-<div class="dim" aria-hidden="true"></div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script>
-(() => {
+/* Solar Hub shared client code (dashboard, Weather and Energy pages).
+   Each page puts the tiles it wants in its markup; every renderer here quietly skips tiles that
+   aren't on the page. A page starts it with Hub.start({ sources, wall, extra }):
+     sources: which feeds to poll (ev sems wx fc radar net warn climate wxhist evhist)
+     wall:    true on the always-on dashboard (wake lock, night dim, burn-in shift, 6-hourly reload)
+     extra:   page-specific render functions, run after every data refresh */
+window.Hub = (() => {
   'use strict';
 
   // ---------- settings ----------
   const TZ = 'Australia/Melbourne';
   const HOME = [-38.33, 144.97];                       // same point the forecast function uses
-  const RADAR_CENTRE = [-37.98, 144.92], RADAR_ZOOM = 8;   // Dromana, Melbourne and Geelong in view
+  const RADAR_CENTRE = [-37.98, 144.92], RADAR_ZOOM = 8;   // Dromana, Melbourne and Geelong in view (pages can override on #map)
   const PANEL_KW = 13.2, PR = 0.65;                    // matches ev.html daily estimate
   const fcKw = ghi => Math.min(9.6, ghi / 1000 * PANEL_KW * 0.75);   // matches ev.html hourly curve
   const API = {
@@ -381,15 +21,18 @@ body.dimmed .dim{opacity:.62}
     radar: 'https://api.rainviewer.com/public/weather-maps.json',
     net: '/.netlify/functions/unifi',
     warn: '/.netlify/functions/warnings',
+    wxhist: '/.netlify/functions/ecowitt?history=today',
+    beach: '/.netlify/functions/beaches',
+    evhist: '/.netlify/functions/ev?view=history',
   };
-  const EVERY = { ev: 30e3, wx: 60e3, sems: 120e3, fc: 30 * 60e3, radar: 10 * 60e3, net: 5 * 60e3, warn: 3 * 60e3 };
+  const EVERY = { ev: 30e3, wx: 60e3, sems: 120e3, fc: 30 * 60e3, radar: 10 * 60e3, net: 5 * 60e3, warn: 3 * 60e3, climate: 60e3, wxhist: 10 * 60e3, evhist: 15 * 60e3, beach: 30 * 60e3 };
   // How old before a source is shown amber. Pi or cloud hiccups shouldn't look like outages.
-  const STALE = { ev: 3 * 60e3, wx: 10 * 60e3, sems: 10 * 60e3, fc: 3 * 3600e3, radar: 30 * 60e3, net: 20 * 60e3, warn: 15 * 60e3 };
+  const STALE = { ev: 3 * 60e3, wx: 10 * 60e3, sems: 10 * 60e3, fc: 3 * 3600e3, radar: 30 * 60e3, net: 20 * 60e3, warn: 15 * 60e3, climate: 5 * 60e3, wxhist: 40 * 60e3, evhist: 60 * 60e3, beach: 6 * 3600e3 };
   const params = new URLSearchParams(location.search);
   if (params.get('theme') === 'light') document.documentElement.dataset.theme = 'light';
 
   const $ = id => document.getElementById(id);
-  const S = { ev: null, sems: null, wx: null, fc: null, radar: null, net: null, warn: null };   // latest payloads
+  const S = { ev: null, sems: null, wx: null, fc: null, radar: null, net: null, warn: null, climate: null, wxhist: null, evhist: null, beach: null };   // latest payloads
   const at = {}, failed = {};                                             // last success time, failure flags
 
   // ---------- time helpers (always Melbourne, whatever the device thinks) ----------
@@ -428,8 +71,9 @@ body.dimmed .dim{opacity:.62}
     return S[name];
   }
   function renderDots() {
-    for (const n of ['wx', 'sems', 'ev', 'fc', 'radar', 'net', 'warn']) {
+    for (const n of Object.keys(S)) {
       const el = $('dot-' + n), age = at[n] ? Date.now() - at[n] : Infinity;
+      if (!el) continue;
       el.className = 'dot ' + (!at[n] ? (failed[n] ? 'err' : '') : age > STALE[n] ? (failed[n] ? 'err' : 'stale') : 'ok');
       el.title = at[n] ? `Updated ${ago(at[n])}` + (failed[n] ? ', last try failed' : '') : (failed[n] ? 'Not reachable' : 'Loading');
     }
@@ -518,6 +162,7 @@ body.dimmed .dim{opacity:.62}
 
   // ---------- render: header ----------
   function renderClock() {
+    if (!$('clock')) return;
     const now = new Date();
     $('clock').textContent = clock(now);
     $('date').textContent = now.toLocaleDateString('en-AU', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long' });
@@ -530,7 +175,7 @@ body.dimmed .dim{opacity:.62}
 
   // ---------- render: weather tile ----------
   // Set this when the detailed weather page exists; the tile title becomes a link.
-  const WX_DETAIL_URL = '';
+  const WX_DETAIL_URL = 'weather.html';
   const CARD = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
   const cardinal = deg => has(deg) ? CARD[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16] : '';
   const uvLabel = u => !has(u) ? '' : u < 3 ? 'Low' : u < 6 ? 'Moderate' : u < 8 ? 'High' : u < 11 ? 'Very high' : 'Extreme';
@@ -549,14 +194,37 @@ body.dimmed .dim{opacity:.62}
     nextHours(12).forEach(h => { if ((h.windGust || 0) > best.v) best = { v: h.windGust, at: ampm(fcHour(h.time)) }; });
     return best;
   }
+  // Today in a few words with an icon: the day's forecast, refined by what's left of it
+  function todayOutlook() {
+    const d = fcDays().find(x => x.date === mel().key); if (!d) return null;
+    const rest = todayHourly().filter(h => fcHour(h.time) >= mel().h), w = S.wx;
+    const pmax = Math.max(0, ...rest.map(h => h.precipProbability || 0)), storm = rest.some(h => h.weatherCode >= 95);
+    const wetLeft = rest.reduce((a, h) => a + (h.precipitation || 0), 0), raining = w && has(w.rainRate) && w.rainRate > 0;
+    let k = dayKind(d), text = KIND_TXT[k];
+    if (storm) { k = 'storm'; text = 'Storms possible'; }
+    else if (raining) { k = 'rain'; text = 'Raining now'; }
+    else if (rest.length && wetLeft < 0.3 && pmax < 25 && (k === 'rain' || k === 'drizzle' || k === 'showers')) { k = d.cloud < 60 ? 'partly' : 'cloud'; text = 'Clearing, mostly dry now'; }
+    else if (k !== 'rain' && pmax >= 25 && pmax < 55) { k = d.cloud < 60 ? 'showers' : 'drizzle'; text = 'Possible shower'; }
+    else if (k !== 'rain' && pmax >= 55) { k = 'showers'; text = 'Showers likely'; }
+    const gust = maxGust12().v;
+    return { k, text: text + (gust > WIND_ALERT ? ', windy' : ''), tmax: d.tmax, tmin: d.tmin, pmax: Math.max(pmax, d.rainProb || 0), rain: d.rain };
+  }
+  const ADVICE_CLS = { Good: 'good', Fair: 'fair', Poor: 'poor' };
+  function beachLine() {
+    const b = S.beach?.sites; if (!b || !b.length) return '';
+    return `<div class="beachline" title="EPA Victoria beach water quality forecast"><span>Beach water</span>${b.slice(0, 2).map(x => `<span class="bq ${ADVICE_CLS[x.advice] || ''}"><i></i>${esc(x.name.replace(/ Beach$| Life Saving Club$/, ''))} <b>${esc(x.advice || 'n/a')}</b></span>`).join('')}</div>`;
+  }
   function renderWx() {
     const w = S.wx, box = $('wx-body');
-    if (WX_DETAIL_URL) $('wx-title').href = WX_DETAIL_URL;
+    if (!box) return;
+    if (WX_DETAIL_URL && $('wx-title')) $('wx-title').href = WX_DETAIL_URL;
     if (!w) { if (failed.wx) box.innerHTML = '<div class="empty">Weather station not reachable right now.</div>'; return; }
     const raining = has(w.rainRate) && w.rainRate > 0, r12 = next12Range();
     const row = (k, v, s = '', alert = false) => `<div class="wrow${alert ? ' alert' : ''}"><span class="k">${k}</span><span class="v">${v}</span>${s ? `<span class="s">${s}</span>` : ''}</div>`;
     const windy = (w.windSpeed || 0) > WIND_ALERT || (w.windGust || 0) > WIND_ALERT;
+    const o = todayOutlook();
     box.innerHTML = `
+      ${o ? `<div class="today-wx">${dayIcon(o.k)}<div><b>${esc(o.text)}</b><span>Today ${f0(o.tmax)}° / ${f0(o.tmin)}°${o.pmax >= 20 ? ` · rain ${f0(o.pmax)}%` : ''}${o.rain >= 0.2 ? ` · ${f1(o.rain)} mm` : ''}</span>${beachLine()}</div></div>` : beachLine()}
       <div class="temps">
         <div><div class="label">Outside</div><div class="temp">${f1(w.temperature)}<sup>°</sup></div></div>
         <div><div class="label">Inside</div><div class="temp">${f1(w.indoorTemp)}<sup>°</sup></div></div>
@@ -624,6 +292,7 @@ body.dimmed .dim{opacity:.62}
     not_connected: 'Not plugged in', wait_button: 'Waiting for button', wait_swipe: 'Waiting for card', reserved: 'Scheduled', fault: 'Charger fault' };
   function renderFlow() {
     const box = $('flow-body');
+    if (!box) return;
     if (!S.ev && !S.sems) { if (failed.ev && failed.sems) box.innerHTML = '<div class="empty">Solar and charger data unavailable right now.</div>'; return; }
     const e = energyNow(), L = e.L || {}, c = e.c;
     const pv = has(e.pv) ? e.pv : 0, house = e.house ?? 0, car = e.car || 0;
@@ -635,9 +304,16 @@ body.dimmed .dim{opacity:.62}
     const W = 360, H = 252, hub = [180, 124];
     const N = { solar: [180, 34], grid: [44, 124], house: [316, 124], car: [180, 214] };
     const width = p => (2 + 5 * Math.min(1, p / 7000)).toFixed(1);
+    // Each live wire gets an arrowhead part-way along it, pointing the way the power is flowing
+    const arrow = (a, b, p, col) => {
+      const t = 0.58, x = a[0] + (b[0] - a[0]) * t, y = a[1] + (b[1] - a[1]) * t;
+      const ang = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI, k = 6 + 4 * Math.min(1, p / 7000);
+      return `<path transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${ang.toFixed(1)})" d="M${k} 0L${-k * 0.8} ${-k * 0.85}L${-k * 0.35} 0L${-k * 0.8} ${k * 0.85}Z" fill="${col}" stroke="var(--surface)" stroke-width="1.5" stroke-linejoin="round"/>`;
+    };
     const wire = (from, to, p, col, rev) => {
       const d = `M${from[0]},${from[1]} L${to[0]},${to[1]}`;
-      return `<path class="wire bg" d="${d}" stroke-width="6"/>` + (p >= 50 ? `<path class="wire live${rev ? ' rev' : ''}" d="${d}" stroke="${col}" stroke-width="${width(p)}"/>` : '');
+      if (p < 50) return `<path class="wire bg" d="${d}" stroke-width="6"/>`;
+      return `<path class="wire bg" d="${d}" stroke-width="6"/><path class="wire live${rev ? ' rev' : ''}" d="${d}" stroke="${col}" stroke-width="${width(p)}"/>` + (rev ? arrow(to, from, p, col) : arrow(from, to, p, col));
     };
     const node = (k, pos, col, active) => `<g transform="translate(${pos[0]} ${pos[1]})"> <circle r="27" fill="var(--surface-2)" stroke="${active ? col : 'var(--border-strong)'}" stroke-width="2"/><g>${ICON[k]}</g></g>`;
     const txt = (x, y, anchor, big, small, col = 'var(--text)') => `<text x="${x}" y="${y}" text-anchor="${anchor}"><tspan class="num" font-size="21" fill="${col}">${big}</tspan><tspan x="${x}" dy="17" font-size="13" fill="var(--text-muted)">${esc(small)}</tspan></text>`;
@@ -668,7 +344,7 @@ body.dimmed .dim{opacity:.62}
     box.innerHTML = `<svg class="flow-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Live energy flow between solar, grid, house and car">${s}</svg>${solarLine}${L.override ? '<span class="chip over">Manual override, full rate until unplugged</span>' : ''}${exBox}`;
     const modeTxt = { auto: 'Auto', full: 'Full rate', off: 'Off' }[e.mode] || null;
     const winTxt = { day: 'solar window', offpeak: 'off-peak', evening: 'evening' }[L.window] || '';
-    $('en-mode').textContent = modeTxt ? `${modeTxt}${winTxt ? ' · ' + winTxt : ''} · ` : '';
+    if ($('en-mode')) $('en-mode').textContent = modeTxt ? `${modeTxt}${winTxt ? ' · ' + winTxt : ''} · ` : '';
   }
 
   // ---------- render: today's mix donuts ----------
@@ -683,6 +359,7 @@ body.dimmed .dim{opacity:.62}
   }
   const legend = parts => { const t = parts.reduce((s, p) => s + p.v, 0) || 1; return `<div class="pie-leg">${parts.map(p => `<div><i style="--c:${p.c}"></i><span>${p.n}</span><b>${p.v.toFixed(1)}<small>${Math.round(p.v / t * 100)}%</small></b>${p.sub ? `<span class="sub">${p.sub}</span>` : ''}</div>`).join('')}</div>`; };
   function renderPies() {
+    if (!$('pies')) return;
     const T = todayTotals();
     if (!T) { if (failed.ev) $('pies').innerHTML = '<div class="empty">Needs the Pi for today\'s totals.</div>'; return; }
     const used = T.solarUsed + T.gridOff + T.gridPeak, went = T.house + T.car + T.exp;
@@ -699,7 +376,7 @@ body.dimmed .dim{opacity:.62}
     $('pies').innerHTML = `
       <div class="pie"><h3>Where it came from</h3>${donut(src, used.toFixed(1), 'kWh used')}${legend(src)}</div>
       <div class="pie"><h3>Where it went</h3>${donut(dst, went.toFixed(1), 'kWh total')}${legend(dst)}</div>`;
-    $('mix-meta').textContent = `since midnight · solar made ${T.pv.toFixed(1)} kWh`;
+    if ($('mix-meta')) $('mix-meta').textContent = `since midnight · solar made ${T.pv.toFixed(1)} kWh`;
   }
 
   // ---------- render: car charging tile (same logic as ev.html) ----------
@@ -745,6 +422,7 @@ body.dimmed .dim{opacity:.62}
   const tShort = d => d.toLocaleTimeString('en-AU', { timeZone: TZ, hour: 'numeric', minute: '2-digit' }).replace(' ', '').toLowerCase();
   function renderCars() {
     const box = $('cars');
+    if (!box) return;
     if (!S.ev) { if (failed.ev) box.innerHTML = '<div class="empty">Needs the Pi for charger data.</div>'; return; }
     const d = S.ev, c = d.latest?.charger || {}, T = d.totals || {}, on = carOnCharger(), src = chargeSource();
     const k5 = d.car?.ev5 || null, charging = c.state === 'charging' && (c.power_w || 0) > 200;
@@ -778,6 +456,7 @@ body.dimmed .dim{opacity:.62}
   // ---------- render: internet (UniFi) ----------
   function renderNet() {
     const n = S.net, el = $('net');
+    if (!el) return;
     if (!n) { el.hidden = true; return; }          // not set up yet or unreachable: the NET dot shows which
     el.hidden = false;
     const bad = !n.online || n.issues > 0 || (n.packetLoss || 0) >= 2 || (n.latencyMs || 0) >= 80;
@@ -789,14 +468,15 @@ body.dimmed .dim{opacity:.62}
 
   // ---------- render: forecast ----------
   function renderForecast() {
-    const days = fcDays(), hrs = nextHours(8);
+    if (!$('days')) return;
+    const days = fcDays(), hrs = nextHours(+($('hours')?.dataset.hours || 8));
     if (!days.length) { if (failed.fc) $('days').innerHTML = '<div class="empty">Forecast unavailable right now.</div>'; return; }
-    $('hours').innerHTML = hrs.map((h, i) => {
+    if ($('hours')) $('hours').innerHTML = hrs.map((h, i) => {
       const hr = fcHour(h.time);
       return `<div class="hr${i === 0 ? ' now' : ''}"><span>${i === 0 ? 'Now' : ampm(hr)}</span>${icon(hourKind(h, isNight(h.time)))}<b>${Math.round(h.temperature)}°</b><span class="p">${h.precipProbability >= 10 ? h.precipProbability + '%' : ''}</span></div>`;
     }).join('');
     const today = mel().key, tmw = tomorrowKey();
-    $('days').innerHTML = days.slice(0, 6).map(d => {
+    $('days').innerHTML = days.slice(0, +($('days').dataset.days || 6)).map(d => {
       const name = d.date === today ? 'Today' : d.date === tmw ? 'Tmrw' : new Date(d.date + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short' });
       const sc = solarScore(d);
       const rain = d.rain >= 0.2 ? `${f1(d.rain)} mm` : d.rainProb >= 20 ? `${f0(d.rainProb)}%` : '';
@@ -804,6 +484,60 @@ body.dimmed .dim{opacity:.62}
       return `<div class="day" title="${KIND_TXT[k]} · solar ${sc}/10 · about ${d.kwh} kWh"><span class="n">${name}</span>${dayIcon(k)}<span class="r">${rain}</span><span class="t">${f0(d.tmax)}° <span>${f0(d.tmin)}°</span></span><span class="sc" style="--sc:${scoreColor(sc)}"><b>${sc}</b>/10</span><span class="k">${d.kwh}<small> kWh</small></span></div>`;
     }).join('');
     $('fc-meta').textContent = `Open-Meteo · ${S.fc.timestamp ? 'updated ' + clock(new Date(S.fc.timestamp)) : 'Dromana'}`;
+  }
+
+  // ---------- climate (iZone AC through the Pi bridge; read-only here) ----------
+  // Zone numbers match the Climate Control page (climate.html CLIMATE_ROOMS).
+  const ZONES = { 1: 'Lounge', 2: 'Master', 3: "Charlie's", 4: "Mila's", 5: 'Office', 6: 'Bathroom' };
+  const AC_MODE = { 1: 'Cool', 2: 'Heat', 3: 'Fan', 4: 'Dry', 5: 'Auto', 6: 'Exhaust', 7: 'Pump' };
+  const AC_FAN = { 1: 'Low', 2: 'Medium', 3: 'High', 4: 'Auto', 5: 'Top' };
+  const BRIDGE = p => `/.netlify/functions/bridge?p=${p}`;
+  let zonesAt = 0;
+  async function pullClimate() {
+    const post = (p, body, ms) => fetch(BRIDGE(p), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}), signal: AbortSignal.timeout(ms) })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)));
+    try {
+      const sys = await post('/api/izone/query', { iZoneV2Request: { Type: 1, No: 0, No1: 0 } }, 9000);
+      if (!sys || !sys.SystemV2) throw new Error('no SystemV2');
+      const prev = S.climate || {};
+      S.climate = { ...prev, sys: sys.SystemV2 };
+      // Zones are a heavier call (one request per zone on the iZone), so refresh them every 5 minutes
+      if (Date.now() - zonesAt > 5 * 60e3) {
+        zonesAt = Date.now();
+        post('/api/izone/zones', {}, 15000).then(z => { S.climate.zones = z.zones || []; renderClimate(); }).catch(() => {});
+        fetch(BRIDGE('/api/sensors/temps'), { signal: AbortSignal.timeout(9000) }).then(r => r.ok ? r.json() : null).then(t => { if (t) { S.climate.sensors = t.rooms || {}; renderClimate(); } }).catch(() => {});
+      }
+      at.climate = Date.now(); failed.climate = false;
+    } catch (e) { failed.climate = true; console.warn('climate', e.message); }
+    renderDots();
+  }
+  function climateSummary() {
+    const c = S.climate; if (!c || !c.sys) return null;
+    const sys = c.sys, on = sys.SysOn === 1;
+    const open = (c.zones || []).filter(z => z.Mode === 1).map(z => ZONES[z.Index + 1] || `Zone ${z.Index + 1}`);
+    const sensors = Object.entries(c.sensors || {}).filter(([, v]) => v && has(v.temp));
+    const ret = has(sys.Temp) && sys.Temp > 0 ? sys.Temp / 100 : null, supply = has(sys.Supply) && sys.Supply > 0 ? sys.Supply / 100 : null;
+    return { on, mode: AC_MODE[sys.SysMode] || '?', fan: AC_FAN[sys.SysFan] || '', setpoint: has(sys.Setpoint) ? sys.Setpoint / 100 : null,
+      ret, supply, open, zonesKnown: Array.isArray(c.zones), sensors };
+  }
+  function renderClimate() {
+    const box = $('climate'); if (!box) return;
+    const c = climateSummary();
+    if (!c) { if (failed.climate) box.innerHTML = '<div class="empty">Can\'t reach the AC through the Pi right now.</div>'; return; }
+    const modeCls = { Cool: 'cool', Heat: 'heat' }[c.mode] || 'fan';
+    const room = (n) => {
+      const id = n.toLowerCase().replace(/[^a-z]/g, '').replace('charlies', 'charlie').replace('milas', 'mila').replace('bathroom', 'bath');
+      const sv = c.sensors.find(([k]) => k === id);
+      return sv ? ` ${f1(sv[1].temp)}°` : '';
+    };
+    box.innerHTML = `
+      <div class="ac-top">
+        <div class="ac-state ${c.on ? 'on ' + modeCls : 'off'}"><i></i><b>${c.on ? 'On' : 'Off'}</b>${c.on ? `<span>${c.mode}${c.fan ? ' · fan ' + c.fan.toLowerCase() : ''}</span>` : ''}</div>
+        <div class="ac-set"><span class="label">Set to</span><b>${c.setpoint != null ? f1(c.setpoint) : '--'}<sup>°</sup></b></div>
+      </div>
+      ${c.ret != null || c.supply != null ? `<div class="ac-temps">${c.ret != null ? `<span>Return air <b>${f1(c.ret)}°</b></span>` : ''}${c.supply != null && c.on ? `<span>Supply <b>${f1(c.supply)}°</b></span>` : ''}</div>` : ''}
+      <div class="ac-zones"><span class="label">${c.zonesKnown ? `Zones open · ${c.open.length} of ${Object.keys(ZONES).length}` : 'Zones loading…'}</span>
+        <div class="zchips">${Object.values(ZONES).map(n => `<span class="zchip${c.open.includes(n) ? ' open' : ''}">${n}${room(n)}</span>`).join('')}</div></div>`;
   }
 
   // ---------- heads-up notes: the joined-up bit ----------
@@ -830,6 +564,7 @@ body.dimmed .dim{opacity:.62}
     return { cls: 'car', text: `${name} plugged in${charging ? ` · ${src ? src.text.toLowerCase() : 'charging'} ${kw(c.power_w)} kW` : src ? ` · ${src.text.replace(/^Plugged in, /, '')}` : ''}${soc}` };
   }
   function renderNotes() {
+    if (!$('notes')) return;
     const out = [], w = S.wx, now = mel(), hrs = nextHours(12), e = energyNow(), warns = warnNotes();
     const add = (cls, text, extra = {}) => out.push({ cls, text, ...extra });
     warns.filter(x => x.level === 'emergency' || x.level === 'watch').forEach(x => out.push(x));
@@ -867,8 +602,10 @@ body.dimmed .dim{opacity:.62}
   // ---------- radar (RainViewer, past 2 h, max native zoom 7 on the free tier) ----------
   let map, frames = [], layers = [], idx = 0, playing = true, timer = null;
   function initMap() {
+    if (!$('map')) return;
     if (!window.L) { $('map').innerHTML = '<div class="empty" style="position:absolute;inset:0;display:flex">Map library didn\'t load.</div>'; return; }
-    map = L.map('map', { center: RADAR_CENTRE, zoom: RADAR_ZOOM, minZoom: 6, maxZoom: 11, zoomControl: false, attributionControl: true, zoomSnap: 0.5, fadeAnimation: false });   // tile fade-ins pass through partial opacity, which draws seams
+    const md = $('map').dataset;
+    map = L.map('map', { center: md.centre ? md.centre.split(',').map(Number) : RADAR_CENTRE, zoom: md.zoom ? +md.zoom : RADAR_ZOOM, minZoom: 5, maxZoom: 11, zoomControl: false, attributionControl: true, zoomSnap: 0.5, fadeAnimation: false });   // tile fade-ins pass through partial opacity, which draws seams
     // BoM-style background: Esri's Ocean basemap (blue sea, pale land with relief), keyless.
     // (CARTO stopped serving keyless tiles in 2026; they come back watermarked.)
     const esri = n => `https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/${n}/MapServer/tile/{z}/{y}/{x}`;
@@ -891,8 +628,20 @@ body.dimmed .dim{opacity:.62}
     };
     new ResizeObserver(snap).observe($('map').parentElement);
     window.addEventListener('resize', snap);
-    $('screen').addEventListener('transitionend', snap);   // after each burn-in nudge
+    $('screen')?.addEventListener('transitionend', snap);   // after each burn-in nudge
     snap();
+    // Tap the map for full screen (Esc, or tap again, to come back)
+    const card = $('map').closest('.radar');
+    const fsOn = () => document.fullscreenElement === card || card.classList.contains('fs');
+    const toggleFs = () => {
+      if (fsOn()) { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); card.classList.remove('fs'); }
+      else if (card.requestFullscreen) card.requestFullscreen().catch(() => card.classList.add('fs'));
+      else card.classList.add('fs');
+      setTimeout(snap, 350);
+    };
+    map.on('click', toggleFs);
+    document.addEventListener('fullscreenchange', () => { card.classList.toggle('is-fs', document.fullscreenElement === card); setTimeout(snap, 200); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') card.classList.remove('fs'); });
     let mv; map.on('moveend', () => { clearTimeout(mv); mv = setTimeout(() => loadRadar(false), 500); });   // panned: re-stitch for the new view
   }
   let lastRadar = null, lastSig = '', rainByFrame = [];
@@ -1024,49 +773,69 @@ body.dimmed .dim{opacity:.62}
     $('radar-play').setAttribute('aria-label', p ? 'Pause radar animation' : 'Play radar animation');
     if (p) timer = setTimeout(tick, 600); else showFrame(layers.length - 1);
   }
-  $('radar-play').addEventListener('click', () => setPlaying(!playing));
-  $('frames').addEventListener('click', ev => { const i = [...$('frames').children].indexOf(ev.target); if (i >= 0) { setPlaying(false); showFrame(i); } });
+  $('radar-play')?.addEventListener('click', () => setPlaying(!playing));
+  $('frames')?.addEventListener('click', ev => { const i = [...$('frames').children].indexOf(ev.target); if (i >= 0) { setPlaying(false); showFrame(i); } });
 
-  // ---------- wall-display behaviour ----------
+  // ---------- wall-display behaviour (dashboard only) ----------
+  let WALL = false;
   // Keep the screen awake (needs a tap first on some browsers)
   let lock = null;
   async function wake() { try { if ('wakeLock' in navigator && !lock) { lock = await navigator.wakeLock.request('screen'); lock.addEventListener('release', () => lock = null); } } catch (e) {} }
-  document.addEventListener('click', wake, { passive: true });
   // Night dimming 10 pm to 6 am. Tap anywhere to brighten for a minute. ?dim=off disables.
   let dimMode = params.get('dim') === 'off' ? 'off' : 'auto', wakeUntil = 0;
   function applyDim() {
+    if (!WALL) return;
     const h = mel().h, night = h >= 22 || h < 6;
     document.body.classList.toggle('dimmed', dimMode === 'on' || (dimMode === 'auto' && night && Date.now() > wakeUntil));
   }
-  document.addEventListener('pointerdown', () => { wakeUntil = Date.now() + 60e3; applyDim(); }, { passive: true });
-  $('btn-dim').addEventListener('click', ev => { ev.stopPropagation(); dimMode = dimMode === 'auto' ? 'on' : dimMode === 'on' ? 'off' : 'auto'; $('btn-dim').title = 'Night dimming: ' + dimMode; wakeUntil = 0; applyDim(); });
-  $('btn-fs').addEventListener('click', () => { const d = document; (d.fullscreenElement ? d.exitFullscreen() : d.documentElement.requestFullscreen?.())?.catch?.(() => {}); });
-  // Nudge the whole layout by a pixel or two every few minutes (burn-in protection)
-  const shifts = [[0, 0], [1, 1], [-1, 1], [1, -1], [-1, -1], [2, 0], [0, 2]];
-  let si = 0; setInterval(() => { si = (si + 1) % shifts.length; $('screen').style.transform = `translate(${shifts[si][0]}px,${shifts[si][1]}px)`; }, 4 * 60e3);
-  // Full reload every 6 hours to pick up deploys and keep memory tidy
-  setTimeout(() => location.reload(), 6 * 3600e3);
+  function startWall() {
+    WALL = true;
+    document.addEventListener('click', wake, { passive: true });
+    document.addEventListener('pointerdown', () => { wakeUntil = Date.now() + 60e3; applyDim(); }, { passive: true });
+    $('btn-dim').addEventListener('click', ev => { ev.stopPropagation(); dimMode = dimMode === 'auto' ? 'on' : dimMode === 'on' ? 'off' : 'auto'; $('btn-dim').title = 'Night dimming: ' + dimMode; wakeUntil = 0; applyDim(); });
+    $('btn-fs').addEventListener('click', () => { const d = document; (d.fullscreenElement ? d.exitFullscreen() : d.documentElement.requestFullscreen?.())?.catch?.(() => {}); });
+    // Nudge the whole layout by a pixel or two every few minutes (burn-in protection)
+    const shifts = [[0, 0], [1, 1], [-1, 1], [1, -1], [-1, -1], [2, 0], [0, 2]];
+    let si = 0; setInterval(() => { si = (si + 1) % shifts.length; $('screen').style.transform = `translate(${shifts[si][0]}px,${shifts[si][1]}px)`; }, 4 * 60e3);
+    // Full reload every 6 hours to pick up deploys and keep memory tidy
+    setTimeout(() => location.reload(), 6 * 3600e3);
+    wake();
+  }
 
   // ---------- loops ----------
-  const renderAll = () => { renderClock(); renderWx(); renderFlow(); renderPies(); renderCars(); renderNet(); renderForecast(); renderNotes(); };
+  let EXTRA = [];
+  const renderAll = () => {
+    for (const fn of [renderClock, renderWx, renderFlow, renderPies, renderCars, renderNet, renderForecast, renderClimate, renderNotes, ...EXTRA]) {
+      try { fn(); } catch (e) { console.warn('render', fn.name, e); }
+    }
+  };
   async function refresh(name) {
     if (name === 'radar') return loadRadar();
-    await pull(name, name === 'ev' ? API.ev : API[name]);
+    if (name === 'climate') await pullClimate(); else await pull(name, API[name]);
     renderAll();
   }
   function schedule(name) { setInterval(() => { if (!document.hidden) refresh(name); }, EVERY[name]); }
-  initMap();
-  ['ev', 'sems', 'wx', 'fc', 'net', 'warn'].forEach(n => { refresh(n); schedule(n); });
-  loadRadar().then(() => setPlaying(true)); schedule('radar');
-  setInterval(() => { renderClock(); renderDots(); applyDim(); }, 10e3);
-  setInterval(renderNotes, 60e3);
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { lock = null; return; }
-    wake(); ['ev', 'wx'].forEach(refresh);
-    if (playing) setPlaying(true);
-  });
-    renderClock(); applyDim(); wake();
+  function start({ sources = ['ev', 'sems', 'wx', 'fc', 'net', 'warn', 'radar'], wall = false, extra = [] } = {}) {
+    EXTRA = extra;
+    sources.filter(n => n !== 'radar').forEach(n => { refresh(n); schedule(n); });
+    if (sources.includes('radar')) { initMap(); loadRadar().then(() => setPlaying(true)); schedule('radar'); }
+    setInterval(() => { renderClock(); renderDots(); applyDim(); }, 10e3);
+    setInterval(renderNotes, 60e3);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { lock = null; return; }
+      if (WALL) wake();
+      ['ev', 'wx'].filter(n => sources.includes(n)).forEach(refresh);
+      if (map && playing) setPlaying(true);
+    });
+    if (wall) startWall();
+    renderClock(); applyDim();
+    let rs; window.addEventListener('resize', () => { clearTimeout(rs); rs = setTimeout(renderAll, 200); });
+  }
+
+  return { start, renderAll, S, at, failed, API, STALE, $, TZ, HOME, PANEL_KW, PR, RATE, fcKw,
+    mel, tomorrowKey, clock, ampm, ago, fcHour, has, f0, f1, kw, esc,
+    icon, hourKind, dayKind, dayIcon, KIND_TXT, fcDays, solarScore, scoreColor, todayHourly, nextHours, isNight,
+    cardinal, uvLabel, windArrow, WIND_ALERT, UV_ALERT, maxGust12, next12Range,
+    energyNow, allocate, todayTotals, excessSolar, donut, legend, warnNotes, CARS, plugState, carOnCharger, chargeSource, hm,
+    climateSummary, ZONES, todayOutlook, ADVICE_CLS };
 })();
-</script>
-</body>
-</html>
