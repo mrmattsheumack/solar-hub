@@ -103,6 +103,15 @@ a{color:inherit}
 .seg.period button{padding:6px 10px;white-space:nowrap}
 @media (max-width:560px){.seg.period button{padding:6px 7px;font-size:11.5px}}
 #batt{margin-top:14px;padding-top:0;border-top:0}
+table.save{width:100%;border-collapse:collapse;font-size:14px}
+table.save th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600;text-align:right;padding:6px 8px;border-bottom:1px solid var(--border)}
+table.save th:first-child,table.save td:first-child{text-align:left}
+table.save td{padding:10px 8px;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;border-bottom:1px solid var(--border);vertical-align:top}
+table.save td:first-child{font-family:inherit}
+table.save td small{display:block;color:var(--text-dim);font-size:11.5px;margin-top:2px}
+table.save i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:7px}
+table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong,var(--border));font-weight:700;font-size:16px;color:var(--text)}
+table.save td.money,table.save tr.total td.money{color:var(--export)}
 .link-stack{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
 .fact .sub{font-size:11px;color:var(--text-dim);margin-top:2px;line-height:1.3}
 .fact .label{line-height:1.3}
@@ -342,6 +351,22 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
 
   <section class="panel">
     <div class="panel-head">
+      <h2 id="save-h">Savings today</h2>
+      <div class="seg seg-sm period" role="tablist" aria-label="Period">
+        <button role="tab" data-period="today" aria-pressed="true">Today</button>
+        <button role="tab" data-period="week" aria-pressed="false">Week</button>
+        <button role="tab" data-period="month" aria-pressed="false">Month</button>
+        <button role="tab" data-period="year" aria-pressed="false">Year</button>
+        <button role="tab" data-period="all" aria-pressed="false">All time</button>
+      </div>
+    </div>
+    <div class="save-wrap"><table class="save" id="save"></table></div>
+    <div class="facts-note" id="save-note"></div>
+  </section>
+
+
+  <section class="panel">
+    <div class="panel-head">
       <h2>The daily plan</h2>
       <span class="note">What Auto does across 24 hours</span>
     </div>
@@ -528,7 +553,9 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     if (period === 'month') from = `${now.getFullYear()}-${pad(now.getMonth()+1)}-01`;
     if (period === 'year') from = `${now.getFullYear()}-01-01`;
     const today = iso(now), out = Object.fromEntries(KEYS.map(k => [k, 0]));
-    HISTORY.filter(d => d.date >= from && d.date < today).forEach(d => KEYS.forEach(k => out[k] += d[k] || 0));
+    const days = HISTORY.filter(d => d.date >= from && d.date < today);
+    days.forEach(d => KEYS.forEach(k => out[k] += d[k] || 0));
+    out._days = days.length + 1;
     KEYS.forEach(k => out[k] += liveTotals[k] || 0);      // today comes from the live figures
     return out;
   }
@@ -558,6 +585,25 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
       ['Exported to the grid', exp, 'var(--text-dim)', `$${(exp * RATE.feedin).toFixed(2)} earned at 0.5c`]
     ], solarTotal, `${solarTotal.toFixed(1)} kWh generated ${name}` + (period === 'all' && HISTORY.length ? ` (since ${new Date(HISTORY[0].date + 'T12:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short'})})` : '') + '.');
     $('batt').style.display = period === 'today' ? '' : 'none';
+    renderSavings(T, name);
+  }
+  function renderSavings(T, name){
+    $('save-h').textContent = 'Savings ' + name;
+    const g = RATE.general, o = RATE.offpeak, f = RATE.feedin, c = v => (v * 100).toFixed(1).replace(/\.0$/, '') + 'c';
+    const rows = [
+      ['Solar into the car', T.car_solar_kwh || 0, o - f, `instead of off-peak at ${c(o)}, less the ${c(f)} feed-in given up`, 'var(--car)'],
+      ['Solar used in the house', T.house_solar_kwh || 0, g - f, `instead of the grid at ${c(g)}, less the ${c(f)} feed-in given up`, 'var(--home)'],
+      ['Car charged off-peak', T.car_offpeak_kwh || 0, g - o, `at ${c(o)} instead of the ${c(g)} general rate`, 'var(--import-soft)'],
+      ['Solar exported', T.export_kwh || 0, f, `feed-in credit at ${c(f)}`, 'var(--text-dim)']
+    ];
+    let total = 0;
+    const body = rows.map(([n, kwh, rate, how, col]) => { const v = kwh * rate; total += v;
+      return `<tr><td><i style="background:${col}"></i>${n}<small>${how}</small></td><td>${kwh.toFixed(1)}</td><td class="money">$${v.toFixed(2)}</td></tr>`; }).join('');
+    $('save').innerHTML = `<thead><tr><th>Where it came from</th><th>kWh</th><th>Saved</th></tr></thead><tbody>${body}<tr class="total"><td>Total saved</td><td></td><td class="money">$${total.toFixed(2)}</td></tr></tbody>`;
+    const carCost = (T.car_offpeak_kwh || 0) * o + (T.car_grid_day_kwh || 0) * g;
+    const days = period === 'today' ? 1 : (T._days || 1);
+    $('save-note').textContent = (days > 1 ? `About $${(total / days).toFixed(2)} a day over ${days} days. ` : '') +
+      `Car charging from the grid cost $${carCost.toFixed(2)} ${name}. Savings compare against what the same energy would have cost on your AGL rates; the daily supply charge isn't included.`;
   }
   document.querySelectorAll('.period button').forEach(b => b.addEventListener('click', () => {
     period = b.dataset.period; try { localStorage.setItem('ev-period', period); } catch (e) {}
