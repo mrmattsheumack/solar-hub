@@ -182,6 +182,31 @@ Revision 2 (2026-10-30, Matt's feedback):
   charging, sustained for 30 min in the 5-minute series, shows "Excess solar -
   Suggest Car Charging" in the flow tile and the header.
 
+Revision 3 (2026-10-30, Matt's feedback):
+- Layout: weather and forecast stacked on the left, radar over today's
+  electricity in the middle, energy flow over a new Car charging tile on the
+  right. Header notes: "Excess solar - Suggest Car Charging" first and bold,
+  then gusts (>= 55 km/h in 12 h, back in the header), then the rest.
+- Weather tile decluttered into one clean grid (feels like, humidity, wind,
+  rain today, UV, next-12-hour high/low with times).
+- Radar looks like BoM: RainViewer's Universal Blue colours are converted back
+  to dBZ (their published colour table), then to rain rate with Z = 200R^1.6,
+  and repainted in the Bureau's mm/h colour steps from 0.2 mm/h. Unsmoothed
+  tiles (0_0) so every pixel is an exact palette colour. Esri Ocean basemap
+  (blue sea, pale land) with labels above the rain. Zoom 8 centred to take in
+  Dromana, Melbourne and Geelong. Shows "No rain in view" when the latest
+  frame is dry, so an empty map doesn't look broken.
+- Car charging tile, same logic as ev.html: which car is on the charger (Pi
+  tag from kia_poll, else IONIQ 5 when the EV5 says it isn't plugged in), EV5
+  battery % and charge limit from Kia Connect, IONIQ 5 "% added since plugged
+  in" from kWh / 72.6. While charging: kW, amps, charging since (start of the
+  current run in the 5-minute series, or the plug-in time if it ran past
+  midnight) and how long. Today's charge time and kWh per car. Links to ev.html.
+- Internet pill in the header from UniFi Site Manager (new `unifi` function):
+  online, latency, download/upload from the 5-minute ISP metrics, devices.
+  Site: UniFi Dream Router (UDR), Aussie Broadband. Needs Netlify env var
+  UNIFI_API_KEY; the pill stays hidden until it's set.
+
 Function changes made for it (2026-10-30):
 - `ecowitt.js`: zero readings are now 0 instead of null; reads the WS90's
   `rainfall_piezo` block (falls back to `rainfall`); adds feels like, dew point,

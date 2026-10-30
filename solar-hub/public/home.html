@@ -50,7 +50,7 @@ button{font:inherit;color:inherit}
   padding:calc(var(--gap) + env(safe-area-inset-top,0px)) max(var(--gap),env(safe-area-inset-right,0px)) calc(var(--gap) + env(safe-area-inset-bottom,0px)) max(var(--gap),env(safe-area-inset-left,0px));
   grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) minmax(0,1fr);
   grid-template-rows:auto minmax(0,1.12fr) minmax(0,1fr);
-  grid-template-areas:"head head head" "wx radar flow" "mix mix fc";
+  grid-template-areas:"head head head" "wx radar flow" "fc mix car";
   transition:transform 2s ease}
 
 /* ---------- header ---------- */
@@ -67,12 +67,15 @@ button{font:inherit;color:inherit}
 .note i{width:8px;height:8px;border-radius:50%;flex:none;background:var(--text-muted)}
 .note.rain i{background:var(--rain)} .note.sun i{background:var(--solar)} .note.car i{background:var(--car)}
 .note.warn i{background:var(--import)} .note.wind i{background:var(--home)}
+.note.strong{font-weight:700;color:var(--solar);border-color:color-mix(in srgb,var(--solar) 60%,transparent);background:color-mix(in srgb,var(--solar) 12%,var(--surface))}
+.note.strong i{background:var(--solar)}
 .head-right{display:flex;align-items:center;gap:10px;flex:none}
 .dots{display:flex;gap:6px;padding:8px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--border)}
 .dot{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted);letter-spacing:.04em}
 .dot i{width:7px;height:7px;border-radius:50%;background:var(--text-dim)}
 .dot b{font-weight:500}
 @media (max-width:1700px){ .dot b{display:none} .dots{gap:8px} }
+@media (max-width:1500px){ .dots,.head-right .btn-ev{display:none} }
 .dot.ok i{background:var(--ok)} .dot.stale i{background:var(--warn)} .dot.err i{background:var(--import)}
 .btn{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px;border-radius:12px;background:var(--surface);
   border:1px solid var(--border);text-decoration:none;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap}
@@ -95,24 +98,18 @@ button{font:inherit;color:inherit}
 .wx{grid-area:wx}
 .wx-title{color:inherit;text-decoration:none}
 .temps{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.tblock .label{margin-bottom:4px}
-.temp{font-family:var(--mono);font-size:clamp(44px,4.4vw,78px);font-weight:500;letter-spacing:-.05em;line-height:.95;white-space:nowrap}
+.temps .label{margin-bottom:2px}
+.temp{font-family:var(--mono);font-size:clamp(40px,3.9vw,68px);font-weight:500;letter-spacing:-.05em;line-height:1;white-space:nowrap}
 .temp sup{font-size:.4em;letter-spacing:0;vertical-align:1em;margin-left:2px;color:var(--text-muted)}
-.wx-sub{color:var(--text-muted);font-size:14px;display:flex;gap:14px;flex-wrap:wrap}
-.wx-sub b{color:var(--text);font-weight:500;font-family:var(--mono)}
-.facts{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:minmax(0,1fr);gap:8px;flex:1;min-height:0;max-height:240px}
-.fact{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;min-width:0}
-.fact .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
-.fact .v{font-family:var(--mono);font-size:clamp(16px,1.35vw,21px);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fact .v small{font-size:.62em;color:var(--text-muted);margin-left:3px;font-weight:400}
-.fact .s{font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fact-body{min-width:0;flex:1}
-.compass{width:42px;height:42px;flex:none}
+.wgrid{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;flex:1;min-height:0;align-content:start}
+.wrow{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"k v" "s s";column-gap:8px;align-items:baseline;padding:7px 0;border-top:1px solid var(--border);min-width:0}
+.wrow .k{grid-area:k;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600;white-space:nowrap}
+.wrow .v{grid-area:v;justify-self:end;font-family:var(--mono);font-size:clamp(15px,1.25vw,19px);font-weight:500;white-space:nowrap;display:flex;align-items:center;gap:4px}
+.wrow .v small{font-size:.65em;color:var(--text-muted);font-weight:400}
+.wrow .s{grid-area:s;justify-self:end;font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.warrow{width:14px;height:14px}
 .raining{color:var(--rain)}
 .hi{color:var(--import)} .lo{color:var(--home)}
-.wx-alert{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;font-size:13px;
-  background:color-mix(in srgb,var(--home) 12%,transparent);border:1px solid color-mix(in srgb,var(--home) 35%,transparent)}
-.wx-alert i{width:8px;height:8px;border-radius:50%;background:var(--home);flex:none}
 
 /* ---------- radar ---------- */
 .radar{grid-area:radar;padding:0}
@@ -133,8 +130,10 @@ button{font:inherit;color:inherit}
 .radar-time{flex:none;font-family:var(--mono);font-size:13px;white-space:nowrap;min-width:7.5ch;text-align:right}
 .home-pin{width:16px;height:16px;border-radius:50%;background:var(--solar);border:3px solid var(--bg);box-shadow:0 0 0 2px var(--solar)}
 .legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted)}
-.legend span{display:block;width:70px;height:6px;border-radius:3px;
-  background:linear-gradient(90deg,#88ddee,#0099cc,#0077aa,#005588,#ffee00,#ffaa00,#ff4400,#c10000)}
+.legend span{display:flex;height:8px;border-radius:2px;overflow:hidden}
+.legend span i{display:block;width:7px;height:8px}
+.leaflet-tile-pane canvas.leaflet-tile{image-rendering:pixelated}
+.rain-state{flex:none;font-size:12px;color:var(--text-muted);white-space:nowrap}
 
 /* ---------- energy flow ---------- */
 .flowcard{grid-area:flow}
@@ -162,7 +161,7 @@ button{font:inherit;color:inherit}
 .chip.over{font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid color-mix(in srgb,var(--solar) 50%,transparent);color:var(--solar);align-self:flex-start}
 
 /* ---------- today's mix (two donuts) ---------- */
-.mix{grid-area:mix}
+.mix{grid-area:mix;container-type:inline-size}
 .pies{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:var(--gap)}
 .pie{display:grid;grid-template-columns:minmax(110px,44%) 1fr;align-items:center;gap:14px;min-width:0;min-height:0}
 .pie h3{grid-column:1/-1;margin:0;font-size:14px;font-weight:600}
@@ -174,6 +173,43 @@ button{font:inherit;color:inherit}
 .pie-leg b{font-family:var(--mono);font-weight:500;white-space:nowrap}
 .pie-leg b small{color:var(--text-muted);font-weight:400;margin-left:6px}
 .pie-leg .sub{grid-column:2/-1;font-size:11px;color:var(--text-dim);margin-top:-6px}
+@container (max-width:620px){
+  .pies{grid-template-columns:1fr;grid-template-rows:1fr 1fr;gap:10px}
+  .pie{grid-template-columns:auto 1fr;grid-template-rows:auto minmax(0,1fr);column-gap:14px;row-gap:2px}
+  .pie h3{font-size:13px}
+  .pie svg{height:100%;width:auto;max-height:none;min-height:0}
+  .pie-leg{gap:5px} .pie-leg .sub{display:none}
+}
+
+/* ---------- car charging tile ---------- */
+.cars{grid-area:car}
+.carlink{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;text-decoration:none;color:inherit}
+.carlink:focus-visible{outline:2px solid var(--export);outline-offset:4px;border-radius:12px}
+.crow{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.crow.on{border-color:color-mix(in srgb,var(--car) 45%,transparent)}
+.ctop{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cname{font-weight:600;font-size:15px;white-space:nowrap}
+.cchip{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--border-strong);color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cchip.sun{color:var(--solar);border-color:color-mix(in srgb,var(--solar) 50%,transparent)}
+.cchip.off{color:var(--home);border-color:color-mix(in srgb,var(--home) 50%,transparent)}
+.cchip.grid{color:var(--import);border-color:color-mix(in srgb,var(--import) 50%,transparent)}
+.cchip.full,.cchip.wait{color:var(--car);border-color:color-mix(in srgb,var(--car) 45%,transparent)}
+.cbatt{display:flex;align-items:center;gap:10px}
+.cbar{flex:1;height:14px;border-radius:4px;background:var(--surface-3);overflow:hidden;position:relative}
+.cbar i{display:block;height:100%;border-radius:4px;transition:width .6s ease}
+.cpct{font-family:var(--mono);font-size:clamp(18px,1.6vw,24px);font-weight:500;min-width:4.2ch;text-align:right}
+.clive{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--text-muted)}
+.clive b{font-family:var(--mono);font-size:17px;color:var(--car);font-weight:500}
+.cfoot{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--text-muted)}
+.cfoot span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cnote{font-size:12px;color:var(--warn)}
+
+/* ---------- internet pill (UniFi) ---------- */
+.net{display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;border-radius:999px;background:var(--surface);border:1px solid var(--border);font-size:12px;color:var(--text-muted);white-space:nowrap}
+.net i{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.net b{font-family:var(--mono);font-weight:500;color:var(--text)}
+.net.warn i{background:var(--warn)} .net.down i{background:var(--import)} .net.down{color:var(--import)}
+@media (max-width:1400px){ .net span:last-child{display:none} }
 
 /* ---------- forecast ---------- */
 .fc{grid-area:fc}
@@ -208,15 +244,16 @@ body.dimmed .dim{opacity:.62}
 @media (max-width:1000px), (max-height:560px) and (max-width:1200px){
   body{overflow:auto}
   .screen{height:auto;grid-template-columns:1fr 1fr;grid-template-rows:auto;
-    grid-template-areas:"head head" "wx flow" "radar radar" "mix mix" "fc fc"}
+    grid-template-areas:"head head" "wx flow" "fc car" "radar radar" "mix mix"}
   .radar{min-height:420px} .flowcard{min-height:420px} .mix{min-height:300px}
   .head{flex-wrap:wrap} .head-mid{order:3;flex-basis:100%;justify-content:flex-start}
   .notes{height:auto;justify-content:flex-start} .note{white-space:normal;height:auto;padding:8px 14px}
 }
 @media (max-width:640px){
-  .screen{grid-template-columns:1fr;grid-template-areas:"head" "wx" "flow" "radar" "mix" "fc"}
+  .screen{grid-template-columns:1fr;grid-template-areas:"head" "wx" "flow" "car" "radar" "mix" "fc"}
   .pies{grid-template-columns:1fr}
   .head{flex-wrap:wrap} .dots{display:none}
+  .head-right{flex-wrap:wrap;flex:1 1 100%} .net span{display:none} #btn-fs{display:none}
 }
 @media (prefers-reduced-motion:reduce){ .screen,.split-bar i,.dim{transition:none} .wire.live,.excess{animation:none} }
 </style>
@@ -238,8 +275,10 @@ body.dimmed .dim{opacity:.62}
         <span class="dot" id="dot-ev"><i></i><b>EV</b></span>
         <span class="dot" id="dot-fc"><i></i><b>FORECAST</b></span>
         <span class="dot" id="dot-radar"><i></i><b>RADAR</b></span>
+        <span class="dot" id="dot-net"><i></i><b>NET</b></span>
       </div>
-      <a class="btn" href="ev.html">EV charging ›</a>
+      <div class="net" id="net" hidden></div>
+      <a class="btn btn-ev" href="ev.html">EV charging ›</a>
       <a class="btn" href="index.html">Solar Hub ›</a>
       <button class="btn icon" id="btn-dim" aria-label="Toggle night dimming" title="Night dimming"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
       <button class="btn icon" id="btn-fs" aria-label="Full screen" title="Full screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
@@ -258,9 +297,9 @@ body.dimmed .dim{opacity:.62}
   <!-- ===== radar ===== -->
   <section class="card radar" aria-labelledby="radar-h">
     <div class="card-head">
-      <h2 id="radar-h">Rain radar · past 2 hours</h2>
+      <h2 id="radar-h">Rain radar</h2>
       <div style="display:flex;align-items:center;gap:12px">
-        <span class="legend" aria-hidden="true">light<span></span>heavy</span>
+        <span class="legend" aria-hidden="true">light<span><i style="background:#f5f5ff"></i><i style="background:#b4b4ff"></i><i style="background:#7878ff"></i><i style="background:#1414ff"></i><i style="background:#00d8c3"></i><i style="background:#009690"></i><i style="background:#006666"></i><i style="background:#ffff00"></i><i style="background:#ffc800"></i><i style="background:#ff9600"></i><i style="background:#ff6400"></i><i style="background:#ff0000"></i><i style="background:#c80000"></i><i style="background:#780000"></i></span>heavy</span>
         <a class="card-link" href="https://www.bom.gov.au/products/IDR023.loop.shtml" target="_blank" rel="noopener">BoM radar ›</a>
       </div>
     </div>
@@ -270,7 +309,7 @@ body.dimmed .dim{opacity:.62}
         <svg viewBox="0 0 24 24" fill="currentColor" id="radar-icon"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
       </button>
       <div class="frames" id="frames"></div>
-      <span class="radar-time" id="radar-time">--:--</span>
+      <span class="rain-state" id="rain-state"></span><span class="radar-time" id="radar-time">--:--</span>
     </div>
   </section>
 
@@ -286,6 +325,12 @@ body.dimmed .dim{opacity:.62}
   <section class="card mix" aria-labelledby="mix-h">
     <div class="card-head"><h2 id="mix-h">Today's electricity</h2><span class="meta" id="mix-meta">since midnight</span></div>
     <div class="pies" id="pies"><div class="empty">Adding up today…</div></div>
+  </section>
+
+  <!-- ===== car charging ===== -->
+  <section class="card cars" aria-labelledby="cars-h">
+    <div class="card-head"><h2 id="cars-h">Car charging</h2><a class="card-link" href="ev.html">EV charging ›</a></div>
+    <a class="carlink" href="ev.html" id="cars" aria-label="Open EV charging"><div class="empty">Waiting for the charger…</div></a>
   </section>
 
   <!-- ===== forecast ===== -->
@@ -305,6 +350,7 @@ body.dimmed .dim{opacity:.62}
   // ---------- settings ----------
   const TZ = 'Australia/Melbourne';
   const HOME = [-38.33, 144.97];                       // same point the forecast function uses
+  const RADAR_CENTRE = [-37.98, 144.92], RADAR_ZOOM = 8;   // Dromana, Melbourne and Geelong in view
   const PANEL_KW = 13.2, PR = 0.65;                    // matches ev.html daily estimate
   const fcKw = ghi => Math.min(9.6, ghi / 1000 * PANEL_KW * 0.75);   // matches ev.html hourly curve
   const API = {
@@ -313,15 +359,16 @@ body.dimmed .dim{opacity:.62}
     wx: '/.netlify/functions/ecowitt',
     fc: '/.netlify/functions/forecast',
     radar: 'https://api.rainviewer.com/public/weather-maps.json',
+    net: '/.netlify/functions/unifi',
   };
-  const EVERY = { ev: 30e3, wx: 60e3, sems: 120e3, fc: 30 * 60e3, radar: 10 * 60e3 };
+  const EVERY = { ev: 30e3, wx: 60e3, sems: 120e3, fc: 30 * 60e3, radar: 10 * 60e3, net: 5 * 60e3 };
   // How old before a source is shown amber. Pi or cloud hiccups shouldn't look like outages.
-  const STALE = { ev: 3 * 60e3, wx: 10 * 60e3, sems: 10 * 60e3, fc: 3 * 3600e3, radar: 30 * 60e3 };
+  const STALE = { ev: 3 * 60e3, wx: 10 * 60e3, sems: 10 * 60e3, fc: 3 * 3600e3, radar: 30 * 60e3, net: 20 * 60e3 };
   const params = new URLSearchParams(location.search);
   if (params.get('theme') === 'light') document.documentElement.dataset.theme = 'light';
 
   const $ = id => document.getElementById(id);
-  const S = { ev: null, sems: null, wx: null, fc: null, radar: null };   // latest payloads
+  const S = { ev: null, sems: null, wx: null, fc: null, radar: null, net: null };   // latest payloads
   const at = {}, failed = {};                                             // last success time, failure flags
 
   // ---------- time helpers (always Melbourne, whatever the device thinks) ----------
@@ -360,7 +407,7 @@ body.dimmed .dim{opacity:.62}
     return S[name];
   }
   function renderDots() {
-    for (const n of ['wx', 'sems', 'ev', 'fc', 'radar']) {
+    for (const n of ['wx', 'sems', 'ev', 'fc', 'radar', 'net']) {
       const el = $('dot-' + n), age = at[n] ? Date.now() - at[n] : Infinity;
       el.className = 'dot ' + (!at[n] ? (failed[n] ? 'err' : '') : age > STALE[n] ? (failed[n] ? 'err' : 'stale') : 'ok');
       el.title = at[n] ? `Updated ${ago(at[n])}` + (failed[n] ? ', last try failed' : '') : (failed[n] ? 'Not reachable' : 'Loading');
@@ -461,12 +508,9 @@ body.dimmed .dim{opacity:.62}
   const CARD = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
   const cardinal = deg => has(deg) ? CARD[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16] : '';
   const uvLabel = u => !has(u) ? '' : u < 3 ? 'Low' : u < 6 ? 'Moderate' : u < 8 ? 'High' : u < 11 ? 'Very high' : 'Extreme';
-  // Arrow shows where the wind is blowing to; the label says where it comes from (BoM convention).
-  const compass = deg => `<svg class="compass" viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="19" fill="none" stroke="var(--border-strong)" stroke-width="1.5"/>
-    <text x="21" y="8.5" text-anchor="middle" font-size="7" font-weight="600" fill="var(--text-dim)" font-family="var(--sans)">N</text>
-    ${has(deg) ? `<g transform="rotate(${deg + 180} 21 21)"><path d="M21 7l6 14h-12z" fill="var(--home)"/><rect x="19.6" y="19" width="2.8" height="15" rx="1.4" fill="var(--home)"/></g>` : ''}</svg>`;
+  // Small arrow pointing where the wind is blowing to; the text says where it comes from (BoM convention)
+  const windArrow = deg => has(deg) ? `<svg class="warrow" viewBox="-8 -8 16 16" aria-hidden="true"><path transform="rotate(${deg + 180})" d="M0-7l5 10-5-3-5 3z" fill="var(--home)"/></svg>` : '';
   const GUST_ALERT = 55;   // km/h
-  // Highest and lowest forecast temperature over the next 12 hours, with when
   function next12Range() {
     const hs = nextHours(13).slice(1);
     if (!hs.length) return null;
@@ -474,33 +518,29 @@ body.dimmed .dim{opacity:.62}
     return { hi: hi.temperature, hiAt: ampm(fcHour(hi.time)), lo: lo.temperature, loAt: ampm(fcHour(lo.time)) };
   }
   function maxGust12() {
-    const hs = nextHours(12);
     let best = { v: S.wx?.windGust || 0, at: 'now' };
-    hs.forEach(h => { if ((h.windGust || 0) > best.v) best = { v: h.windGust, at: ampm(fcHour(h.time)) }; });
+    nextHours(12).forEach(h => { if ((h.windGust || 0) > best.v) best = { v: h.windGust, at: ampm(fcHour(h.time)) }; });
     return best;
   }
   function renderWx() {
     const w = S.wx, box = $('wx-body');
-    if (WX_DETAIL_URL) { $('wx-title').href = WX_DETAIL_URL; }
+    if (WX_DETAIL_URL) $('wx-title').href = WX_DETAIL_URL;
     if (!w) { if (failed.wx) box.innerHTML = '<div class="empty">Weather station not reachable right now.</div>'; return; }
-    const raining = has(w.rainRate) && w.rainRate > 0, r12 = next12Range(), gust = maxGust12();
-    const fact = (k, v, s = '', extra = '') => `<div class="fact">${extra}<div class="fact-body"><div class="k">${k}</div><div class="v">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div></div>`;
+    const raining = has(w.rainRate) && w.rainRate > 0, r12 = next12Range();
+    const row = (k, v, s = '') => `<div class="wrow"><span class="k">${k}</span><span class="v">${v}</span>${s ? `<span class="s">${s}</span>` : ''}</div>`;
     box.innerHTML = `
       <div class="temps">
-        <div class="tblock"><div class="label">Outside</div><div class="temp">${f1(w.temperature)}<sup>°</sup></div></div>
-        <div class="tblock"><div class="label">Inside</div><div class="temp">${f1(w.indoorTemp)}<sup>°</sup></div></div>
+        <div><div class="label">Outside</div><div class="temp">${f1(w.temperature)}<sup>°</sup></div></div>
+        <div><div class="label">Inside</div><div class="temp">${f1(w.indoorTemp)}<sup>°</sup></div></div>
       </div>
-      <div class="wx-sub">
-        ${has(w.feelsLike) ? `<span>Feels like <b>${f1(w.feelsLike)}°</b></span>` : ''}
-        <span>Humidity <b>${f0(w.humidity)}%</b></span>
-      </div>
-      <div class="facts">
-        ${fact('Next 12 hours', r12 ? `<span class="hi">${f0(r12.hi)}°</span> <small>/</small> <span class="lo">${f0(r12.lo)}°</span>` : '--', r12 ? `High ${r12.hiAt} · Low ${r12.loAt}` : 'Forecast loading')}
-        ${fact('Wind', `${f0(w.windSpeed)}<small>km/h</small>`, [cardinal(w.windDirection), has(w.windGust) ? `gust ${f0(w.windGust)}` : ''].filter(Boolean).join(' · '), compass(w.windDirection))}
-        ${fact('Rain today', `<span class="${raining ? 'raining' : ''}">${f1(w.rainDaily ?? 0)}</span><small>mm</small>`, raining ? `<span class="raining">Raining ${f1(w.rainRate)} mm/h</span>` : (has(w.rainWeekly) ? `${f1(w.rainWeekly)} mm this week` : 'Dry right now'))}
-        ${fact('UV', `${has(w.uvi) ? f1(w.uvi) : '--'}`, has(w.uvi) ? uvLabel(w.uvi) : '')}
-      </div>
-      ${gust.v >= GUST_ALERT ? `<div class="wx-alert"><i></i>Gusty, up to ${Math.round(gust.v)} km/h in the next 12 hours${gust.at !== 'now' ? ` (around ${gust.at})` : ''}</div>` : ''}`;
+      <div class="wgrid">
+        ${row('Feels like', `${f1(w.feelsLike)}°`)}
+        ${row('Humidity', `${f0(w.humidity)}%`)}
+        ${row('Wind', `${windArrow(w.windDirection)}${f0(w.windSpeed)}<small> km/h</small>`, [cardinal(w.windDirection), has(w.windGust) ? `gust ${f0(w.windGust)}` : ''].filter(Boolean).join(' · '))}
+        ${row('Rain today', `<span class="${raining ? 'raining' : ''}">${f1(w.rainDaily ?? 0)}</span><small> mm</small>`, raining ? `<span class="raining">${f1(w.rainRate)} mm/h now</span>` : (has(w.rainWeekly) ? `${f1(w.rainWeekly)} this week` : ''))}
+        ${row('UV', has(w.uvi) ? f1(w.uvi) : '--', uvLabel(w.uvi))}
+        ${row('Next 12 h', r12 ? `<span class="hi">${f0(r12.hi)}°</span><small> / </small><span class="lo">${f0(r12.lo)}°</span>` : '--', r12 ? `${r12.hiAt} · ${r12.loAt}` : '')}
+      </div>`;
     const t = w.stationTime ? new Date(w.stationTime) : (at.wx ? new Date(at.wx) : null);
     $('wx-meta').textContent = t ? `WS90 · ${clock(t)}` : 'Ecowitt WS90';
   }
@@ -550,7 +590,7 @@ body.dimmed .dim{opacity:.62}
     sun: '<circle r="7" fill="var(--solar)"/>' + [0, 45, 90, 135, 180, 225, 270, 315].map(a => { const t = a * Math.PI / 180; return `<line x1="${(Math.cos(t) * 10).toFixed(1)}" y1="${(Math.sin(t) * 10).toFixed(1)}" x2="${(Math.cos(t) * 14).toFixed(1)}" y2="${(Math.sin(t) * 14).toFixed(1)}" stroke="var(--solar)" stroke-width="2.2" stroke-linecap="round"/>`; }).join(''),
     grid: '<path d="M-6 14L0-13L6 14M-9-6h18M-11 2h22M-3 6l6-6M3 6l-6-6" fill="none" stroke="var(--text)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>',
     house: '<path d="M-12 1L0-11L12 1M-8-2v13h16V-2" fill="none" stroke="var(--home)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/><rect x="-2.5" y="4" width="5" height="7" fill="var(--home)"/>',
-    car: '<path d="M-13 5v-4l3-7h20l3 7v4z" fill="none" stroke="var(--car)" stroke-width="2.2" stroke-linejoin="round"/><circle cx="-7" cy="7" r="3" fill="var(--car)"/><circle cx="7" cy="7" r="3" fill="var(--car)"/>',
+    car: '<path d="M-16 4.5v-4c0-1.6 1-2.6 2.6-3.1l3.4-.9 3.8-4.6c.8-1 1.9-1.5 3.1-1.5h5.6c1.3 0 2.5.6 3.3 1.7L9.3-3.5l4.2 1.2c1.5.4 2.5 1.6 2.5 3.1v3.7z" fill="none" stroke="var(--car)" stroke-width="2" stroke-linejoin="round"/><path d="M-7.2-4.1l2.9-3.6c.4-.5.9-.7 1.5-.7h2.1v4.3zM1.3-8.4h2.4c.6 0 1.2.3 1.6.8l2.7 3.5H1.3z" fill="var(--car)" opacity=".55"/><circle cx="-8.5" cy="5" r="3.6" fill="var(--surface-2)" stroke="var(--car)" stroke-width="2"/><circle cx="8.5" cy="5" r="3.6" fill="var(--surface-2)" stroke="var(--car)" stroke-width="2"/>',
   };
   const STATE_TXT = { charging: 'Charging', ready: 'Plugged in', complete: 'Session finished', full: 'Car full',
     not_connected: 'Not plugged in', wait_button: 'Waiting for button', wait_swipe: 'Waiting for card', reserved: 'Scheduled', fault: 'Charger fault' };
@@ -634,6 +674,91 @@ body.dimmed .dim{opacity:.62}
     $('mix-meta').textContent = `since midnight · solar made ${T.pv.toFixed(1)} kWh`;
   }
 
+  // ---------- render: car charging tile (same logic as ev.html) ----------
+  // Usable battery sizes match ev.html. The EV5's % comes from Kia Connect via the Pi; the IONIQ 5
+  // has no live reading, so while it's on the charger we show the % added since it was plugged in.
+  const CARS = { ev5: { name: 'Kia EV5', kwh: 88 }, ioniq5: { name: 'IONIQ 5', kwh: 72.6 } };
+  const plugState = c => c && (c.plug === 'plugged' || c.plug === 'plugged_locked');
+  function carOnCharger() {
+    const d = S.ev || {}, info = d.car || null, c = d.latest?.charger || {};
+    if (!plugState(c)) return null;
+    if (info && CARS[info.car]) return info.car;
+    const k5 = info && info.ev5;
+    if (k5 && (k5.plugged === false || k5.at_home === false)) return 'ioniq5';
+    return null;
+  }
+  function chargeSource() {
+    const L = S.ev?.latest || {}, c = L.charger || {}, watts = c.power_w || 0, plug = S.ev?.plugin;
+    if (!plugState(c)) return null;
+    if (c.state === 'complete' || c.state === 'full' || (c.state === 'charging' && watts <= 200 && plug && plug.kwh > 0.5)) return { cls: 'full', text: 'Plugged in, charged' };
+    if (!(c.state === 'charging' && watts > 200)) return { cls: 'wait', text: 'Plugged in, waiting' };
+    if (L.override) return { cls: 'grid', text: 'Manual, full rate' };
+    if (L.window === 'offpeak') return { cls: 'off', text: 'Charging, off-peak grid' };
+    const pv = L.pv_live_w != null ? L.pv_live_w : (L.pv_kw != null ? L.pv_kw * 1000 : 0);
+    const houseW = L.house_w != null ? L.house_w : (L.home_kw != null ? Math.max(0, L.home_kw * 1000 - watts) : 0);
+    return Math.min(watts, Math.max(0, pv - houseW)) >= watts * 0.5 ? { cls: 'sun', text: 'Charging from solar' } : { cls: 'grid', text: 'Charging, peak grid' };
+  }
+  // The Pi's clock offset (e.g. +1100), so times in its log can be read correctly
+  const piOffset = () => { const m = String(S.ev?.server_time || '').match(/([+-]\d{2})(\d{2})$/); return m ? `${m[1]}:${m[2]}` : '+11:00'; };
+  const piTime = ts => new Date(/[+-]\d{2}:?\d{2}$|Z$/.test(ts) ? ts : ts + piOffset());
+  // When the current charge started: the start of the latest run of 5-minute buckets above 200 W.
+  // If the run goes back to midnight, the plug-in time is the better answer.
+  function chargingSince() {
+    const ser = S.ev?.series || [];
+    let i = ser.length - 1;
+    if (i < 0 || !(ser[i].car > 200)) return null;
+    while (i > 0 && ser[i - 1].car > 200) i--;
+    let t = piTime(`${mel().key}T${ser[i].t}:00`);
+    const p = S.ev?.plugin;
+    if (i === 0 && p?.since) { const ps = piTime(p.since); if (ps < t) t = ps; }
+    return t;
+  }
+  const hm = mins => { mins = Math.max(0, Math.round(mins)); return mins >= 60 ? `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, '0')} min` : `${mins} min`; };
+  const tShort = d => d.toLocaleTimeString('en-AU', { timeZone: TZ, hour: 'numeric', minute: '2-digit' }).replace(' ', '').toLowerCase();
+  function renderCars() {
+    const box = $('cars');
+    if (!S.ev) { if (failed.ev) box.innerHTML = '<div class="empty">Needs the Pi for charger data.</div>'; return; }
+    const d = S.ev, c = d.latest?.charger || {}, T = d.totals || {}, on = carOnCharger(), src = chargeSource();
+    const k5 = d.car?.ev5 || null, charging = c.state === 'charging' && (c.power_w || 0) > 200;
+    const since = charging ? chargingSince() : null;
+    box.innerHTML = Object.entries(CARS).map(([id, car]) => {
+      const isOn = on === id;
+      let soc = null, est = null, socNote = '';
+      if (id === 'ev5' && k5 && k5.soc != null) { soc = k5.soc; socNote = k5.limit_ac ? `to ${k5.limit_ac}%` : ''; }
+      else if (id === 'ioniq5' && isOn && d.plugin) { est = Math.min(100, 100 * d.plugin.kwh / car.kwh); socNote = 'added since plugged in'; }
+      let chip = '<span class="cchip">Not on the charger</span>';
+      if (isOn && src) chip = `<span class="cchip ${src.cls}">${src.text}</span>`;
+      else if (id === 'ev5' && k5 && k5.at_home === false) chip = `<span class="cchip">${k5.plugged ? 'Plugged in away' : 'Away from home'}</span>`;
+      const pct = soc != null ? soc : est;
+      const col = soc == null ? 'var(--car)' : soc < 20 ? 'var(--import)' : soc < 50 ? 'var(--solar)' : 'var(--car)';
+      const pctTxt = soc != null ? `${Math.round(soc)}%` : est != null ? `+${Math.round(est)}%` : '--';
+      const live = isOn && charging
+        ? `<div class="clive"><b>${kw(c.power_w)} kW</b><span>${f0(c.amps)} A</span>${since ? `<span>since ${tShort(since)} · ${hm((Date.now() - since) / 60e3)}</span>` : ''}</div>`
+        : '';
+      const hrs = T[`car_${id}_hours`] || 0, kwh = T[`car_${id}_kwh`] || 0;
+      const today = hrs >= 1 / 60 ? `Today ${hm(hrs * 60)} · ${kwh.toFixed(1)} kWh` : 'Not charged today';
+      return `<div class="crow${isOn ? ' on' : ''}">
+        <div class="ctop"><span class="cname">${car.name}</span>${chip}</div>
+        <div class="cbatt"><div class="cbar"><i style="width:${pct != null ? Math.max(2, Math.min(100, pct)) : 0}%;background:${col}"></i></div><b class="cpct">${pctTxt}</b></div>
+        ${live}
+        <div class="cfoot">${socNote ? `<span>${socNote}</span>` : ''}<span>${today}</span></div>
+      </div>`;
+    }).join('');
+    if (plugState(c) && !on) box.insertAdjacentHTML('beforeend', '<div class="cnote">A car is plugged in but the Pi hasn\'t identified which. Set it on the EV page.</div>');
+  }
+
+  // ---------- render: internet (UniFi) ----------
+  function renderNet() {
+    const n = S.net, el = $('net');
+    if (!n) { el.hidden = true; return; }          // not set up yet or unreachable: the NET dot shows which
+    el.hidden = false;
+    const bad = !n.online || n.issues > 0 || (n.packetLoss || 0) >= 2 || (n.latencyMs || 0) >= 80;
+    el.className = 'net' + (!n.online ? ' down' : bad ? ' warn' : '');
+    const devs = (n.clients?.wifi || 0) + (n.clients?.wired || 0);
+    el.innerHTML = `<i></i><span>${n.online ? 'Online' : 'Offline'}</span>${has(n.latencyMs) ? `<b>${Math.round(n.latencyMs)} ms</b>` : ''}${has(n.downMbps) ? `<b>↓${Math.round(n.downMbps)} ↑${Math.round(n.upMbps)}</b>` : ''}<span>${devs} devices</span>`;
+    el.title = `${n.isp || 'Internet'} via ${n.gateway || 'UniFi'} · uptime ${f0(n.wanUptime)}% · packet loss ${f1(n.packetLoss)}%${n.metricTime ? ' · measured ' + clock(new Date(n.metricTime)) : ''}`;
+  }
+
   // ---------- render: forecast ----------
   function renderForecast() {
     const days = fcDays(), hrs = nextHours(8);
@@ -661,9 +786,12 @@ body.dimmed .dim{opacity:.62}
       const wet = hrs.slice(1, 7).find(h => h.precipProbability >= 50);
       if (wet) out.push(['rain', `Rain likely around ${ampm(fcHour(wet.time))} (${wet.precipProbability}%)`]);
     }
-    // Excess solar going to the grid with no car charging (details in the Energy flow tile)
+    // Gusts in the next 12 hours (station now, forecast after) go to the front, after excess solar
+    const gust = maxGust12();
+    if (gust.v >= GUST_ALERT) out.unshift(['wind', `Gusty, up to ${Math.round(gust.v)} km/h in the next 12 hours${gust.at !== 'now' ? ` (around ${gust.at})` : ''}`]);
+    // Excess solar going to the grid with no car charging: always first, and bold
     const ex = excessSolar();
-    if (ex) out.unshift(['sun', `Excess solar - Suggest Car Charging (${ex.kw.toFixed(1)} kW spare)`]);
+    if (ex) out.unshift(['sun strong', `Excess solar - Suggest Car Charging (${ex.kw.toFixed(1)} kW spare)`]);
     // Solar and the car, during the solar window
     const fcLeft = todayHourly().filter(h => fcHour(h.time) >= now.h).reduce((a, h) => a + fcKw(h.ghi), 0);
     const plugged = e.c?.plug && e.c.plug !== 'unplugged';
@@ -687,14 +815,14 @@ body.dimmed .dim{opacity:.62}
   let map, frames = [], layers = [], idx = 0, playing = true, timer = null;
   function initMap() {
     if (!window.L) { $('map').innerHTML = '<div class="empty" style="position:absolute;inset:0;display:flex">Map library didn\'t load.</div>'; return; }
-    const dark = document.documentElement.dataset.theme !== 'light';
-    map = L.map('map', { center: HOME, zoom: 9, minZoom: 6, maxZoom: 11, zoomControl: false, attributionControl: true, zoomSnap: 0.5 });
-    // CARTO stopped serving keyless tiles in 2026 (they come back watermarked), so use Esri's free Canvas basemap
-    const esri = n => `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/${n}/MapServer/tile/{z}/{y}/{x}`;
-    L.tileLayer(esri(dark ? 'World_Dark_Gray_Base' : 'World_Light_Gray_Base'), { maxZoom: 16, attribution: 'Tiles © Esri, HERE, Garmin, OpenStreetMap' }).addTo(map);
+    map = L.map('map', { center: RADAR_CENTRE, zoom: RADAR_ZOOM, minZoom: 6, maxZoom: 11, zoomControl: false, attributionControl: true, zoomSnap: 0.5 });
+    // BoM-style background: Esri's Ocean basemap (blue sea, pale land with relief), keyless.
+    // (CARTO stopped serving keyless tiles in 2026; they come back watermarked.)
+    const esri = n => `https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/${n}/MapServer/tile/{z}/{y}/{x}`;
+    L.tileLayer(esri('World_Ocean_Base'), { maxZoom: 13, attribution: 'Tiles © Esri, GEBCO, NOAA, Garmin, HERE' }).addTo(map);
     // place names drawn above the radar so towns stay readable through rain
     map.createPane('labels'); map.getPane('labels').style.zIndex = 450; map.getPane('labels').style.pointerEvents = 'none';
-    L.tileLayer(esri(dark ? 'World_Dark_Gray_Reference' : 'World_Light_Gray_Reference'), { maxZoom: 16, pane: 'labels' }).addTo(map);
+    L.tileLayer(esri('World_Ocean_Reference'), { maxZoom: 13, pane: 'labels' }).addTo(map);
     L.marker(HOME, { icon: L.divIcon({ className: '', html: '<div class="home-pin"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }), keyboard: false, title: 'Home' }).addTo(map);
     map.attributionControl.addAttribution('Radar <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>');
     new ResizeObserver(() => map.invalidateSize()).observe($('map'));
@@ -708,17 +836,50 @@ body.dimmed .dim{opacity:.62}
     if (key === frames.map(f => f.path).join()) return;           // nothing new
     layers.forEach(l => map.removeLayer(l));
     frames = past;
-    // Universal Blue (scheme 2) is the only scheme left on the free API; smoothed, no snow.
-    // Its lowest band is a beige wash (clutter and the faintest drizzle) that muddies the map, so drop it.
-    layers = frames.map(f => new RadarLayer(`${j.host}${f.path}/256/{z}/{x}/{y}/2/1_0.png`, {
+    // Unsmoothed tiles (0_0) so every pixel is an exact palette colour we can convert to BoM's scale
+    layers = frames.map(f => new RadarLayer(`${j.host}${f.path}/256/{z}/{x}/{y}/2/0_0.png`, {
       tileSize: 256, maxNativeZoom: 7, maxZoom: 11, opacity: 0, zIndex: 10,
     }).addTo(map));
     $('frames').innerHTML = frames.map(() => '<i></i>').join('');
+    // Once the newest frame's tiles are in, say plainly whether there's any rain in view
+    const newest = layers[layers.length - 1];
+    newest.on('load', () => { $('rain-state').textContent = newest._rain ? '' : 'No rain in view'; });
     showFrame(frames.length - 1);
   }
-  // Tile layer that draws each radar tile to a canvas and clears the beige low band.
-  // Real rain in Universal Blue is cyan/blue, then yellow, orange, red; those are kept.
-  const isClutter = (r, g, b, al) => al < 50 || (r <= 205 && r >= b + 22 && g >= b + 14 && Math.abs(r - g) < 32);
+  // ---------- BoM-style radar colours ----------
+  // RainViewer's free tier only serves its "Universal Blue" palette. Each colour in it stands for one
+  // dBZ value (table: rainviewer.com/files/rainviewer_api_colors_table.csv). We read the dBZ back from
+  // the colour, convert to rain rate with BoM's own Marshall-Palmer relation (Z = 200 R^1.6) and repaint
+  // the pixel in the Bureau's radar colours at its mm/h steps.
+  const UB = ['88ddee', '6cd1eb', '51c5e8', '36bae5', '1baee2', '00a3e0', '009ad5', '0091ca', '0088bf', '007fb4',   // 15-24 dBZ
+    '0077aa', '0070a3', '00699c', '006295', '005b8e', '005588', '005180', '004e78', '004a70', '004768',           // 25-34
+    'ffee00', 'ffe000', 'ffd200', 'ffc500', 'ffb700', 'ffaa00', 'ff9f00', 'ff9500', 'ff8b00', 'ff8100',           // 35-44
+    'ff4400', 'f23600', 'e62800', 'd91b00', 'cd0d00', 'c10000', 'a80000', '8f0000', '760000', '5d0000',           // 45-54
+    'ffaaff', 'ff9fff', 'ff95ff', 'ff8bff', 'ff81ff', 'ff77ff', 'ff6cff', 'ff62ff', 'ff58ff', 'ff4eff', 'ffffff']; // 55-65
+  const UB_LOW = ['ded097', 'dacc93', 'd6c88f', 'd2c48b', 'cec087'];   // 14, 13, 12, 11, 10 dBZ (the beige band)
+  const dbzOf = new Map();
+  UB.forEach((hex, i) => dbzOf.set(parseInt(hex, 16), 15 + i));
+  UB_LOW.forEach((hex, i) => dbzOf.set(parseInt(hex, 16), 14 - i));
+  const UB_RGB = [...dbzOf.entries()].map(([k, z]) => [k >> 16, (k >> 8) & 255, k & 255, z]);
+  const nearest = new Map();
+  function dbzFor(r, g, b) {
+    const key = (r << 16) | (g << 8) | b;
+    let z = dbzOf.get(key);
+    if (z !== undefined) return z;
+    z = nearest.get(key);
+    if (z !== undefined) return z;
+    let best = 1e9; z = -99;
+    for (const [R, G, B, Z] of UB_RGB) { const dd = (R - r) ** 2 + (G - g) ** 2 + (B - b) ** 2; if (dd < best) { best = dd; z = Z; } }
+    if (best > 2500) z = -99;                    // nothing like a radar colour: leave it out
+    nearest.set(key, z);
+    return z;
+  }
+  // BoM rain-rate steps (mm/h) and colours, as on the Bureau's radar loops
+  const BOM = [[0.2, 'f5f5ff'], [0.5, 'b4b4ff'], [1.5, '7878ff'], [2.5, '1414ff'], [4, '00d8c3'], [6, '009690'], [10, '006666'],
+    [15, 'ffff00'], [20, 'ffc800'], [35, 'ff9600'], [50, 'ff6400'], [80, 'ff0000'], [120, 'c80000'], [200, '780000'], [300, '280000']]
+    .map(([mm, hex]) => [10 * Math.log10(200 * mm ** 1.6), parseInt(hex, 16)]);
+  const MIN_DBZ = BOM[0][0];                       // 0.2 mm/h, about 12 dBZ
+  const bomColour = z => { let c = null; for (const [t, col] of BOM) if (z >= t) c = col; return c; };
   const RadarLayer = window.L ? L.TileLayer.extend({
     createTile(coords, done) {
       const c = document.createElement('canvas'), sz = this.getTileSize();
@@ -727,12 +888,21 @@ body.dimmed .dim{opacity:.62}
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         const x = c.getContext('2d', { willReadFrequently: true });
+        x.imageSmoothingEnabled = false;
         x.drawImage(img, 0, 0, sz.x, sz.y);
         try {
           const d = x.getImageData(0, 0, sz.x, sz.y), p = d.data;
-          for (let k = 0; k < p.length; k += 4) if (p[k + 3] && isClutter(p[k], p[k + 1], p[k + 2], p[k + 3])) p[k + 3] = 0;
+          let rain = 0;
+          for (let k = 0; k < p.length; k += 4) {
+            if (!p[k + 3]) continue;
+            const z = dbzFor(p[k], p[k + 1], p[k + 2]), col = z >= MIN_DBZ ? bomColour(z) : null;
+            if (col == null) { p[k + 3] = 0; continue; }
+            p[k] = col >> 16; p[k + 1] = (col >> 8) & 255; p[k + 2] = col & 255; p[k + 3] = 255;
+            if (z >= 18) rain++;                   // 0.5 mm/h or more counts as rain for the status line
+          }
           x.putImageData(d, 0, 0);
-        } catch (e) { /* CORS refused: keep the unfiltered tile */ }
+          this._rain = (this._rain || 0) + rain;
+        } catch (e) { /* CORS refused: keep the unconverted tile */ }
         done(null, c);
       };
       img.onerror = () => done(new Error('radar tile'), c);
@@ -743,7 +913,7 @@ body.dimmed .dim{opacity:.62}
 
   function showFrame(i) {
     if (!layers.length) return;
-    layers.forEach((l, k) => l.setOpacity(k === i ? 0.72 : 0));
+    layers.forEach((l, k) => l.setOpacity(k === i ? 0.9 : 0));
     idx = i;
     [...$('frames').children].forEach((el, k) => el.className = k === i ? 'on' : k < i ? 'past' : '');
     const latest = i === frames.length - 1;
@@ -787,7 +957,7 @@ body.dimmed .dim{opacity:.62}
   setTimeout(() => location.reload(), 6 * 3600e3);
 
   // ---------- loops ----------
-  const renderAll = () => { renderClock(); renderWx(); renderFlow(); renderPies(); renderForecast(); renderNotes(); };
+  const renderAll = () => { renderClock(); renderWx(); renderFlow(); renderPies(); renderCars(); renderNet(); renderForecast(); renderNotes(); };
   async function refresh(name) {
     if (name === 'radar') return loadRadar();
     await pull(name, name === 'ev' ? API.ev : API[name]);
@@ -795,7 +965,7 @@ body.dimmed .dim{opacity:.62}
   }
   function schedule(name) { setInterval(() => { if (!document.hidden) refresh(name); }, EVERY[name]); }
   initMap();
-  ['ev', 'sems', 'wx', 'fc'].forEach(n => { refresh(n); schedule(n); });
+  ['ev', 'sems', 'wx', 'fc', 'net'].forEach(n => { refresh(n); schedule(n); });
   loadRadar().then(() => setPlaying(true)); schedule('radar');
   setInterval(() => { renderClock(); renderDots(); applyDim(); }, 10e3);
   setInterval(renderNotes, 60e3);
