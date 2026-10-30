@@ -621,7 +621,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const pre = carView === 'total' ? 'car_' : `car_${carView}_`, who = carView === 'total' ? 'the cars' : carView === 'ev5' ? 'the EV5' : 'the IONIQ 5';
     const solar = T[pre + 'solar_kwh'] || 0, off = T[pre + 'offpeak_kwh'] || 0, grid = T[pre + 'grid_day_kwh'] || 0, carTotal = solar + off + grid;
     $('car-pie').innerHTML = pie([
-      ['From solar', solar, '#fade2a', `$${(solar * (RATE.offpeak - RATE.feedin)).toFixed(2)} saved vs off-peak`],
+      ['From solar', solar, '#fade2a', `$${(solar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs on-peak`],
       ['Grid, off-peak', off, '#e89cbd', `$${(off * RATE.offpeak).toFixed(2)} at 8c`],
       ['Grid, daytime', grid, '#f2495c', `$${(grid * RATE.general).toFixed(2)} at 27.6c`]
     ], carTotal, carView === 'total' ? 'kWh, both cars' : (carView === 'ev5' ? 'kWh, EV5' : 'kWh, IONIQ 5'), `${carTotal.toFixed(1)} kWh into ${who} ${name}.`);
@@ -629,7 +629,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const houseSolar = T.house_solar_kwh || 0, exp = T.export_kwh || 0, carSolarAll = T.car_solar_kwh || 0;
     const solarTotal = Math.max(T.solar_kwh || 0, carSolarAll + houseSolar + exp);
     $('solar-pie').innerHTML = pie([
-      ['Into the cars', carSolarAll, '#73bf69', `$${(carSolarAll * (RATE.offpeak - RATE.feedin)).toFixed(2)} saved vs off-peak`],
+      ['Into the cars', carSolarAll, '#73bf69', `$${(carSolarAll * (RATE.general - RATE.feedin)).toFixed(2)} saved vs on-peak`],
       ['Used in the house', houseSolar, '#5794f2', `$${(houseSolar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs grid`],
       ['Exported to the grid', exp, 'rgba(204,204,220,.42)', `$${(exp * RATE.feedin).toFixed(2)} earned at 0.5c`]
     ], solarTotal, 'kWh generated', `${solarTotal.toFixed(1)} kWh generated ${name}` + (period === 'all' && HISTORY.length ? ` (since ${new Date(HISTORY[0].date + 'T12:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short'})})` : '') + '.');
@@ -640,7 +640,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const g = RATE.general, o = RATE.offpeak, f = RATE.feedin, c = v => (v * 100).toFixed(1).replace(/\.0$/, '') + 'c';
     const groups = [
       ['Solar', 'Solar savings', [
-        ['Solar into the car', T.car_solar_kwh || 0, o - f, `instead of off-peak at ${c(o)}, less the ${c(f)} feed-in given up`, '#73bf69'],
+        ['Solar into the car', T.car_solar_kwh || 0, g - f, `instead of the grid on-peak at ${c(g)}, less the ${c(f)} feed-in given up`, '#73bf69'],
         ['Solar used in the house', T.house_solar_kwh || 0, g - f, `instead of the grid at ${c(g)}, less the ${c(f)} feed-in given up`, '#5794f2'],
         ['Solar exported', T.export_kwh || 0, f, `feed-in credit at ${c(f)}`, 'rgba(204,204,220,.42)']
       ]],
