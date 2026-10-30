@@ -89,6 +89,15 @@ a{color:inherit}
 .today-right .batt{margin-top:0;padding-top:0;border-top:0}
 .facts-3{grid-template-columns:repeat(3,minmax(0,1fr))!important;margin-top:14px}
 @media (max-width:560px){.facts-3{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+.split-bar{display:flex;height:22px;border-radius:8px;overflow:hidden;background:var(--surface-3)}
+.split-bar div{min-width:2px}
+.split-leg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px;font-size:13px}
+@media (max-width:560px){.split-leg{grid-template-columns:1fr}}
+.split-leg div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.split-leg .k{display:flex;align-items:center;gap:6px;color:var(--text-muted);font-size:12px}
+.split-leg i{width:10px;height:10px;border-radius:3px}
+.split-leg b{font-family:var(--mono);font-weight:500;font-size:16px}
+.split-leg span.s{font-size:11px;color:var(--text-dim)}
 .link-stack{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
 .fact .sub{font-size:11px;color:var(--text-dim);margin-top:2px;line-height:1.3}
 .fact .label{line-height:1.3}
@@ -113,6 +122,12 @@ a{color:inherit}
 .state-text{min-width:0}
 .state-big{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.15;margin:4px 0 6px;text-wrap:balance}
 .state-why{color:var(--text-muted);font-size:14px}
+.state-why ul{margin:2px 0 0;padding-left:18px}
+.state-why li{margin:2px 0}
+.today-wx{margin-left:auto;flex:0 0 220px;min-width:0}
+.today-wx .day-card{background:var(--surface-2)}
+.today-wx .now-tick{stroke:var(--text-dim);stroke-dasharray:2 2}
+@media (max-width:760px){.state{flex-wrap:wrap}.today-wx{flex:1 1 100%;margin-left:0}}
 .facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:18px}
 @media (max-width:560px){.facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .facts-note{font-size:12px;color:var(--text-dim);margin-top:8px}
@@ -241,6 +256,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
         <div class="state-why" id="state-why">Reading the charger and solar.</div>
         <div class="excess" id="excess" hidden></div>
       </div>
+      <div class="today-wx" id="today-wx" aria-label="Today's solar forecast"></div>
     </div>
 
     <div class="sub-h">Current</div>
@@ -252,7 +268,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     </div>
     <div class="facts-note">Solar = car + house + grid. House excludes the car.</div>
 
-    <div class="sub-h">Used today</div>
+    <div class="sub-h">Car charging today</div>
     <div class="today-grid">
       <div class="state today-pie">
         <svg class="gauge" id="pie" viewBox="0 0 120 120" role="img" aria-label="Where today's car charging came from"></svg>
@@ -265,7 +281,6 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
             <button id="car-ioniq" aria-pressed="false" data-car="ioniq">IONIQ 5</button>
             <button id="car-ev5" aria-pressed="false" data-car="ev5">EV5</button>
           </div>
-          <span class="note" id="batt-since"></span>
         </div>
         <div class="batt-row">
           <svg viewBox="0 0 120 44" class="batt-svg" aria-hidden="true">
@@ -278,7 +293,8 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
       </div>
       </div>
     </div>
-    <div class="facts facts-3" id="totals"></div>
+    <div class="sub-h">Solar today</div>
+    <div class="split" id="split"></div>
   </section>
 
   <section class="panel">
@@ -288,7 +304,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     </div>
     <div class="chart-box"><svg class="chart" id="chart" viewBox="0 0 1000 340" role="img" aria-label="Today: solar generation, house use and car charging by hour"></svg></div>
     <div class="legend">
-      <span><i style="background:var(--solar)"></i>Solar generation</span>
+      <span><i style="background:var(--solar)"></i>Solar generation</span><span><i style="background:repeating-linear-gradient(90deg,var(--solar) 0 3px,transparent 3px 6px);height:3px;vertical-align:3px"></i>Forecast for the rest of today</span>
       <span><i style="background:var(--home)"></i>Total house use</span><span><i style="background:var(--import)"></i>From the grid, 27.6c</span><span><i style="background:var(--import-soft)"></i>From the grid, off-peak 8c</span>
       <span><i style="background:var(--car)"></i>Car charging</span>
       <span><i style="background:var(--offpeak);border:1px solid var(--home)"></i>Off-peak window</span>
@@ -400,7 +416,6 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     $('batt-fill').setAttribute('width', (96 * pct / 100).toFixed(1));
     $('batt-pct').textContent = '+' + Math.round(pct) + '%';
     $('batt-detail').textContent = `${plugin.kwh.toFixed(1)} of ${car.kwh} kWh added`;
-    $('batt-since').textContent = (plugin.exact_start ? 'Since plugged in ' : 'Since at least ') + fmtTime(plugin.since);
   }
   document.querySelectorAll('.car-pick button').forEach(b => b.addEventListener('click', () => {
     carKey = b.dataset.car; try { localStorage.setItem('ev-car', carKey); } catch (e) {}
@@ -442,11 +457,18 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     if (!plugged) { big = 'Nothing plugged in'; why = 'Plug in a car and it will charge on the next spare solar, or from midnight.'; }
     else if (c.state === 'charging' && watts > 200) {
       big = L.override ? 'Car charging, full rate' : L.window === 'offpeak' ? 'Car charging, off-peak' : 'Car charging on solar';
-      why = `${kw(watts)} kW into the car. ${ex.text}.`;
+      why = null;
+      const pts = [`${kw(watts)} kW into the car`];
+      if (d.plugin && d.plugin.since) {
+        const mins = Math.max(0, Math.round((Date.now() - new Date(d.plugin.since).getTime()) / 60000));
+        const dur = mins >= 60 ? `${Math.floor(mins/60)} h ${mins%60} min` : `${mins} min`;
+        pts.push(`Charging for ${dur}, started at ${fmtTime(d.plugin.since)}`);
+      }
+      $('state-why').innerHTML = '<ul>' + pts.map(p => `<li>${esc(p)}</li>`).join('') + '</ul>';
     } else if (c.state === 'charging') { big = 'Car charged'; why = 'The car has stopped taking charge, so it is probably full.'; }
     else if (c.state === 'complete' || c.state === 'full') { big = 'Car charged'; why = 'The car finished charging and is still plugged in.'; }
     else { big = 'Car plugged in, waiting'; why = ex.text + '.'; }
-    $('state-big').textContent = big; $('state-why').textContent = why;
+    $('state-big').textContent = big; if (why !== null) $('state-why').textContent = why;
     $('now-label').textContent = 'Right now · ' + (L.ts ? fmtTime(L.ts) : '');
     $('f-power').innerHTML = `${kw(watts)}<small> kW</small>`;
     const pv = L.pv_live_w != null ? L.pv_live_w : (L.pv_kw != null ? L.pv_kw * 1000 : null);
@@ -489,13 +511,17 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     pie += `<text x="60" y="58" text-anchor="middle" fill="var(--text)" font-family="JetBrains Mono, monospace" font-size="22" font-weight="500">${total > 0 ? pct + '%' : '–'}</text><text x="60" y="76" text-anchor="middle" fill="var(--text-muted)" font-family="Inter, sans-serif" font-size="11">solar</text>`;
     $('pie').innerHTML = pie;
     $('pie-legend').innerHTML = parts.map(([n, v, col]) => `<div><i style="background:${col}"></i>${n}<b>${v.toFixed(1)} kWh</b></div>`).join('') + `<div class="note">Where today's ${total.toFixed(1)} kWh into the car came from</div>`;
-    const houseSolar = t.house_solar_kwh || 0;
-    const rows = [
-      ['Solar into car', solar.toFixed(1), 'kWh', `$${saving.toFixed(2)} saved vs off-peak`],
-      ['Solar used in house', houseSolar.toFixed(1), 'kWh', `$${(houseSolar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs grid`],
-      ['Solar exported', (t.export_kwh || 0).toFixed(1), 'kWh', `$${((t.export_kwh || 0) * RATE.feedin).toFixed(2)} earned at 0.5c`]
+    const houseSolar = t.house_solar_kwh || 0, exp = t.export_kwh || 0;
+    const solarTotal = Math.max(t.solar_kwh || 0, solar + houseSolar + exp) || 0;
+    const segs = [
+      ['Into the car', solar, 'var(--car)', `$${saving.toFixed(2)} saved vs off-peak`],
+      ['Used in the house', houseSolar, 'var(--home)', `$${(houseSolar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs grid`],
+      ['Exported to the grid', exp, 'var(--text-dim)', `$${(exp * RATE.feedin).toFixed(2)} earned at 0.5c`]
     ];
-    $('totals').innerHTML = rows.map(r => `<div class="fact"><div class="label">${r[0]}</div><div class="v">${r[1]}${r[2] ? `<small> ${r[2]}</small>` : ''}</div><div class="sub">${r[3]}</div></div>`).join('');
+    $('split').innerHTML = `<div class="split-bar" role="img" aria-label="Today's ${solarTotal.toFixed(1)} kWh of solar: car, house and grid">` +
+      segs.map(([n,v,col]) => solarTotal > 0 && v > 0 ? `<div style="width:${(100*v/solarTotal).toFixed(1)}%;background:${col}" title="${n}: ${v.toFixed(1)} kWh"></div>` : '').join('') + '</div>' +
+      '<div class="split-leg">' + segs.map(([n,v,col,sub]) => `<div><span class="k"><i style="background:${col}"></i>${n}</span><b>${v.toFixed(1)} kWh <small style="color:var(--text-muted);font-size:12px">${solarTotal > 0 ? Math.round(100*v/solarTotal) : 0}%</small></b><span class="s">${sub}</span></div>`).join('') + '</div>' +
+      `<div class="facts-note">${solarTotal.toFixed(1)} kWh generated so far today.</div>`;
   }
 
   function renderLog(list){
@@ -524,6 +550,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
   }
 
   function renderChart(series){
+    lastSeries = series;
     const svg = $('chart'); svg.innerHTML = '';
     const W=1000,H=340,L=44,R=12,T=14,B=34, ns='http://www.w3.org/2000/svg';
     const el=(n,a,txt)=>{const e=document.createElementNS(ns,n);for(const k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;svg.appendChild(e);return e;};
@@ -549,6 +576,20 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
       let l=''; sg.forEach((p,i)=>l+=(i?' L':'M')+x(p.h).toFixed(1)+','+y(p[key]).toFixed(1));
       el('path',{d:l,fill:'none',stroke:color,'stroke-width':2,'stroke-linejoin':'round'}); });
     area('pv','var(--solar)',0.16); area('car','var(--car)',0.30);
+    // Forecast solar for the rest of today: dotted orange, from now to sunset
+    const th = todayHours();
+    // Calibrate the forecast against the last 90 minutes of real output (roof angle, shading, haze)
+    const fcAt = hh => { const a = th.find(p => p.h - 0.5 <= hh && p.h + 0.5 > hh); return a ? fcKw(a.ghi) : 0; };
+    let calib = 1;
+    const recent = pts.filter(p => p.h > nowH - 1.5 && p.h <= nowH);
+    const fSum = recent.reduce((s,p) => s + fcAt(p.h), 0), aSum = recent.reduce((s,p) => s + p.pv, 0);
+    if (recent.length >= 6 && fSum > 1) calib = Math.max(0.3, Math.min(1.3, aSum / fSum));
+    const fh = th.filter(p => p.h - 0.5 > nowH);
+    if (fh.length) {
+      const startV = recent.length ? recent.slice(-3).reduce((s,p) => s + p.pv, 0) / Math.min(3, recent.length) : fcAt(nowH) * calib;
+      const fp = [{h: nowH, v: startV}].concat(fh.map(p => ({h: p.h - 0.5, v: fcKw(p.ghi) * calib})));
+      el('path',{d: fp.map((p,i)=>(i?'L':'M')+x(p.h).toFixed(1)+','+y(p.v).toFixed(1)).join(' '), fill:'none', stroke:'var(--solar)', 'stroke-width':2, 'stroke-dasharray':'4 5', 'stroke-linecap':'round'});
+    }
     // Total house use: blue where solar covered it, red where it drew from the grid
     segs.forEach(sg => {
       if (!sg.length) return;
@@ -569,7 +610,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     const today = new Date(); const pad=n=>String(n).padStart(2,'0');
     const key = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
     const out = [];
-    for (let i=1;i<=5;i++){ const d=new Date(today); d.setDate(d.getDate()+i); const k=key(d), hs=byDay[k]; if(!hs) continue;
+    for (let i=0;i<=5;i++){ const d=new Date(today); d.setDate(d.getDate()+i); const k=key(d), hs=byDay[k]; if(!hs) continue;
       const day=hs.filter(h=>h.ghi>50), dl=daily[k]||{};
       out.push({ date:k, ghi:hs.reduce((a,h)=>a+h.ghi,0)/1000, cloud:Math.round(day.reduce((a,h)=>a+h.cloudCover,0)/Math.max(1,day.length)),
         rainProb:Math.max(0,...day.map(h=>h.precipProbability||0)), rain:dl.precipitationSum||0, code:dl.weatherCode||0,
@@ -592,10 +633,31 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
   const icon=k=>`<svg viewBox="0 0 56 62" aria-hidden="true">${({sun:SUN(28,28,11),partly:SUN(22,20,8)+CLOUD(4,10),cloud:CLOUD(2,4),showers:SUN(22,18,7)+CLOUD(4,6)+DROPS(2),drizzle:CLOUD(2,4)+DROPS(3),rain:CLOUD(2,2)+DROPS(3),storm:CLOUD(2,2)+'<path d="M30 42l-6 9h6l-4 9 10-12h-6l4-6z" fill="var(--solar)"/>'+DROPS(1)})[k]}</svg>`;
   const scoreColor=s=>s>=8?'var(--ok)':s>=5?'var(--solar)':'var(--import)';
   const spark=hrs=>{const w=150,h=26,step=w/(hrs.length-1);let d=`M0,${h}`;hrs.forEach((v,i)=>d+=` L${(i*step).toFixed(1)},${(h-2-(h-4)*v/1000).toFixed(1)}`);d+=` L${w},${h} Z`;return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" fill="var(--solar)" fill-opacity=".25" stroke="var(--solar)" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;};
+  let FORECAST = null, lastSeries = null;
+  // Forecast solar output (kW) for an hour of the day, from Open-Meteo GHI
+  const fcKw = ghi => Math.min(9.6, ghi / 1000 * PANEL_KW * 0.75);
+  function todayHours(){
+    if (!FORECAST) return [];
+    const pad=n=>String(n).padStart(2,'0'), t=new Date(), k=`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;
+    return (FORECAST.hourly||[]).filter(h=>h.time.startsWith(k)).map(h=>({h:+h.time.slice(11,13), ghi:h.ghi}));
+  }
+  function renderTodayWx(d){
+    const box = $('today-wx'); if (!d) { box.innerHTML = ''; return; }
+    const col = scoreColor(d.s), nowH = new Date().getHours() + new Date().getMinutes()/60;
+    const hrs = d.hours, w = 150, h = 34, step = w/(hrs.length-1);
+    let path = `M0,${h}`; hrs.forEach((v,i)=>path+=` L${(i*step).toFixed(1)},${(h-2-(h-4)*v/1000).toFixed(1)}`); path += ` L${w},${h} Z`;
+    const nx = Math.max(0, Math.min(w, (nowH - 6) / 14 * w));
+    box.innerHTML = `<div class="day-card"><div class="day-top"><div><div class="day-name">Today</div><div class="day-date">${d.tmax}° · ${d.cloud}% cloud</div></div><div class="score" aria-label="Solar score ${d.s} out of 10"><span class="n" style="color:${col}">${d.s}</span><span class="of">/10</span></div></div><div class="wx">${icon(d.k[0])}<b>${d.k[1]}</b></div><svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${path}" fill="var(--solar)" fill-opacity=".25" stroke="var(--solar)" stroke-width="1.5" vector-effect="non-scaling-stroke"/><line class="now-tick" x1="${nx.toFixed(1)}" x2="${nx.toFixed(1)}" y1="0" y2="${h}" vector-effect="non-scaling-stroke"/></svg><div class="day-meta"><span>≈ ${d.kwh} kWh forecast</span><span>6 am – 8 pm</span></div></div>`;
+  }
+
   async function loadOutlook(){
     try {
       const r = await fetch('/.netlify/functions/forecast', { signal: AbortSignal.timeout(20000) });
-      const fc = await r.json(); const days = dayStats(fc).map(d=>({...d,s:scoreOf(d),k:kind(d),kwh:Math.round(d.ghi*PANEL_KW*PR)}));
+      const fc = await r.json(); FORECAST = fc;
+      const all = dayStats(fc).map(d=>({...d,s:scoreOf(d),k:kind(d),kwh:Math.round(d.ghi*PANEL_KW*PR)}));
+      renderTodayWx(all[0]);
+      const days = all.slice(1);
+      if (lastSeries) renderChart(lastSeries);
       if (!days.length) throw new Error('no days');
       const best = Math.max(...days.map(d=>d.s));
       $('outlook').innerHTML = days.map(d=>{ const dt=new Date(d.date+'T12:00:00'), col=scoreColor(d.s);
