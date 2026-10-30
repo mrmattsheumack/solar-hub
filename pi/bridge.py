@@ -325,7 +325,8 @@ def ev_state():
 
     # 5-minute series and energy totals
     buckets: dict[str, dict] = {}
-    totals = {"car_kwh": 0.0, "car_offpeak_kwh": 0.0, "car_solar_kwh": 0.0, "car_grid_day_kwh": 0.0}
+    totals = {"car_kwh": 0.0, "car_offpeak_kwh": 0.0, "car_solar_kwh": 0.0, "car_grid_day_kwh": 0.0,
+              "house_solar_kwh": 0.0, "solar_kwh": 0.0, "export_kwh": 0.0}
     prev_t = None
     for r in rows:
         c = r.get("charger") or {}
@@ -351,7 +352,10 @@ def ev_state():
             if r.get("window") == "offpeak":
                 totals["car_offpeak_kwh"] += e
             elif r.get("window") == "day":
-                house_w = max(0.0, home_w - car_w)
+                house_w = float(r["house_w"]) if r.get("house_w") is not None else max(0.0, home_w - car_w)
+                totals["house_solar_kwh"] += min(house_w, pv_w) / 1000 * h
+                totals["solar_kwh"] += pv_w / 1000 * h
+                totals["export_kwh"] += max(0.0, pv_w - house_w - car_w) / 1000 * h
                 from_solar = min(car_w, max(0.0, pv_w - house_w))
                 totals["car_solar_kwh"] += from_solar / 1000 * h
                 totals["car_grid_day_kwh"] += (car_w - from_solar) / 1000 * h

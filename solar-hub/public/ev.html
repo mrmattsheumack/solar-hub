@@ -81,6 +81,14 @@ a{color:inherit}
 .toggle[disabled]{opacity:.5;cursor:wait}
 @media (prefers-reduced-motion:reduce){.toggle .sw,.toggle .sw::after{transition:none}}
 .strip .op.skipped{background:var(--surface-2);color:var(--text-muted);text-decoration:line-through}
+.sub-h{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text);margin:22px 0 10px;padding-top:16px;border-top:1px solid var(--border)}
+.excess{margin-top:8px;font-size:14px;font-weight:600;color:var(--import)}
+.today-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:20px;align-items:center}
+@media (max-width:760px){.today-grid{grid-template-columns:1fr}}
+.today-pie{margin-top:0}
+.today-right .batt{margin-top:0;padding-top:0;border-top:0}
+.facts-3{grid-template-columns:repeat(3,minmax(0,1fr))!important;margin-top:14px}
+@media (max-width:560px){.facts-3{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 .link-stack{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
 .fact .sub{font-size:11px;color:var(--text-dim);margin-top:2px;line-height:1.3}
 .fact .label{line-height:1.3}
@@ -218,10 +226,9 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
 
   <div class="banner" id="banner" hidden></div>
 
-  <section class="hero">
-    <div class="panel">
-      <div class="label" id="now-label">Right now</div>
-      <div class="state">
+  <section class="panel">
+    <div class="label" id="now-label">Right now</div>
+    <div class="state">
         <svg class="gauge" viewBox="0 0 120 120" aria-hidden="true">
           <circle cx="60" cy="60" r="50" fill="none" stroke="var(--surface-3)" stroke-width="10"/>
           <circle class="ring" id="ring" cx="60" cy="60" r="50" fill="none" stroke="var(--car)" stroke-width="10" stroke-linecap="round"
@@ -229,26 +236,29 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
           <text id="g-val" x="60" y="58" text-anchor="middle" fill="var(--text)" font-family="JetBrains Mono, monospace" font-size="24" font-weight="500">–</text>
           <text x="60" y="78" text-anchor="middle" fill="var(--text-muted)" font-family="Inter, sans-serif" font-size="11">amps</text>
         </svg>
-        <div class="state-text">
-          <div class="state-big" id="state-big">Loading</div>
-          <div class="state-why" id="state-why">Reading the charger and solar.</div>
-        </div>
+      <div class="state-text">
+        <div class="state-big" id="state-big">Loading</div>
+        <div class="state-why" id="state-why">Reading the charger and solar.</div>
+        <div class="excess" id="excess" hidden></div>
       </div>
-      <div class="facts">
-        <div class="fact"><div class="label">Total solar gen</div><div class="v" id="f-solar">–</div></div>
-        <div class="fact"><div class="label">Car consumption</div><div class="v" id="f-power">–</div></div>
-        <div class="fact"><div class="label">House consumption</div><div class="v" id="f-house">–</div></div>
-        <div class="fact"><div class="label">Grid export / import</div><div class="v" id="f-grid">–</div></div>
-      </div>
-      <div class="facts-note">Solar = car + house + grid. House excludes the car.</div>
     </div>
 
-    <div class="panel">
-      <div class="label">Daily</div>
-      <div class="state">
+    <div class="sub-h">Current</div>
+    <div class="facts">
+      <div class="fact"><div class="label">Solar gen</div><div class="v" id="f-solar">–</div></div>
+      <div class="fact"><div class="label">Car consumption</div><div class="v" id="f-power">–</div></div>
+      <div class="fact"><div class="label">House consumption</div><div class="v" id="f-house">–</div></div>
+      <div class="fact"><div class="label">Grid export / import</div><div class="v" id="f-grid">–</div></div>
+    </div>
+    <div class="facts-note">Solar = car + house + grid. House excludes the car.</div>
+
+    <div class="sub-h">Used today</div>
+    <div class="today-grid">
+      <div class="state today-pie">
         <svg class="gauge" id="pie" viewBox="0 0 120 120" role="img" aria-label="Where today's car charging came from"></svg>
         <div class="pie-legend" id="pie-legend"></div>
       </div>
+      <div class="today-right">
       <div class="batt" id="batt" hidden>
         <div class="batt-top">
           <div class="seg seg-sm car-pick" role="group" aria-label="Which car is plugged in">
@@ -266,8 +276,9 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
           <div class="batt-text"><b id="batt-pct">–</b><span id="batt-detail"></span></div>
         </div>
       </div>
-      <div class="facts facts-2" id="totals"></div>
+      </div>
     </div>
+    <div class="facts facts-3" id="totals"></div>
   </section>
 
   <section class="panel">
@@ -432,8 +443,8 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     else if (c.state === 'charging' && watts > 200) {
       big = L.override ? 'Car charging, full rate' : L.window === 'offpeak' ? 'Car charging, off-peak' : 'Car charging on solar';
       why = `${kw(watts)} kW into the car. ${ex.text}.`;
-    } else if (c.state === 'charging') { big = 'Car is not drawing'; why = 'A charge is open but the car is taking nothing. It is probably full.'; }
-    else if (c.state === 'complete' || c.state === 'full') { big = 'Car is full'; why = ex.text + '.'; }
+    } else if (c.state === 'charging') { big = 'Car charged'; why = 'The car has stopped taking charge, so it is probably full.'; }
+    else if (c.state === 'complete' || c.state === 'full') { big = 'Car charged'; why = 'The car finished charging and is still plugged in.'; }
     else { big = 'Car plugged in, waiting'; why = ex.text + '.'; }
     $('state-big').textContent = big; $('state-why').textContent = why;
     $('now-label').textContent = 'Right now · ' + (L.ts ? fmtTime(L.ts) : '');
@@ -443,6 +454,14 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     // House excluding the car: the controller's own figure by day, else SEMS load minus the car
     const houseW = L.house_w != null ? L.house_w : (L.home_kw != null ? Math.max(0, L.home_kw * 1000 - watts) : null);
     $('f-house').innerHTML = `${kw(houseW)}<small> kW</small>`;
+    // Excess solar prompt: more than 4 kW going to the grid and the car isn't soaking it up
+    const spare = (pv != null && houseW != null) ? pv - houseW - watts : 0;
+    const carTaking = c.state === 'charging' && watts > 200;
+    const ex4 = $('excess');
+    if (spare > 4000 && !carTaking) {
+      ex4.hidden = false;
+      ex4.textContent = `Excess solar being generated (${kw(spare)} kW), ` + (plugged ? 'plug in the other car' : 'plug in car');
+    } else ex4.hidden = true;
     if (pv != null && houseW != null) {
       const g = pv - houseW - watts;   // + export, - import
       const dir = Math.abs(g) < 50 ? '' : g > 0 ? ' export' : ' import';
@@ -470,11 +489,11 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     pie += `<text x="60" y="58" text-anchor="middle" fill="var(--text)" font-family="JetBrains Mono, monospace" font-size="22" font-weight="500">${total > 0 ? pct + '%' : '–'}</text><text x="60" y="76" text-anchor="middle" fill="var(--text-muted)" font-family="Inter, sans-serif" font-size="11">solar</text>`;
     $('pie').innerHTML = pie;
     $('pie-legend').innerHTML = parts.map(([n, v, col]) => `<div><i style="background:${col}"></i>${n}<b>${v.toFixed(1)} kWh</b></div>`).join('') + `<div class="note">Where today's ${total.toFixed(1)} kWh into the car came from</div>`;
+    const houseSolar = t.house_solar_kwh || 0;
     const rows = [
-      ['Solar into car', solar.toFixed(1), 'kWh', 'From spare solar'],
-      ['Off-peak charge', off.toFixed(1), 'kWh', '12 – 6 am at 8c'],
-      ['Grid used by day', grid.toFixed(1), 'kWh', `$${(grid * RATE.general).toFixed(2)} at 27.6c, riding out clouds`],
-      ['Saved vs off-peak', '$' + saving.toFixed(2), '', 'Solar instead of 8c off-peak, less 0.5c feed-in']
+      ['Solar into car', solar.toFixed(1), 'kWh', `$${saving.toFixed(2)} saved vs off-peak`],
+      ['Solar used in house', houseSolar.toFixed(1), 'kWh', `$${(houseSolar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs grid`],
+      ['Solar exported', (t.export_kwh || 0).toFixed(1), 'kWh', `$${((t.export_kwh || 0) * RATE.feedin).toFixed(2)} earned at 0.5c`]
     ];
     $('totals').innerHTML = rows.map(r => `<div class="fact"><div class="label">${r[0]}</div><div class="v">${r[1]}${r[2] ? `<small> ${r[2]}</small>` : ''}</div><div class="sub">${r[3]}</div></div>`).join('');
   }
