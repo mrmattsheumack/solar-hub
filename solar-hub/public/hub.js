@@ -616,7 +616,7 @@ window.Hub = (() => {
     // area for full screen (data-fs-bounds). The same area then shows whatever size the tile is.
     const toBounds = v => { if (!v) return null; const [s1, w, n, e] = v.split(',').map(Number); return L.latLngBounds([s1, w], [n, e]); };
     const viewB = toBounds(md.bounds), fsB = toBounds(md.fsBounds), locked = md.lock === '1';
-    map = L.map('map', { center: md.centre ? md.centre.split(',').map(Number) : RADAR_CENTRE, zoom: md.zoom ? +md.zoom : RADAR_ZOOM, minZoom: 5, maxZoom: 11, zoomControl: false, attributionControl: true, zoomSnap: viewB ? 0.1 : 0.5, fadeAnimation: false });   // tile fade-ins pass through partial opacity, which draws seams
+    map = L.map('map', { center: md.centre ? md.centre.split(',').map(Number) : RADAR_CENTRE, zoom: md.zoom ? +md.zoom : RADAR_ZOOM, minZoom: 5, maxZoom: 11, zoomControl: false, attributionControl: true, zoomSnap: viewB || fsB ? 1 : 0.5, fadeAnimation: false });   // tile fade-ins pass through partial opacity, which draws seams
     // BoM-style background: Esri's Ocean basemap (blue sea, pale land with relief), keyless.
     // (CARTO stopped serving keyless tiles in 2026; they come back watermarked.)
     const esri = n => `https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/${n}/MapServer/tile/{z}/{y}/{x}`;
@@ -640,7 +640,13 @@ window.Hub = (() => {
     const card = $('map').closest('.radar');
     const fitView = () => {
       const fs = card.classList.contains('fs'), b = fs ? (fsB || viewB) : viewB;
-      if (b) map.fitBounds(b, { animate: false, padding: fs ? [8, 8] : [0, 0] });
+      // Whole zoom levels only (in-between zooms scale the tiles and draw hairline seams): the nearest
+      // zoom to the area for the dashboard, the one that fits all of it for full-screen Victoria
+      if (b) {
+        const o = map.options.zoomSnap; map.options.zoomSnap = 0.01;
+        const zr = map.getBoundsZoom(b, false, L.point(fs ? 16 : 0, fs ? 16 : 0)); map.options.zoomSnap = o;
+        map.setView(b.getCenter(), fs ? Math.floor(zr) : Math.round(zr), { animate: false });
+      }
       map.getContainer().classList.toggle('state-view', map.getZoom() < 7.6);
     };
     const snap = () => {
