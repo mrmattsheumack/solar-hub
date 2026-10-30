@@ -880,7 +880,9 @@ body.dimmed .dim{opacity:.62}
   const BOM = [[0.2, 'f5f5ff'], [0.5, 'b4b4ff'], [1.5, '7878ff'], [2.5, '1414ff'], [4, '00d8c3'], [6, '009690'], [10, '006666'],
     [15, 'ffff00'], [20, 'ffc800'], [35, 'ff9600'], [50, 'ff6400'], [80, 'ff0000'], [120, 'c80000'], [200, '780000'], [300, '280000']]
     .map(([mm, hex]) => [10 * Math.log10(200 * mm ** 1.6), parseInt(hex, 16)]);
-  const MIN_DBZ = BOM[0][0];                       // 0.2 mm/h, about 12 dBZ
+  // Start at 15 dBZ (about 0.3 mm/h), RainViewer's first real rain colour. Below that their composite
+  // carries clutter and thin seam lines between radars, which BoM's lightest colour made look like gridlines.
+  const MIN_DBZ = 15;
   const bomColour = z => { let c = null; for (const [t, col] of BOM) if (z >= t) c = col; return c; };
   const RadarLayer = window.L ? L.TileLayer.extend({
     createTile(coords, done) {
