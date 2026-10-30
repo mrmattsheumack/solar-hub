@@ -278,9 +278,10 @@ a.wx-title:hover{color:var(--text)}
 .radar-time{font-size:11px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6);min-width:6ch}
 .rain-state{font-size:11px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6)}
 #map{cursor:zoom-in}
-.radar.is-fs #map,.radar.fs #map{cursor:zoom-out}
-.radar.is-fs,.radar.fs{border-radius:0;border:0}
-.radar.fs{position:fixed;inset:0;z-index:3000;height:100dvh}
+.radar.fs #map{cursor:zoom-out}
+.radar.fs{position:fixed;inset:0;z-index:3000;height:100dvh;border-radius:0;border:0;margin:0}
+body.radar-fs .screen{transform:none!important}
+body.radar-fs .sh-rail,body.radar-fs .sh-burger{visibility:hidden}
 /* weather tile with the today summary and beach line: tighter so it all fits a tablet */
 .wx .today-wx{padding:6px 10px;gap:10px;margin:0}
 .wx .today-wx svg{width:32px;height:35px}
@@ -296,3 +297,11 @@ a.wx-title:hover{color:var(--text)}
 .wx .today-wx .bq b{font-size:12px}
 .wx .today-wx .beachline{flex-wrap:nowrap;overflow:hidden;white-space:nowrap}
 .cars .carlink{gap:6px} .cars .crow{padding:8px 12px;gap:4px}
+.wx .today-wx > div{min-width:0}
+.wx .today-wx span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:1250px) and (min-width:1001px){
+  .wx .wgrid{column-gap:10px}
+  .wx .wrow .k{font-size:10px;letter-spacing:.03em}
+  .wx .wrow .v{font-size:14px}
+  .wx .wrow.alert .v{font-size:17px}
+}

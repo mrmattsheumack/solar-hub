@@ -630,18 +630,25 @@ window.Hub = (() => {
     window.addEventListener('resize', snap);
     $('screen')?.addEventListener('transitionend', snap);   // after each burn-in nudge
     snap();
-    // Tap the map for full screen (Esc, or tap again, to come back)
+    // Tap the map for full screen (tap again, or Esc, to come back). The radar fills the window
+    // straight away; on browsers that allow it, it also asks for true full screen.
     const card = $('map').closest('.radar');
-    const fsOn = () => document.fullscreenElement === card || card.classList.contains('fs');
-    const toggleFs = () => {
-      if (fsOn()) { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); card.classList.remove('fs'); }
-      else if (card.requestFullscreen) card.requestFullscreen().catch(() => card.classList.add('fs'));
-      else card.classList.add('fs');
-      setTimeout(snap, 350);
+    const setFs = on => {
+      card.classList.toggle('fs', on);
+      document.body.classList.toggle('radar-fs', on);
+      if (on && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+      if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+      setTimeout(snap, 60); setTimeout(snap, 400);
     };
-    map.on('click', toggleFs);
-    document.addEventListener('fullscreenchange', () => { card.classList.toggle('is-fs', document.fullscreenElement === card); setTimeout(snap, 200); });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') card.classList.remove('fs'); });
+    let down = null;
+    $('map').addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+    $('map').addEventListener('click', e => {
+      if (e.target.closest('.leaflet-control,.radar-bar,a,button')) return;
+      if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return;   // that was a drag
+      setFs(!card.classList.contains('fs'));
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && card.classList.contains('fs')) setFs(false); });
+    document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && card.classList.contains('fs')) setFs(false); });
     let mv; map.on('moveend', () => { clearTimeout(mv); mv = setTimeout(() => loadRadar(false), 500); });   // panned: re-stitch for the new view
   }
   let lastRadar = null, lastSig = '', rainByFrame = [];
