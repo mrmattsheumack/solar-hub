@@ -132,6 +132,8 @@ button{font:inherit;color:inherit}
 .legend span{display:flex;height:8px;border-radius:2px;overflow:hidden}
 .legend span i{display:block;width:7px;height:8px}
 .leaflet-tile-pane canvas.leaflet-tile{image-rendering:pixelated}
+/* overlap map tiles by half a pixel so scaled screens don't show hairline seams */
+.leaflet-tile-container img.leaflet-tile{width:256.5px!important;height:256.5px!important}
 .rain-state{flex:none;font-size:12px;color:var(--text-muted);white-space:nowrap}
 
 /* ---------- energy flow ---------- */
