@@ -419,7 +419,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     if (/off-peak window/.test(reason)) return { tag:'Off-peak', cls:'full', text:'Off-peak window, full rate' };
     if (/mode full/.test(reason)) return { tag:'Full', cls:'full', text:'Full speed mode' };
     if (/mode off/.test(reason)) return { tag:'Off', cls:'pause', text:'Charging turned off' };
-    if (/evening peak/.test(reason)) return { tag:'Evening', cls:'pause', text:'Evening peak rate, waiting for midnight' };
+    if (/evening peak/.test(reason)) return { tag:'Evening', cls:'pause', text: offpeakOn ? 'Evening peak rate, waiting for midnight' : 'Evening peak rate. Off-peak is off, so it waits for solar tomorrow' };
     if (/fail-safe/.test(reason)) return { tag:'Paused', cls:'pause', text:'No solar reading, paused to be safe' };
     if ((m = reason.match(/spare (-?\d+) W, holding (\d+)\/(\d+)s/))) return { tag:'Waiting', cls:'solar', text:`${kw(+m[1])} kW spare, checking it holds (${m[2]} of ${m[3]} s)` };
     if ((m = reason.match(/spare (-?\d+) W low, riding at min/))) return { tag:'Cloud', cls:'solar', text:`Spare solar dropped to ${kw(Math.max(0,+m[1]))} kW, easing at the minimum` };
