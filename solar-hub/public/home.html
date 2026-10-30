@@ -131,7 +131,6 @@ button{font:inherit;color:inherit}
 .legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted)}
 .legend span{display:flex;height:8px;border-radius:2px;overflow:hidden}
 .legend span i{display:block;width:7px;height:8px}
-.leaflet-tile-pane canvas.leaflet-tile{image-rendering:pixelated}
 
 .rain-state{flex:none;font-size:12px;color:var(--text-muted);white-space:nowrap}
 
@@ -850,7 +849,7 @@ body.dimmed .dim{opacity:.62}
     frames = past;
     // Unsmoothed tiles (0_0) so every pixel is an exact palette colour we can convert to BoM's scale
     layers = frames.map(f => new RadarLayer(`${j.host}${f.path}/256/{z}/{x}/{y}/2/0_0.png`, {
-      tileSize: 256, maxNativeZoom: 7, maxZoom: 11, opacity: 0, zIndex: 10,
+      tileSize: 256, maxZoom: 11, opacity: 0, zIndex: 10,
     }).addTo(map));
     $('frames').innerHTML = frames.map(() => '<i></i>').join('');
     // Once the newest frame's tiles are in, say plainly whether there's any rain in view
@@ -894,16 +893,22 @@ body.dimmed .dim{opacity:.62}
   // carries clutter and thin seam lines between radars, which BoM's lightest colour made look like gridlines.
   const MIN_DBZ = 15;
   const bomColour = z => { let c = null; for (const [t, col] of BOM) if (z >= t) c = col; return c; };
+  // The free tier stops at zoom 7. Rather than let Leaflet CSS-scale zoom-7 tiles (Chrome then draws
+  // hairline seams across the scaled layer), each tile at a deeper zoom draws its own quarter (or
+  // smaller) of the zoom-7 parent tile, enlarged pixel-for-pixel like the Bureau's blocky loops.
+  const NATIVE_Z = 7;
   const RadarLayer = window.L ? L.TileLayer.extend({
     createTile(coords, done) {
       const c = document.createElement('canvas'), sz = this.getTileSize();
       c.width = sz.x; c.height = sz.y;
+      const k = 2 ** Math.max(0, coords.z - NATIVE_Z);
+      const px = Math.floor(coords.x / k), py = Math.floor(coords.y / k), part = 256 / k;
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         const x = c.getContext('2d', { willReadFrequently: true });
         x.imageSmoothingEnabled = false;
-        x.drawImage(img, 0, 0, sz.x, sz.y);
+        x.drawImage(img, (coords.x - px * k) * part, (coords.y - py * k) * part, part, part, 0, 0, sz.x, sz.y);
         try {
           const d = x.getImageData(0, 0, sz.x, sz.y), p = d.data;
           let rain = 0;
@@ -920,7 +925,7 @@ body.dimmed .dim{opacity:.62}
         done(null, c);
       };
       img.onerror = () => done(new Error('radar tile'), c);
-      img.src = this.getTileUrl(coords);
+      img.src = L.Util.template(this._url, L.Util.extend({ x: px, y: py, z: Math.min(coords.z, NATIVE_Z) }, this.options));
       return c;
     },
   }) : null;
