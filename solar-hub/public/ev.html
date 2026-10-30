@@ -15,7 +15,7 @@
   --border:rgba(204,204,220,.08); --border-strong:rgba(204,204,220,.16);
   --text:#d8d9da; --text-muted:rgba(204,204,220,.65); --text-dim:rgba(204,204,220,.42);
   --green:#73bf69; --yellow:#fade2a; --blue:#5794f2; --blue-l:#8ab8ff; --red:#f2495c; --orange:#ff9830;
-  --import-soft:rgba(242,73,92,.5); --offpeak:rgba(87,148,242,.10); --peak:rgba(242,73,92,.07);
+  --import-soft:#e89cbd; --offpeak:rgba(87,148,242,.10); --peak:rgba(242,73,92,.07);
   --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
   color-scheme:dark;
 }
@@ -169,14 +169,6 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
 .how{margin-top:10px;font-size:12.5px;color:var(--text-muted)}
 .how summary{cursor:pointer;color:var(--text);font-weight:500}
 .how p{margin:6px 0 0;max-width:80ch}
-.strip{display:grid;grid-template-columns:6fr 15fr 3fr;border-radius:1px;overflow:hidden;font-size:12px;font-weight:600}
-.strip div{padding:8px 10px;min-width:0}
-.strip .op{background:var(--offpeak);color:var(--blue-l)}
-.strip .day{background:rgba(250,222,42,.10);color:var(--yellow)}
-.strip .ev{background:var(--peak);color:var(--red)}
-.strip span{display:block;font-weight:400;color:var(--text-muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.strip .now{outline:2px solid currentColor;outline-offset:-2px}
-.strip .op.skipped{background:var(--surface-2);color:var(--text-muted);text-decoration:line-through}
 .empty{color:var(--text-muted);font-size:13px;padding:8px 0}
 .foot{font-size:11.5px;color:var(--text-dim);margin:12px 2px 0}
 @media (max-width:700px){.top-right{width:100%;justify-content:flex-start}.mode-msg{text-align:left}}
@@ -241,21 +233,20 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
   </div>
   <div class="dash">
     <section class="panel span-4">
-      <div class="p-title"><span id="car-h">Car charging today</span>
+      <div class="p-title"><span id="car-h">Car charging</span>
         <div class="seg sm" role="tablist" aria-label="Which car">
           <button role="tab" data-carview="total" aria-pressed="true">Total</button>
           <button role="tab" data-carview="ioniq5" aria-pressed="false">IONIQ 5</button>
           <button role="tab" data-carview="ev5" aria-pressed="false">EV5</button>
         </div></div>
       <div id="car-pie"></div>
-      <div class="car-by" id="car-by"></div>
     </section>
     <section class="panel span-4">
-      <div class="p-title"><span id="solar-h">Solar today</span></div>
+      <div class="p-title"><span id="solar-h">Solar</span></div>
       <div id="solar-pie"></div>
     </section>
     <section class="panel span-4">
-      <div class="p-title"><span id="save-h">Savings today</span></div>
+      <div class="p-title"><span id="save-h">Savings</span></div>
       <table class="save" id="save"></table>
       <div class="facts-note" id="save-note"></div>
     </section>
@@ -271,17 +262,9 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
         <p>Each day's score out of 10 starts with the total sunlight forecast for the day, measured against a clear late-spring day in Dromana (about 7.8 kWh per m²). Patchy cloud then takes up to 3 points off, because cloud coming and going makes the charger pause and restart. Storms take off one more. Estimated generation assumes your 13.2 kW of panels turn about 65% of the forecast sunlight into power, allowing for panel angle, heat and the 10 kW inverter limit.</p>
       </details>
     </section>
-    <section class="panel span-12">
-      <div class="p-title"><span>The daily plan</span><span class="note">What Auto does across 24 hours</span></div>
-      <div class="strip">
-        <div class="op" id="w-offpeak">12 am – 6 am<span>Full rate, 8c off-peak</span></div>
-        <div class="day" id="w-day">6 am – 9 pm<span>Follow spare solar, pause below 1.4 kW</span></div>
-        <div class="ev" id="w-evening">9 pm<span>Off</span></div>
-      </div>
-    </section>
   </div>
 
-  <p class="foot">Live data from the controller on the Pi, refreshed every 30 seconds. Solar is read straight from the inverter; house use comes from GoodWe's cloud and runs a few minutes behind. EV5 battery from Kia Connect. Rates from the AGL bill (Night Saver EV): 27.6c general, 8c off-peak 12–6 am, 0.5c feed-in, $1.11 a day supply.</p>
+  <p class="foot">Refreshed every 30 seconds from the Pi. Solar from the inverter, house use from GoodWe (a few minutes behind), EV5 battery from Kia Connect. AGL Night Saver EV: 27.6c general, 8c off-peak 12–6 am, 0.5c feed-in, $1.11 a day supply.</p>
 </div>
 
 <script>
@@ -349,9 +332,6 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
   function showOffpeak(on){
     offpeakOn = on;
     $('offpeak-btn').setAttribute('aria-pressed', on ? 'true' : 'false');
-    const op = $('w-offpeak');
-    op.classList.toggle('skipped', !on);
-    op.innerHTML = on ? '12 am – 6 am<span>Full rate, 8c off-peak</span>' : '12 am – 6 am<span>Off, charging on solar instead</span>';
   }
   $('offpeak-btn').addEventListener('click', async () => {
     const want = !offpeakOn; offpeakBusy = true; $('offpeak-btn').disabled = true; $('mode-msg').textContent = 'Saving…';
@@ -507,7 +487,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
       }
       const hrs = T[`car_${pk}_hours`] || 0, so = T[`car_${pk}_solar_kwh`] || 0, op = T[`car_${pk}_offpeak_kwh`] || 0, gd = T[`car_${pk}_grid_day_kwh`] || 0, tot = so + op + gd;
       lines.push(hrs >= 1/60 ? `Charged today for <b>${hm(hrs)}</b>` : 'Not charged today');
-      const parts = [['Solar', so, '#fade2a'], ['Off-peak', op, 'rgba(87,148,242,.85)'], ['On-peak', gd, '#f2495c']];
+      const parts = [['Solar', so, '#fade2a'], ['Off-peak', op, '#e89cbd'], ['On-peak', gd, '#f2495c']];
       const srcBar = tot >= 0.05 ? `<div class="src-bar" role="img" aria-label="Today: ${parts.map(([n,v]) => `${n} ${v.toFixed(1)} kWh`).join(', ')}">${parts.map(([n,v,col]) => v > 0 ? `<div style="width:${(100*v/tot).toFixed(1)}%;background:${col}"></div>` : '').join('')}</div>
         <div class="src-leg">${parts.filter(([,v]) => v >= 0.05).map(([n,v,col]) => `<span><i style="background:${col}"></i>${n} <b>${v.toFixed(1)} kWh</b> · ${Math.round(100*v/tot)}%</span>`).join('')}</div>` : '';
       const bg = hasPhoto[k] ? `<img src="${car.photo}" alt="">` : carSVG(k);
@@ -556,7 +536,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     });
     s += `<circle cx="${hub[0]}" cy="${hub[1]}" r="11" fill="#22252b" stroke="rgba(204,204,220,.3)" stroke-width="1.5"/><circle cx="${hub[0]}" cy="${hub[1]}" r="4" fill="rgba(204,204,220,.55)"/>`;
     Object.entries(nodes).forEach(([k, n]) => {
-      const [x, y] = n.p, v = n.w == null ? '–' : watt(n.w), sub = `${esc(n.name)} · ${(n.kwh || 0).toFixed(1)} kWh today`;
+      const [x, y] = n.p, v = n.w == null ? '–' : watt(n.w), sub = esc(n.name);
       s += `<circle cx="${x}" cy="${y}" r="${R}" fill="#1d2025" stroke="${n.col}" stroke-width="2" stroke-opacity="${active[k] ? 1 : .35}"/><g transform="translate(${x} ${y}) scale(.9)">${ICON[k]}</g>`;
       const tx = n.side === 'left' ? x - R - 12 : x + R + 12, anc = n.side === 'left' ? 'end' : 'start';
       s += `<text x="${tx}" y="${y - 2}" text-anchor="${anc}" fill="${n.col}" font-size="20" font-weight="600" font-family="Inter, sans-serif">${v}</text><text x="${tx}" y="${y + 16}" text-anchor="${anc}" fill="rgba(204,204,220,.65)" font-size="12" font-family="Inter, sans-serif">${sub}</text>`;
@@ -570,7 +550,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const stat = (x, k, v, col, sub) => `<text x="${x}" y="62" text-anchor="middle" fill="#d8d9da" font-size="14" font-family="Inter, sans-serif">${k}</text>
       <text x="${x}" y="102" text-anchor="middle" fill="${col}" font-size="36" font-weight="600" font-family="Inter, sans-serif">${v}</text>
       <text x="${x}" y="124" text-anchor="middle" fill="rgba(204,204,220,.42)" font-size="11.5" font-family="Inter, sans-serif">${sub}</text>`;
-    s += stat(100, 'Cost today', `$${cost.toFixed(2)}`, cost > 10 ? '#ff9830' : '#73bf69', `incl. $${RATE.supply.toFixed(2)} supply`);
+    s += stat(100, 'Cost today', `$${cost.toFixed(2)}`, cost > 10 ? '#ff9830' : '#73bf69', `${imp.toFixed(1)} kWh from the grid, incl. supply`);
     s += stat(1100, 'Self sufficiency', self == null ? '–' : self + '%', selfCol, "of today's use from solar");
     $('flow').innerHTML = s;
     $('flow').setAttribute('aria-label', `Right now: solar ${watt(pv)}, house ${watt(houseW)}, car ${watt(watts)}, grid ${g == null ? 'unknown' : g < 0 ? 'exporting ' + watt(-g) : 'importing ' + watt(g)}. Cost today $${cost.toFixed(2)}, ${self ?? '–'}% self-sufficient.`);
@@ -584,7 +564,6 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
   // ---------- header bits ----------
   function renderStatus(d){
     const L = d.latest || {};
-    ['w-offpeak','w-day','w-evening'].forEach(id => $(id).classList.toggle('now', id === 'w-' + L.window));
     const age = L.ts ? (Date.now() - new Date(L.ts).getTime()) / 1000 : 1e9;
     const pill = $('status-pill');
     if (age > 180) { pill.className = 'pill err'; $('status-text').textContent = `No update for ${Math.round(age/60)} min`; }
@@ -628,28 +607,25 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const svg = `<svg viewBox="0 0 150 150" role="img" aria-label="${esc(note)}">${arcs}
       <text x="75" y="74" text-anchor="middle" fill="#d8d9da" font-family="Inter, sans-serif" font-size="22" font-weight="600">${total.toFixed(1)}</text>
       <text x="75" y="92" text-anchor="middle" fill="rgba(204,204,220,.65)" font-family="Inter, sans-serif" font-size="11">${centre}</text></svg>`;
-    const leg = segs.map(([n, v, col, sub]) => `<div><i style="background:${col}"></i><span class="k">${n}</span><b>${v.toFixed(1)} kWh <small>${total > 0 ? Math.round(100 * v / total) : 0}%</small></b><span class="s">${sub}</span></div>`).join('');
-    return `<div class="pie-box">${svg}<div class="pie-leg">${leg}</div></div><div class="facts-note">${esc(note)}</div>`;
+    const leg = segs.map(([n, v, col]) => `<div><i style="background:${col}"></i><span class="k">${n}</span><b>${v.toFixed(1)} kWh <small>${total > 0 ? Math.round(100 * v / total) : 0}%</small></b></div>`).join('');
+    return `<div class="pie-box">${svg}<div class="pie-leg">${leg}</div></div>`;
   }
   function renderTotals(t){
     if (t) liveTotals = t;
     const T = periodTotals(), name = PERIOD_NAME[period];
     document.querySelectorAll('.period button').forEach(b => b.setAttribute('aria-pressed', b.dataset.period === period ? 'true' : 'false'));
     $('energy-h').textContent = 'Energy ' + name;
-    $('car-h').textContent = 'Car charging ' + name;
-    $('solar-h').textContent = 'Solar ' + name;
+    $('car-h').textContent = 'Car charging';
+    $('solar-h').textContent = 'Solar';
     document.querySelectorAll('[data-carview]').forEach(b => b.setAttribute('aria-pressed', b.dataset.carview === carView ? 'true' : 'false'));
     const pre = carView === 'total' ? 'car_' : `car_${carView}_`, who = carView === 'total' ? 'the cars' : carView === 'ev5' ? 'the EV5' : 'the IONIQ 5';
     const solar = T[pre + 'solar_kwh'] || 0, off = T[pre + 'offpeak_kwh'] || 0, grid = T[pre + 'grid_day_kwh'] || 0, carTotal = solar + off + grid;
     $('car-pie').innerHTML = pie([
       ['From solar', solar, '#fade2a', `$${(solar * (RATE.offpeak - RATE.feedin)).toFixed(2)} saved vs off-peak`],
-      ['Grid, off-peak', off, 'rgba(242,73,92,.5)', `$${(off * RATE.offpeak).toFixed(2)} at 8c`],
+      ['Grid, off-peak', off, '#e89cbd', `$${(off * RATE.offpeak).toFixed(2)} at 8c`],
       ['Grid, daytime', grid, '#f2495c', `$${(grid * RATE.general).toFixed(2)} at 27.6c`]
     ], carTotal, carView === 'total' ? 'kWh, both cars' : (carView === 'ev5' ? 'kWh, EV5' : 'kWh, IONIQ 5'), `${carTotal.toFixed(1)} kWh into ${who} ${name}.`);
-    const byCar = [['ev5','EV5'],['ioniq5','IONIQ 5'],['unknown','Not identified']].filter(([c]) => (T[`car_${c}_kwh`] || 0) >= 0.05)
-      .map(([c, n]) => { const k = T[`car_${c}_kwh`] || 0, so = T[`car_${c}_solar_kwh`] || 0;
-        return `<span>${n} <b>${k.toFixed(1)} kWh</b>${so >= 0.05 ? ` · ${so.toFixed(1)} from solar` : ''}</span>`; });
-    $('car-by').innerHTML = carView === 'total' && byCar.length ? '<span>By car:</span>' + byCar.join('') : '';
+
     const houseSolar = T.house_solar_kwh || 0, exp = T.export_kwh || 0, carSolarAll = T.car_solar_kwh || 0;
     const solarTotal = Math.max(T.solar_kwh || 0, carSolarAll + houseSolar + exp);
     $('solar-pie').innerHTML = pie([
@@ -660,7 +636,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     renderSavings(T, name);
   }
   function renderSavings(T, name){
-    $('save-h').textContent = 'Savings ' + name;
+    $('save-h').textContent = 'Savings';
     const g = RATE.general, o = RATE.offpeak, f = RATE.feedin, c = v => (v * 100).toFixed(1).replace(/\.0$/, '') + 'c';
     const groups = [
       ['Solar', 'Solar savings', [
@@ -669,19 +645,19 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
         ['Solar exported', T.export_kwh || 0, f, `feed-in credit at ${c(f)}`, 'rgba(204,204,220,.42)']
       ]],
       ['Off-peak', 'Off-peak savings', [
-        ['Car charged off-peak', T.car_offpeak_kwh || 0, g - o, `at ${c(o)} instead of the ${c(g)} general rate`, 'rgba(242,73,92,.5)']
+        ['Car charged off-peak', T.car_offpeak_kwh || 0, g - o, `at ${c(o)} instead of the ${c(g)} general rate`, '#e89cbd']
       ]]
     ];
     let total = 0, body = '';
     groups.forEach(([head, subName, rows]) => {
       let sub = 0, subKwh = 0;
-      body += `<tr class="grp"><td colspan="3">${head}</td></tr>`;
+      body += `<tr class="grp"><td colspan="2">${head}</td></tr>`;
       rows.forEach(([n, kwh, rate, how, col]) => { const v = kwh * rate; sub += v; subKwh += kwh;
-        body += `<tr title="${esc(how)}"><td><i style="background:${col}"></i>${n}</td><td>${kwh.toFixed(1)}</td><td class="money">$${v.toFixed(2)}</td></tr>`; });
-      body += `<tr class="sub"><td>${subName}</td><td>${subKwh.toFixed(1)}</td><td class="money">$${sub.toFixed(2)}</td></tr>`;
+        body += `<tr title="${esc(how)}"><td><i style="background:${col}"></i>${n}</td><td class="money">$${v.toFixed(2)}</td></tr>`; });
+      body += `<tr class="sub"><td>${subName}</td><td class="money">$${sub.toFixed(2)}</td></tr>`;
       total += sub;
     });
-    $('save').innerHTML = `<thead><tr><th>Source</th><th>kWh</th><th>Saved</th></tr></thead><tbody>${body}<tr class="total"><td>Grand total</td><td></td><td class="money">$${total.toFixed(2)}</td></tr></tbody>`;
+    $('save').innerHTML = `<thead><tr><th>Source</th><th>Saved</th></tr></thead><tbody>${body}<tr class="total"><td>Grand total</td><td class="money">$${total.toFixed(2)}</td></tr></tbody>`;
     const carCost = (T.car_offpeak_kwh || 0) * o + (T.car_grid_day_kwh || 0) * g;
     const days = period === 'today' ? 1 : (T._days || 1);
     $('save-note').textContent = (days > 1 ? `About $${(total / days).toFixed(2)} a day over ${days} days. ` : '') +
@@ -739,7 +715,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     area('home','#5794f2',0.10,false);
     // house line: blue when solar covers it, red when it's drawing from the grid (lighter red off-peak)
     segs.forEach(sg => { for (let i=1;i<sg.length;i++){ const a=sg[i-1], b=sg[i], fromGrid = (a.home+a.car+b.home+b.car)/2 > (a.pv+b.pv)/2 + 0.05;
-      el('line',{x1:x(a.h).toFixed(1),y1:y(a.home).toFixed(1),x2:x(b.h).toFixed(1),y2:y(b.home).toFixed(1),stroke: fromGrid ? (b.h <= 6 ? 'rgba(242,73,92,.6)' : '#f2495c') : '#8ab8ff','stroke-width':1.6,'stroke-linecap':'round'}); } });
+      el('line',{x1:x(a.h).toFixed(1),y1:y(a.home).toFixed(1),x2:x(b.h).toFixed(1),y2:y(b.home).toFixed(1),stroke: fromGrid ? (b.h <= 6 ? '#e89cbd' : '#f2495c') : '#8ab8ff','stroke-width':1.6,'stroke-linecap':'round'}); } });
     if (fp.length) el('path',{d: fp.map((p,i)=>(i?'L':'M')+x(p.h).toFixed(1)+','+y(p.v).toFixed(1)).join(' '), fill:'none', stroke:'#fade2a', 'stroke-width':1.6, 'stroke-dasharray':'4 4', opacity:.85});
     el('line',{x1:x(nowH),x2:x(nowH),y1:T,y2:H-B,stroke:'rgba(204,204,220,.35)','stroke-dasharray':'3 3'});
     el('text',{x:x(nowH)+4,y:T+12,'font-size':10.5,fill:'rgba(204,204,220,.55)','font-family':'Inter, sans-serif'},'now');
@@ -748,7 +724,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const item = (style, name, cls) => `<span class="n"><i${cls ? ` class="${cls}"` : ''} style="${style}"></i>${name}</span>`;
     $('ts-leg').innerHTML = item('background:#fade2a', 'Solar generation') +
       (fp.length > 1 ? item('', `Solar forecast, ≈ ${fcRest.toFixed(1)} kWh more today`, 'dash') : '') +
-      item('background:#8ab8ff', 'House') + item('background:#f2495c', 'House from the grid') + item('background:rgba(242,73,92,.6)', 'House from the grid, off-peak') +
+      item('background:#8ab8ff', 'House') + item('background:#f2495c', 'House from the grid') + item('background:#e89cbd', 'House from the grid, off-peak') +
       item('background:#73bf69', 'Car charging') + item('background:rgba(87,148,242,.35)', 'Off-peak window');
   }
 
