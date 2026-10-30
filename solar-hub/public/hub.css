@@ -124,8 +124,7 @@ a.note:hover{border-color:var(--border-strong)}
   text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 2px #fff}
 .town i{width:5px;height:5px;border-radius:50%;background:#3b4250;box-shadow:0 0 0 1.5px #fff;flex:none}
 .town.big{font-size:13px;font-weight:700;color:#222833}
-/* Esri's Ocean tiles carry a faint light row on some edges; draw each a pixel larger and clip it off */
-.basemap img.leaflet-tile{width:258px!important;height:258px!important;margin:-1px 0 0 -1px;clip-path:inset(1px)}
+
 
 /* ---------- energy flow ---------- */
 

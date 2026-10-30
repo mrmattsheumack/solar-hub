@@ -620,7 +620,24 @@ window.Hub = (() => {
     // BoM-style background: Esri's Ocean basemap (blue sea, pale land with relief), keyless.
     // (CARTO stopped serving keyless tiles in 2026; they come back watermarked.)
     const esri = n => `https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/${n}/MapServer/tile/{z}/{y}/{x}`;
-    L.tileLayer(esri('World_Ocean_Base'), { maxZoom: 13, className: 'basemap', attribution: 'Tiles © Esri, GEBCO, NOAA, Garmin, HERE' }).addTo(map);
+    // Esri's Ocean tiles carry a pale one-pixel border on some edges, which shows as faint gridlines.
+    // Each tile is redrawn with its outer rows and columns copied from the ones just inside.
+    const CleanTiles = L.TileLayer.extend({
+      createTile(coords, done) {
+        const c = document.createElement('canvas'); c.width = c.height = 256;
+        const img = new Image(); img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const x = c.getContext('2d'); x.drawImage(img, 0, 0);
+          x.drawImage(c, 0, 1, 256, 1, 0, 0, 256, 1); x.drawImage(c, 0, 254, 256, 1, 0, 255, 256, 1);
+          x.drawImage(c, 1, 0, 1, 256, 0, 0, 1, 256); x.drawImage(c, 254, 0, 1, 256, 255, 0, 1, 256);
+          done(null, c);
+        };
+        img.onerror = () => done(new Error('map tile'), c);
+        img.src = this.getTileUrl(coords);
+        return c;
+      },
+    });
+    new CleanTiles(esri('World_Ocean_Base'), { maxZoom: 13, className: 'basemap', attribution: 'Tiles © Esri, GEBCO, NOAA, Garmin, HERE' }).addTo(map);
     // Town names drawn as our own labels above the radar, like the Bureau's maps. (Esri's labels layer
     // left a faint seam along its tile edges.)
     [['Melbourne', -37.8136, 144.9631, 1], ['Geelong', -38.1499, 144.3617, 1], ['Frankston', -38.144, 145.123, 0], ['Dandenong', -37.987, 145.215, 0],
