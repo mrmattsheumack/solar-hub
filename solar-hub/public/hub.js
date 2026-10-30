@@ -655,8 +655,11 @@ window.Hub = (() => {
     // The grid puts the map at fractional pixel positions; on retina screens that makes the browser resample
     // every tile and draws hairline seams along tile edges. Nudge the map onto whole pixels whenever it moves.
     const card = $('map').closest('.radar');
+    let fsFitUntil = 0;
     const fitView = () => {
-      const fs = card.classList.contains('fs'), b = fs ? (fsB || viewB) : viewB;
+      const fs = card.classList.contains('fs');
+      if (fs && Date.now() > fsFitUntil) return;   // in full screen, fit Victoria only while it opens; after that it's yours to zoom
+      const b = fs ? (fsB || viewB) : viewB;
       // Whole zoom levels only (in-between zooms scale the tiles and draw hairline seams): the nearest
       // zoom to the area for the dashboard, the one that fits all of it for full-screen Victoria
       if (b) {
@@ -684,7 +687,7 @@ window.Hub = (() => {
     map.on('zoomend', () => map.getContainer().classList.toggle('state-view', map.getZoom() < 7.6));
     new ResizeObserver(snap).observe($('map').parentElement);
     window.addEventListener('resize', snap);
-    $('screen')?.addEventListener('transitionend', snap);   // after each burn-in nudge
+    $('screen')?.addEventListener('transitionend', e => { if (e.target === $('screen')) snap(); });   // after each burn-in nudge (not the map's own zoom animations)
     snap();
     // Tap the map for full screen (tap again, or Esc, to come back). The radar fills the window
     // straight away; on browsers that allow it, it also asks for true full screen.
@@ -692,6 +695,7 @@ window.Hub = (() => {
     const setFs = on => {
       if (on && !viewB) before = [map.getCenter(), map.getZoom()];
       if (!on && !viewB && before) setTimeout(() => map.setView(before[0], before[1], { animate: false }), 450);
+      fsFitUntil = on ? Date.now() + 1200 : 0;
       card.classList.toggle('fs', on);
       if (on) { setLock(false); zoomCtl.addTo(map); } else { zoomCtl.remove(); if (locked) setLock(true); }
       document.body.classList.toggle('radar-fs', on);
