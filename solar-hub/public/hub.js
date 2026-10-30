@@ -649,13 +649,16 @@ window.Hub = (() => {
       }
       map.getContainer().classList.toggle('state-view', map.getZoom() < 7.6);
     };
-    const snap = () => {
+    const snapPos = () => {
       const m = $('map'), r = m.parentElement.getBoundingClientRect();
       m.style.left = (Math.round(r.left) - r.left) + 'px';     // full precision: even 0.01 px brings the seams back
       m.style.top = (Math.round(r.top) - r.top) + 'px';
-      map.invalidateSize();
-      fitView();
     };
+    const snap = () => { snapPos(); map.invalidateSize(); fitView(); };
+    // On a phone the page scrolls, and a scroll can leave the map half a pixel off: re-align as it scrolls
+    let sf = 0;
+    window.addEventListener('scroll', () => { if (!sf) sf = requestAnimationFrame(() => { sf = 0; snapPos(); }); }, { passive: true });
+    window.addEventListener('scrollend', snapPos, { passive: true });
     // Locked: no dragging or pinching on the wall screen, so a passing hand can't move it
     const setLock = on => ['dragging', 'touchZoom', 'scrollWheelZoom', 'doubleClickZoom', 'boxZoom', 'keyboard'].forEach(k => map[k] && (on ? map[k].disable() : map[k].enable()));
     if (locked) setLock(true);
