@@ -708,13 +708,39 @@ body.dimmed .dim{opacity:.62}
     if (key === frames.map(f => f.path).join()) return;           // nothing new
     layers.forEach(l => map.removeLayer(l));
     frames = past;
-    // Universal Blue (scheme 2) is the only scheme left on the free API; smoothed, no snow
-    layers = frames.map(f => L.tileLayer(`${j.host}${f.path}/256/{z}/{x}/{y}/2/1_0.png`, {
+    // Universal Blue (scheme 2) is the only scheme left on the free API; smoothed, no snow.
+    // Its lowest band is a beige wash (clutter and the faintest drizzle) that muddies the map, so drop it.
+    layers = frames.map(f => new RadarLayer(`${j.host}${f.path}/256/{z}/{x}/{y}/2/1_0.png`, {
       tileSize: 256, maxNativeZoom: 7, maxZoom: 11, opacity: 0, zIndex: 10,
     }).addTo(map));
     $('frames').innerHTML = frames.map(() => '<i></i>').join('');
     showFrame(frames.length - 1);
   }
+  // Tile layer that draws each radar tile to a canvas and clears the beige low band.
+  // Real rain in Universal Blue is cyan/blue, then yellow, orange, red; those are kept.
+  const isClutter = (r, g, b, al) => al < 50 || (r <= 205 && r >= b + 22 && g >= b + 14 && Math.abs(r - g) < 32);
+  const RadarLayer = window.L ? L.TileLayer.extend({
+    createTile(coords, done) {
+      const c = document.createElement('canvas'), sz = this.getTileSize();
+      c.width = sz.x; c.height = sz.y;
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const x = c.getContext('2d', { willReadFrequently: true });
+        x.drawImage(img, 0, 0, sz.x, sz.y);
+        try {
+          const d = x.getImageData(0, 0, sz.x, sz.y), p = d.data;
+          for (let k = 0; k < p.length; k += 4) if (p[k + 3] && isClutter(p[k], p[k + 1], p[k + 2], p[k + 3])) p[k + 3] = 0;
+          x.putImageData(d, 0, 0);
+        } catch (e) { /* CORS refused: keep the unfiltered tile */ }
+        done(null, c);
+      };
+      img.onerror = () => done(new Error('radar tile'), c);
+      img.src = this.getTileUrl(coords);
+      return c;
+    },
+  }) : null;
+
   function showFrame(i) {
     if (!layers.length) return;
     layers.forEach((l, k) => l.setOpacity(k === i ? 0.72 : 0));
