@@ -50,22 +50,43 @@ exports.handler = async (event) => {
     const outdoor = d.outdoor || {};
     const solar = d.solar_and_uvi || {};
     const wind = d.wind || {};
-    const rainfall = d.rainfall || {};
+    // The WS90 has a piezo (haptic) rain sensor, which the v3 API reports under
+    // rainfall_piezo rather than rainfall. Prefer it, fall back to a tipping bucket.
+    const hasRain = (o) => o && Object.keys(o).length > 0;
+    const rainfall = hasRain(d.rainfall_piezo) ? d.rainfall_piezo : (d.rainfall || {});
+    const rainSource = hasRain(d.rainfall_piezo) ? "piezo" : (hasRain(d.rainfall) ? "bucket" : null);
     const pressure = d.pressure || {};
     const indoor = d.indoor || {};
 
+    // Zero is a real reading (0 mm rain, calm wind, 0 °C). Only a missing or
+    // non-numeric value becomes null. The old `|| null` turned every 0 into null.
+    const num = (v) => {
+      const n = parseFloat(v?.value);
+      return Number.isFinite(n) ? n : null;
+    };
+
     const payload = {
-      temperature: parseFloat(outdoor.temperature?.value) || null,
-      humidity: parseFloat(outdoor.humidity?.value) || null,
-      solarIrradiance: parseFloat(solar.solar?.value) || null,  // W/m²
-      uvi: parseFloat(solar.uvi?.value) || null,
-      windSpeed: parseFloat(wind.wind_speed?.value) || null,
-      windDirection: wind.wind_direction?.value || null,
-      rainRate: parseFloat(rainfall.rain_rate?.value) || null,
-      rainDaily: parseFloat(rainfall.daily?.value) || null,
-      pressure: parseFloat(pressure.relative?.value) || null,
-      indoorTemp: parseFloat(indoor.temperature?.value) || null,
-      indoorHumidity: parseFloat(indoor.humidity?.value) || null,
+      temperature: num(outdoor.temperature),
+      humidity: num(outdoor.humidity),
+      feelsLike: num(outdoor.feels_like),
+      dewPoint: num(outdoor.dew_point),
+      solarIrradiance: num(solar.solar),  // W/m²
+      uvi: num(solar.uvi),
+      windSpeed: num(wind.wind_speed),
+      windGust: num(wind.wind_gust),
+      windDirection: num(wind.wind_direction),
+      rainRate: num(rainfall.rain_rate),
+      rainDaily: num(rainfall.daily),
+      rainEvent: num(rainfall.event),
+      rainHourly: num(rainfall.hourly) ?? num(rainfall["1_hour"]),
+      rainWeekly: num(rainfall.weekly),
+      rainMonthly: num(rainfall.monthly),
+      rainYearly: num(rainfall.yearly),
+      rainSource,
+      pressure: num(pressure.relative),
+      indoorTemp: num(indoor.temperature),
+      indoorHumidity: num(indoor.humidity),
+      stationTime: d.outdoor?.temperature?.time ? new Date(Number(d.outdoor.temperature.time) * 1000).toISOString() : null,
       timestamp: new Date().toISOString(),
     };
 

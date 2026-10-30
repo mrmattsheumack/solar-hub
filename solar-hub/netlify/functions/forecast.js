@@ -27,6 +27,8 @@ exports.handler = async (event) => {
         "precipitation_probability",
         "precipitation",
         "weather_code",
+        "wind_speed_10m",
+        "wind_gusts_10m",
       ].join(","),
       daily: [
         "sunrise",
@@ -34,6 +36,10 @@ exports.handler = async (event) => {
         "uv_index_max",
         "precipitation_sum",
         "weather_code",
+        "temperature_2m_max",
+        "temperature_2m_min",
+        "precipitation_probability_max",
+        "wind_gusts_10m_max",
       ].join(","),
       timezone: "Australia/Melbourne",
       forecast_days: 7,
@@ -52,6 +58,8 @@ exports.handler = async (event) => {
     const precipProb = hourly.precipitation_probability || [];
     const precip = hourly.precipitation || [];
     const weatherCode = hourly.weather_code || [];
+    const windSpeed = hourly.wind_speed_10m || [];
+    const windGust = hourly.wind_gusts_10m || [];
 
     const hourlyFormatted = times.map((t, i) => ({
       time: t,
@@ -63,6 +71,8 @@ exports.handler = async (event) => {
       precipProbability: precipProb[i] || 0,
       precipitation: precip[i] || 0,
       weatherCode: weatherCode[i] || 0,
+      windSpeed: windSpeed[i] ?? null,   // km/h
+      windGust: windGust[i] ?? null,     // km/h
     }));
 
     const daily = data.daily || {};
@@ -73,6 +83,10 @@ exports.handler = async (event) => {
       uvIndexMax: daily.uv_index_max?.[i],
       precipitationSum: daily.precipitation_sum?.[i],
       weatherCode: daily.weather_code?.[i],
+      tempMax: daily.temperature_2m_max?.[i],
+      tempMin: daily.temperature_2m_min?.[i],
+      precipProbabilityMax: daily.precipitation_probability_max?.[i],
+      windGustMax: daily.wind_gusts_10m_max?.[i],
     }));
 
     return {

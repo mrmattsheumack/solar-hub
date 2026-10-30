@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f1a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Home Overview · Solar Hub</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+/* Solar Hub Home Overview. Always-on wall display that pulls weather, the WS90,
+   rain radar, solar and EV charging into one screen. Read-only: controls live on
+   ev.html and index.html. Tokens match ev.html (dark-first). */
+:root{
+  --bg:#0b0f1a; --surface:#121828; --surface-2:#1a2137; --surface-3:#242c46;
+  --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
+  --text:#ecedf5; --text-muted:#8890a8; --text-dim:#5a6178;
+  --solar:#f5a623; --export:#00d4a6; --import:#ff5470; --import-soft:rgba(255,84,112,.45);
+  --home:#7ba3f7; --car:#00d4a6; --rain:#4fb3ff; --offpeak:rgba(123,163,247,.08);
+  --warn:#f5a623; --ok:#00d4a6;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --gap:clamp(10px,1.1vw,18px); --pad:clamp(14px,1.4vw,22px); --radius:16px;
+  color-scheme:dark;
+}
+:root[data-theme="light"]{
+  --bg:#f6f5ef; --surface:#ffffff; --surface-2:#faf9f3; --surface-3:#f0ede2;
+  --border:rgba(0,0,0,.08); --border-strong:rgba(0,0,0,.16);
+  --text:#1b1f2a; --text-muted:#6b7286; --text-dim:#9aa0b4;
+  --solar:#d9890a; --export:#00a383; --import:#e0304f; --import-soft:rgba(224,48,79,.4);
+  --home:#4a76d8; --car:#00a383; --rain:#1f7fd1; --offpeak:rgba(74,118,216,.07);
+  --warn:#c77a00; --ok:#00a383; color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.45;
+  -webkit-font-smoothing:antialiased;overflow:hidden}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
+a{color:inherit}
+button{font:inherit;color:inherit}
+
+/* Whole screen. Shifted a pixel or two every few minutes to spare the panel. */
+.screen{height:100dvh;display:grid;gap:var(--gap);
+  padding:calc(var(--gap) + env(safe-area-inset-top,0px)) max(var(--gap),env(safe-area-inset-right,0px)) calc(var(--gap) + env(safe-area-inset-bottom,0px)) max(var(--gap),env(safe-area-inset-left,0px));
+  grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) minmax(0,1fr);
+  grid-template-rows:auto minmax(0,1.12fr) minmax(0,1fr);
+  grid-template-areas:"head head head" "wx radar energy" "today today fc";
+  transition:transform 2s ease}
+
+/* ---------- header ---------- */
+.head{grid-area:head;display:flex;align-items:center;justify-content:space-between;gap:16px;min-width:0}
+.head-left{display:flex;align-items:baseline;gap:18px;min-width:0}
+.clock{font-family:var(--mono);font-size:clamp(34px,3.6vw,58px);font-weight:500;letter-spacing:-.03em;line-height:1}
+.date{display:flex;flex-direction:column;gap:2px}
+.date b{font-size:clamp(15px,1.2vw,19px);font-weight:600;white-space:nowrap}
+.date span{color:var(--text-muted);font-size:13px;white-space:nowrap}
+.head-mid{flex:1;min-width:0;display:flex;justify-content:center}
+.notes{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;min-width:0;height:38px;overflow:hidden}
+.note{flex:none;display:flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:999px;background:var(--surface);border:1px solid var(--border);
+  font-size:14px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.note i{width:8px;height:8px;border-radius:50%;flex:none;background:var(--text-muted)}
+.note.rain i{background:var(--rain)} .note.sun i{background:var(--solar)} .note.car i{background:var(--car)}
+.note.warn i{background:var(--import)} .note.wind i{background:var(--home)}
+.head-right{display:flex;align-items:center;gap:10px;flex:none}
+.dots{display:flex;gap:6px;padding:8px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--border)}
+.dot{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted);letter-spacing:.04em}
+.dot i{width:7px;height:7px;border-radius:50%;background:var(--text-dim)}
+.dot b{font-weight:500}
+@media (max-width:1700px){ .dot b{display:none} .dots{gap:8px} }
+.dot.ok i{background:var(--ok)} .dot.stale i{background:var(--warn)} .dot.err i{background:var(--import)}
+.btn{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px;border-radius:12px;background:var(--surface);
+  border:1px solid var(--border);text-decoration:none;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--border-strong)}
+.btn:focus-visible,.card-link:focus-visible{outline:2px solid var(--export);outline-offset:2px}
+.btn.icon{width:38px;padding:0;justify-content:center}
+.btn svg{width:16px;height:16px}
+
+/* ---------- cards ---------- */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:var(--pad);
+  min-width:0;min-height:0;display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none}
+.card-head h2{margin:0;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
+.card-head .meta{font-size:12px;color:var(--text-dim);white-space:nowrap}
+.card-link{text-decoration:none;font-size:13px;color:var(--text-muted);white-space:nowrap}
+.card-link:hover{color:var(--text)}
+.empty{color:var(--text-muted);font-size:14px;margin:auto;text-align:center;padding:10px}
+
+/* ---------- outside (WS90) ---------- */
+.wx{grid-area:wx}
+.wx-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.temp{font-family:var(--mono);font-size:clamp(52px,5.4vw,92px);font-weight:500;letter-spacing:-.05em;line-height:.9}
+.temp sup{font-size:.42em;letter-spacing:0;vertical-align:.95em;margin-left:2px;color:var(--text-muted)}
+.wx-sub{text-align:right;color:var(--text-muted);font-size:14px;display:flex;flex-direction:column;gap:2px}
+.wx-sub b{color:var(--text);font-weight:500;font-family:var(--mono)}
+.facts{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:minmax(0,1fr);gap:8px;flex:1;min-height:0;max-height:260px}
+.fact{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;min-width:0}
+.fact .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
+.fact .v{font-family:var(--mono);font-size:clamp(16px,1.35vw,21px);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fact .v small{font-size:.62em;color:var(--text-muted);margin-left:3px;font-weight:400}
+.fact .s{font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fact-body{min-width:0;flex:1}
+.compass{width:42px;height:42px;flex:none}
+.raining{color:var(--rain)}
+
+/* ---------- radar ---------- */
+.radar{grid-area:radar;padding:0}
+.radar .card-head{position:absolute;top:0;left:0;right:0;z-index:500;padding:var(--pad);pointer-events:none;
+  background:linear-gradient(var(--surface) 0%,color-mix(in srgb,var(--surface) 70%,transparent) 55%,transparent)}
+.radar .card-head > *{pointer-events:auto}
+#map{position:absolute;inset:0;background:var(--surface-2)}
+.leaflet-container{font-family:var(--sans);background:var(--surface-2)}
+.leaflet-control-attribution{background:color-mix(in srgb,var(--surface) 80%,transparent)!important;color:var(--text-dim)!important;font-size:10px!important}
+.leaflet-control-attribution a{color:var(--text-muted)!important}
+.radar-bar{position:absolute;left:var(--pad);right:var(--pad);bottom:calc(var(--pad) + 6px);z-index:500;display:flex;align-items:center;gap:10px;
+  padding:8px 12px;border-radius:12px;background:color-mix(in srgb,var(--surface) 86%,transparent);border:1px solid var(--border);backdrop-filter:blur(6px)}
+.radar-bar .btn{height:30px;width:30px;padding:0;justify-content:center;flex:none;border-radius:9px;background:var(--surface-2)}
+.frames{flex:1;display:flex;gap:3px}
+.frames i{flex:1;height:5px;border-radius:3px;background:var(--surface-3)}
+.frames i.on{background:var(--rain)}
+.frames i.past{background:color-mix(in srgb,var(--rain) 35%,var(--surface-3))}
+.radar-time{flex:none;font-family:var(--mono);font-size:13px;white-space:nowrap;min-width:7.5ch;text-align:right}
+.home-pin{width:16px;height:16px;border-radius:50%;background:var(--solar);border:3px solid var(--bg);box-shadow:0 0 0 2px var(--solar)}
+.legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted)}
+.legend span{display:block;width:70px;height:6px;border-radius:3px;
+  background:linear-gradient(90deg,#88ddee,#0099cc,#0077aa,#005588,#ffee00,#ffaa00,#ff4400,#c10000)}
+
+/* ---------- energy now ---------- */
+.energy{grid-area:energy}
+.flows{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.flow{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;border-left:3px solid var(--c,var(--border-strong));min-width:0}
+.flow .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
+.flow .v{font-family:var(--mono);font-size:clamp(22px,2.1vw,34px);font-weight:500;letter-spacing:-.03em;line-height:1.15}
+.flow .v small{font-size:.45em;color:var(--text-muted);letter-spacing:0;margin-left:3px}
+.flow .s{font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.split{display:flex;flex-direction:column;gap:6px}
+.split-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--surface-3)}
+.split-bar i{display:block;height:100%;transition:width .6s ease}
+.split-leg{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--text-muted)}
+.split-leg span{display:flex;align-items:center;gap:5px}
+.split-leg span::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--c)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);white-space:nowrap}
+.chip b{color:var(--text);font-weight:600}
+.chip.live{border-color:color-mix(in srgb,var(--car) 50%,transparent);color:var(--car)}
+.chip.over{border-color:color-mix(in srgb,var(--solar) 50%,transparent);color:var(--solar)}
+.totals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:auto}
+.tot .k{font-size:11px;color:var(--text-muted)}
+.tot .v{font-family:var(--mono);font-size:clamp(16px,1.4vw,22px);font-weight:500}
+.tot .v small{font-size:.6em;color:var(--text-muted);margin-left:2px}
+
+/* ---------- today chart ---------- */
+.today{grid-area:today}
+.today-stats{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--text-muted)}
+.today-stats b{font-family:var(--mono);color:var(--text);font-weight:500;font-size:15px}
+.chart-wrap{flex:1;min-height:0;position:relative}
+.chart-wrap svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.chart-leg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-muted);flex:none}
+.chart-leg span{display:flex;align-items:center;gap:6px}
+.chart-leg i{width:14px;height:3px;border-radius:2px;background:var(--c)}
+.chart-leg i.dash{background:repeating-linear-gradient(90deg,var(--c) 0 4px,transparent 4px 7px)}
+.chart-leg i.bar{width:8px;height:10px;border-radius:2px;opacity:.6}
+
+/* ---------- forecast ---------- */
+.fc{grid-area:fc}
+.hours{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;flex:none}
+.hr{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;border-radius:10px;font-size:12px;color:var(--text-muted)}
+.hr.now{background:var(--surface-2)}
+.hr svg{width:30px;height:32px}
+.hr b{font-family:var(--mono);color:var(--text);font-weight:500;font-size:14px}
+.hr .p{font-family:var(--mono);font-size:11px;color:var(--rain);min-height:15px}
+.days{display:flex;flex-direction:column;gap:2px;flex:1;min-height:0;overflow:hidden}
+.day{display:grid;grid-template-columns:4.2ch 30px minmax(0,1fr) 8.5ch 6.5ch;align-items:center;gap:10px;padding:5px 4px;border-top:1px solid var(--border);font-size:14px}
+.day svg{width:28px;height:30px}
+.day .n{font-weight:600}
+.day .t{font-family:var(--mono);text-align:right;white-space:nowrap}
+.day .t span{color:var(--text-muted)}
+.day .r{font-family:var(--mono);font-size:12px;color:var(--rain);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.day .k{font-family:var(--mono);font-size:13px;text-align:right;white-space:nowrap;color:var(--sc,var(--text))}
+.day .k small{color:var(--text-muted);font-size:.85em}
+
+@media (max-height:880px) and (min-width:1001px){
+  :root{--pad:14px;--gap:10px}
+  .temp{font-size:clamp(48px,4.6vw,72px)}
+  .flow{padding:8px 10px} .flow .v{font-size:clamp(20px,1.9vw,28px)}
+  .fact{padding:8px 10px} .card{gap:10px}
+  .hr svg{width:26px;height:28px} .day{padding:3px 4px}
+}
+
+/* ---------- night dim ---------- */
+.dim{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 3s ease;z-index:2000}
+body.dimmed .dim{opacity:.62}
+
+/* ---------- smaller screens: stack and scroll ---------- */
+@media (max-width:1000px), (max-height:560px) and (max-width:1200px){
+  body{overflow:auto}
+  .screen{height:auto;grid-template-columns:1fr 1fr;grid-template-rows:auto;
+    grid-template-areas:"head head" "wx energy" "radar radar" "today today" "fc fc"}
+  .radar{min-height:420px} .today{min-height:320px}
+  .head{flex-wrap:wrap} .head-mid{order:3;flex-basis:100%;justify-content:flex-start}
+  .notes{height:auto;justify-content:flex-start} .note{white-space:normal;height:auto;padding:8px 14px}
+}
+@media (max-width:640px){
+  .screen{grid-template-columns:1fr;grid-template-areas:"head" "wx" "energy" "radar" "today" "fc"}
+  .head{flex-wrap:wrap} .dots{display:none}
+}
+@media (prefers-reduced-motion:reduce){ .screen,.split-bar i,.dim{transition:none} }
+</style>
+</head>
+<body>
+<div class="screen" id="screen">
+
+  <!-- ===== header ===== -->
+  <header class="head">
+    <div class="head-left">
+      <div class="clock" id="clock">--:--</div>
+      <div class="date"><b id="date">Dromana</b><span id="sun">Sunrise and sunset loading</span></div>
+    </div>
+    <div class="head-mid"><div class="notes" id="notes" aria-live="polite"></div></div>
+    <div class="head-right">
+      <div class="dots" id="dots" title="Data sources">
+        <span class="dot" id="dot-wx"><i></i><b>STATION</b></span>
+        <span class="dot" id="dot-sems"><i></i><b>SOLAR</b></span>
+        <span class="dot" id="dot-ev"><i></i><b>EV</b></span>
+        <span class="dot" id="dot-fc"><i></i><b>FORECAST</b></span>
+        <span class="dot" id="dot-radar"><i></i><b>RADAR</b></span>
+      </div>
+      <a class="btn" href="ev.html">EV charging ›</a>
+      <a class="btn" href="index.html">Solar Hub ›</a>
+      <button class="btn icon" id="btn-dim" aria-label="Toggle night dimming" title="Night dimming"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+      <button class="btn icon" id="btn-fs" aria-label="Full screen" title="Full screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    </div>
+  </header>
+
+  <!-- ===== outside: WS90 ===== -->
+  <section class="card wx" aria-labelledby="wx-h">
+    <div class="card-head"><h2 id="wx-h">Outside now</h2><span class="meta" id="wx-meta">Ecowitt WS90</span></div>
+    <div id="wx-body" class="wx-body" style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
+      <div class="empty">Waiting for the weather station…</div>
+    </div>
+  </section>
+
+  <!-- ===== radar ===== -->
+  <section class="card radar" aria-labelledby="radar-h">
+    <div class="card-head">
+      <h2 id="radar-h">Rain radar · past 2 hours</h2>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="legend" aria-hidden="true">light<span></span>heavy</span>
+        <a class="card-link" href="https://www.bom.gov.au/products/IDR023.loop.shtml" target="_blank" rel="noopener">BoM radar ›</a>
+      </div>
+    </div>
+    <div id="map" role="img" aria-label="Animated rain radar centred on Dromana"></div>
+    <div class="radar-bar">
+      <button class="btn" id="radar-play" aria-label="Pause radar animation">
+        <svg viewBox="0 0 24 24" fill="currentColor" id="radar-icon"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+      </button>
+      <div class="frames" id="frames"></div>
+      <span class="radar-time" id="radar-time">--:--</span>
+    </div>
+  </section>
+
+  <!-- ===== energy now ===== -->
+  <section class="card energy" aria-labelledby="en-h">
+    <div class="card-head"><h2 id="en-h">Energy now</h2><a class="card-link" href="ev.html"><span id="en-mode"></span>Charging ›</a></div>
+    <div id="en-body" style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
+      <div class="empty">Waiting for solar and charger data…</div>
+    </div>
+  </section>
+
+  <!-- ===== today chart ===== -->
+  <section class="card today" aria-labelledby="today-h">
+    <div class="card-head">
+      <h2 id="today-h">Today · solar, house and car</h2>
+      <div class="today-stats" id="today-stats"></div>
+    </div>
+    <div class="chart-wrap" id="chart"><div class="empty">Building today's chart…</div></div>
+    <div class="chart-leg">
+      <span><i style="--c:var(--solar)"></i>Solar</span>
+      <span><i class="dash" style="--c:var(--solar)"></i>Solar forecast</span>
+      <span><i style="--c:var(--home)"></i>House</span>
+      <span><i style="--c:var(--car)"></i>Car</span>
+      <span><i class="bar" style="--c:var(--rain);background:var(--rain)"></i>Chance of rain</span>
+    </div>
+  </section>
+
+  <!-- ===== forecast ===== -->
+  <section class="card fc" aria-labelledby="fc-h">
+    <div class="card-head"><h2 id="fc-h">Forecast</h2><span class="meta" id="fc-meta">Open-Meteo · Dromana</span></div>
+    <div class="hours" id="hours"></div>
+    <div class="days" id="days"><div class="empty">Loading forecast…</div></div>
+  </section>
+</div>
+<div class="dim" aria-hidden="true"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  // ---------- settings ----------
+  const TZ = 'Australia/Melbourne';
+  const HOME = [-38.33, 144.97];                       // same point the forecast function uses
+  const PANEL_KW = 13.2, PR = 0.65;                    // matches ev.html daily estimate
+  const fcKw = ghi => Math.min(9.6, ghi / 1000 * PANEL_KW * 0.75);   // matches ev.html hourly curve
+  const API = {
+    ev: '/.netlify/functions/ev',
+    sems: '/.netlify/functions/sems',
+    wx: '/.netlify/functions/ecowitt',
+    fc: '/.netlify/functions/forecast',
+    radar: 'https://api.rainviewer.com/public/weather-maps.json',
+  };
+  const EVERY = { ev: 30e3, wx: 60e3, sems: 120e3, fc: 30 * 60e3, radar: 10 * 60e3 };
+  // How old before a source is shown amber. Pi or cloud hiccups shouldn't look like outages.
+  const STALE = { ev: 3 * 60e3, wx: 10 * 60e3, sems: 10 * 60e3, fc: 3 * 3600e3, radar: 30 * 60e3 };
+  const params = new URLSearchParams(location.search);
+  if (params.get('theme') === 'light') document.documentElement.dataset.theme = 'light';
+
+  const $ = id => document.getElementById(id);
+  const S = { ev: null, sems: null, wx: null, fc: null, radar: null };   // latest payloads
+  const at = {}, failed = {};                                             // last success time, failure flags
+
+  // ---------- time helpers (always Melbourne, whatever the device thinks) ----------
+  const fmtParts = new Intl.DateTimeFormat('en-AU', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  function mel(d = new Date()) {
+    const p = Object.fromEntries(fmtParts.formatToParts(d).map(x => [x.type, x.value]));
+    const h = +p.hour, m = +p.minute;
+    return { key: `${p.year}-${p.month}-${p.day}`, h, m, hf: h + m / 60 };
+  }
+  const tomorrowKey = () => mel(new Date(Date.now() + 86400e3)).key;
+  const clock = d => d.toLocaleTimeString('en-AU', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const ampm = h => h === 0 ? '12 am' : h < 12 ? `${h} am` : h === 12 ? '12 pm' : `${h - 12} pm`;
+  const ago = t => { const s = Math.round((Date.now() - t) / 1000); return s < 60 ? 'just now' : s < 3600 ? `${Math.round(s / 60)} min ago` : `${Math.round(s / 3600)} h ago`; };
+  // Forecast times are local wall-clock strings like 2026-10-30T14:00
+  const fcHour = t => +t.slice(11, 13);
+
+  // ---------- number helpers ----------
+  const has = v => typeof v === 'number' && Number.isFinite(v);
+  const f1 = v => has(v) ? v.toFixed(1) : '--';
+  const f0 = v => has(v) ? Math.round(v).toString() : '--';
+  const kw = w => has(w) ? (w / 1000).toFixed(Math.abs(w) >= 10000 ? 0 : 1) : '--';
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  // ---------- fetch with status tracking ----------
+  async function pull(name, url, timeout = 20000) {
+    try {
+      const r = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(timeout) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.error) throw new Error(j.error || 'HTTP ' + r.status);
+      S[name] = j; at[name] = Date.now(); failed[name] = false;
+    } catch (e) {
+      failed[name] = true;
+      console.warn(name, e.message);
+    }
+    renderDots();
+    return S[name];
+  }
+  function renderDots() {
+    for (const n of ['wx', 'sems', 'ev', 'fc', 'radar']) {
+      const el = $('dot-' + n), age = at[n] ? Date.now() - at[n] : Infinity;
+      el.className = 'dot ' + (!at[n] ? (failed[n] ? 'err' : '') : age > STALE[n] ? (failed[n] ? 'err' : 'stale') : 'ok');
+      el.title = at[n] ? `Updated ${ago(at[n])}` + (failed[n] ? ', last try failed' : '') : (failed[n] ? 'Not reachable' : 'Loading');
+    }
+  }
+
+  // ---------- weather icons (same set as ev.html) ----------
+  const SUN = (cx, cy, r) => `<g stroke="var(--solar)" stroke-width="2.4" stroke-linecap="round">${[0, 45, 90, 135, 180, 225, 270, 315].map(a => { const t = a * Math.PI / 180; return `<line x1="${(cx + Math.cos(t) * (r + 4)).toFixed(1)}" y1="${(cy + Math.sin(t) * (r + 4)).toFixed(1)}" x2="${(cx + Math.cos(t) * (r + 8)).toFixed(1)}" y2="${(cy + Math.sin(t) * (r + 8)).toFixed(1)}"/>`; }).join('')}</g><circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--solar)"/>`;
+  const MOON = (cx, cy, r) => `<path d="M${cx + r * 0.4} ${cy - r} a${r} ${r} 0 1 0 ${r * 0.6} ${r * 1.55} a${r * 0.8} ${r * 0.8} 0 0 1 ${-r * 0.6} ${-r * 1.55}z" fill="var(--text-muted)"/>`;
+  const CLOUD = (dx, dy) => `<path transform="translate(${dx} ${dy})" d="M14 40h26a10 10 0 0 0 0-20 13 13 0 0 0-25-3A10 10 0 0 0 14 40z" fill="var(--surface-3)" stroke="var(--text-muted)" stroke-width="1.6" stroke-linejoin="round"/>`;
+  const DROPS = n => [18, 28, 38].slice(0, n).map((x, i) => `<line x1="${x}" y1="${48 + (i % 2) * 2}" x2="${x - 3}" y2="${55 + (i % 2) * 2}" stroke="var(--rain)" stroke-width="2.4" stroke-linecap="round"/>`).join('');
+  const ICONS = {
+    sun: SUN(28, 28, 11), moon: MOON(26, 28, 11), partly: SUN(22, 20, 8) + CLOUD(4, 10), partlyNight: MOON(20, 18, 8) + CLOUD(4, 10),
+    cloud: CLOUD(2, 4), showers: SUN(22, 18, 7) + CLOUD(4, 6) + DROPS(2), drizzle: CLOUD(2, 4) + DROPS(3), rain: CLOUD(2, 2) + DROPS(3),
+    storm: CLOUD(2, 2) + '<path d="M30 42l-6 9h6l-4 9 10-12h-6l4-6z" fill="var(--solar)"/>' + DROPS(1),
+  };
+  const icon = k => `<svg viewBox="0 0 56 62" aria-hidden="true">${ICONS[k] || ICONS.cloud}</svg>`;
+  // Hourly icon from WMO weather code, cloud cover and rain chance
+  function hourKind(h, night) {
+    const c = h.weatherCode;
+    if (c >= 95) return 'storm';
+    if ((c >= 61 && c < 95) || h.precipitation >= 1) return 'rain';
+    if ((c >= 51 && c <= 57) || h.precipitation > 0) return h.cloudCover < 60 && !night ? 'showers' : 'drizzle';
+    if (h.cloudCover < 30) return night ? 'moon' : 'sun';
+    if (h.cloudCover < 70) return night ? 'partlyNight' : 'partly';
+    return 'cloud';
+  }
+  function dayKind(d) {
+    if (d.code >= 95) return 'storm';
+    if (d.rain >= 3 || (d.code >= 61 && d.code < 95)) return 'rain';
+    if (d.rain > 0 || (d.code >= 51 && d.code <= 57)) return d.cloud < 60 ? 'showers' : 'drizzle';
+    if (d.cloud < 30) return 'sun';
+    if (d.cloud < 70) return 'partly';
+    return 'cloud';
+  }
+
+  // ---------- derived forecast data ----------
+  function fcDays() {
+    const fc = S.fc; if (!fc) return [];
+    const byDay = {}; (fc.hourly || []).forEach(h => (byDay[h.time.slice(0, 10)] ||= []).push(h));
+    return (fc.daily || []).map(dl => {
+      const hs = byDay[dl.date] || [], day = hs.filter(h => h.ghi > 50);
+      const ghi = hs.reduce((a, h) => a + h.ghi, 0) / 1000;
+      return {
+        date: dl.date, code: dl.weatherCode || 0, rain: dl.precipitationSum || 0,
+        rainProb: dl.precipProbabilityMax ?? Math.max(0, ...hs.map(h => h.precipProbability || 0)),
+        tmax: dl.tempMax ?? (hs.length ? Math.max(...hs.map(h => h.temperature)) : null),
+        tmin: dl.tempMin ?? (hs.length ? Math.min(...hs.map(h => h.temperature)) : null),
+        cloud: Math.round(day.reduce((a, h) => a + h.cloudCover, 0) / Math.max(1, day.length)),
+        kwh: Math.round(ghi * PANEL_KW * PR), ghi, sunrise: dl.sunrise, sunset: dl.sunset, uv: dl.uvIndexMax,
+      };
+    });
+  }
+  const solarScore = d => Math.max(1, Math.min(10, Math.round(10 * Math.min(1, d.ghi / 7.8) * (1 - 0.3 * d.cloud / 100) - (d.code >= 95 ? 1 : 0))));
+  const scoreColor = s => s >= 8 ? 'var(--ok)' : s >= 5 ? 'var(--solar)' : 'var(--import)';
+  function todayHourly() { const k = mel().key; return (S.fc?.hourly || []).filter(h => h.time.startsWith(k)); }
+  function nextHours(n) {
+    const now = mel(), k = now.key, all = S.fc?.hourly || [];
+    const i = all.findIndex(h => h.time.slice(0, 10) === k && fcHour(h.time) === now.h);
+    return i < 0 ? [] : all.slice(i, i + n);
+  }
+  function isNight(t) {
+    const d = (S.fc?.daily || []).find(x => x.date === t.slice(0, 10));
+    if (!d?.sunrise || !d?.sunset) { const h = fcHour(t); return h < 6 || h >= 20; }
+    return t < d.sunrise.slice(0, 13) || t > d.sunset.slice(0, 13);
+  }
+
+  // ---------- live energy, merged from the Pi (fresh) and SEMS (lagged) ----------
+  function energyNow() {
+    const L = S.ev?.latest || null, c = L?.charger || {}, s = S.sems;
+    const evAge = at.ev ? Date.now() - at.ev : Infinity;
+    // Inverter over Modbus is real time; SEMS lags a few minutes. Prefer the Pi reading when fresh.
+    let pv = null, pvSrc = '';
+    if (L && has(L.pv_live_w) && evAge < STALE.ev) { pv = L.pv_live_w; pvSrc = 'inverter'; }
+    else if (s && has(s.pvPower)) { pv = s.pvPower; pvSrc = 'SEMS'; }
+    const car = has(c.power_w) ? c.power_w : 0;
+    const home = s && has(s.homePower) ? s.homePower : (L && has(L.home_kw) ? L.home_kw * 1000 : null);   // includes the car
+    const house = home != null ? Math.max(0, home - car) : null;
+    const grid = s && has(s.gridPower) ? s.gridPower : null;                                              // + export, - import
+    return { pv, pvSrc, car, house, home, grid, L, c, mode: S.ev?.mode, totals: S.ev?.totals || {} };
+  }
+
+  // ---------- render: header ----------
+  function renderClock() {
+    const now = new Date();
+    $('clock').textContent = clock(now);
+    $('date').textContent = now.toLocaleDateString('en-AU', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long' });
+    const d = fcDays().find(x => x.date === mel().key);
+    if (d?.sunrise) {
+      const t = s => { const h = +s.slice(11, 13), m = s.slice(14, 16); return `${h % 12 || 12}:${m} ${h < 12 ? 'am' : 'pm'}`; };
+      $('sun').textContent = `Sunrise ${t(d.sunrise)} · Sunset ${t(d.sunset)}`;
+    }
+  }
+
+  // ---------- render: weather station ----------
+  const CARD = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  const cardinal = deg => has(deg) ? CARD[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16] : '';
+  const uvLabel = u => !has(u) ? '' : u < 3 ? 'Low' : u < 6 ? 'Moderate' : u < 8 ? 'High' : u < 11 ? 'Very high' : 'Extreme';
+  // Arrow shows where the wind is blowing to; the label says where it comes from (BoM convention).
+  const compass = deg => `<svg class="compass" viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="19" fill="none" stroke="var(--border-strong)" stroke-width="1.5"/>
+    <text x="21" y="8.5" text-anchor="middle" font-size="7" font-weight="600" fill="var(--text-dim)" font-family="var(--sans)">N</text>
+    ${has(deg) ? `<g transform="rotate(${deg + 180} 21 21)"><path d="M21 7l6 14h-12z" fill="var(--home)"/><rect x="19.6" y="19" width="2.8" height="15" rx="1.4" fill="var(--home)"/></g>` : ''}</svg>`;
+  function renderWx() {
+    const w = S.wx, box = $('wx-body');
+    if (!w) { if (failed.wx) box.innerHTML = '<div class="empty">Weather station not reachable right now.</div>'; return; }
+    const raining = has(w.rainRate) && w.rainRate > 0;
+    const fact = (k, v, s = '', extra = '') => `<div class="fact">${extra}<div class="fact-body"><div class="k">${k}</div><div class="v">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div></div>`;
+    box.innerHTML = `
+      <div class="wx-hero">
+        <div class="temp">${f1(w.temperature)}<sup>°C</sup></div>
+        <div class="wx-sub">
+          ${has(w.feelsLike) ? `<span>Feels like <b>${f1(w.feelsLike)}°</b></span>` : ''}
+          <span>Humidity <b>${f0(w.humidity)}%</b></span>
+          ${has(w.dewPoint) ? `<span>Dew point <b>${f1(w.dewPoint)}°</b></span>` : ''}
+          ${has(w.indoorTemp) ? `<span>Inside <b>${f1(w.indoorTemp)}°</b></span>` : ''}
+        </div>
+      </div>
+      <div class="facts">
+        ${fact('Wind', `${f0(w.windSpeed)}<small>km/h</small>`, [cardinal(w.windDirection), has(w.windGust) ? `gust ${f0(w.windGust)}` : ''].filter(Boolean).join(' · '), compass(w.windDirection))}
+        ${fact('Rain today', `<span class="${raining ? 'raining' : ''}">${f1(w.rainDaily ?? 0)}</span><small>mm</small>`, raining ? `<span class="raining">Raining ${f1(w.rainRate)} mm/h</span>` : (has(w.rainWeekly) ? `${f1(w.rainWeekly)} mm this week` : 'Dry right now'))}
+        ${fact('Sunlight', `${f0(w.solarIrradiance ?? 0)}<small>W/m²</small>`, has(w.uvi) ? `UV ${f1(w.uvi)} · ${uvLabel(w.uvi)}` : '')}
+        ${fact('Pressure', `${f0(w.pressure)}<small>hPa</small>`, has(w.rainMonthly) ? `${f0(w.rainMonthly)} mm rain this month` : '')}
+      </div>`;
+    const t = w.stationTime ? new Date(w.stationTime) : (at.wx ? new Date(at.wx) : null);
+    $('wx-meta').textContent = t ? `WS90 · ${clock(t)}` : 'Ecowitt WS90';
+  }
+
+  // ---------- render: energy now ----------
+  const STATE_TXT = { charging: 'Charging', ready: 'Plugged in, waiting', complete: 'Session finished', full: 'Car full',
+    not_connected: 'Not plugged in', wait_button: 'Waiting for button', wait_swipe: 'Waiting for card', reserved: 'Scheduled', fault: 'Charger fault' };
+  function renderEnergy() {
+    const box = $('en-body');
+    if (!S.ev && !S.sems) { if (failed.ev && failed.sems) box.innerHTML = '<div class="empty">Solar and charger data unavailable right now.</div>'; return; }
+    const e = energyNow(), L = e.L || {}, c = e.c;
+    const st = c.state, plugged = c.plug && c.plug !== 'unplugged';
+    const carSub = !S.ev ? 'Pi not reachable' :
+      st === 'charging' ? `${f0(c.amps)} A${L.override ? ' · manual, full rate' : L.window === 'offpeak' ? ' · off-peak' : ' · matching solar'}` :
+      (STATE_TXT[st] || (plugged ? 'Plugged in' : 'Not plugged in'));
+    const gridTxt = !has(e.grid) ? ['Grid', '--', ''] : e.grid >= 50 ? ['Exporting', kw(e.grid), 'var(--export)'] : e.grid <= -50 ? ['Importing', kw(-e.grid), 'var(--import)'] : ['Grid', '0.0', 'var(--border-strong)'];
+    // Where the solar is going right now: car first, then the house, the rest is exported
+    let split = '';
+    if (has(e.pv) && e.pv > 100) {
+      const toCar = Math.min(e.car, e.pv), toHouse = Math.min(e.house ?? 0, e.pv - toCar), toGrid = Math.max(0, e.pv - toCar - toHouse);
+      const pct = v => (v / e.pv * 100).toFixed(1) + '%';
+      split = `<div class="split"><div class="label">Where the solar is going</div>
+        <div class="split-bar"><i style="width:${pct(toCar)};background:var(--car)"></i><i style="width:${pct(toHouse)};background:var(--home)"></i><i style="width:${pct(toGrid)};background:var(--text-dim)"></i></div>
+        <div class="split-leg"><span style="--c:var(--car)">Car ${kw(toCar)}</span><span style="--c:var(--home)">House ${kw(toHouse)}</span><span style="--c:var(--text-dim)">Grid ${kw(toGrid)} kW</span></div></div>`;
+    } else {
+      split = `<div class="split"><div class="label">Solar</div><div class="split-leg">${mel().h >= 5 && mel().h < 21 ? 'Barely generating right now.' : 'Not generating overnight.'}${L.window === 'offpeak' ? ' Off-peak window, 8c until 6 am.' : ''}</div></div>`;
+    }
+    const modeTxt = { auto: 'Auto', full: 'Full rate', off: 'Off' }[e.mode] || null;
+    const winTxt = { day: 'solar window', offpeak: 'off-peak', evening: 'evening' }[L.window] || '';
+    $('en-mode').textContent = modeTxt ? `${modeTxt}${winTxt ? ' · ' + winTxt : ''} · ` : '';
+    const chips = L.override ? '<span class="chip over">Manual override, full rate until unplugged</span>' : '';
+    const t = e.totals, gen = S.sems?.dailyGeneration;
+    box.innerHTML = `
+      <div class="flows">
+        <div class="flow" style="--c:var(--solar)"><div class="k">Solar</div><div class="v">${kw(e.pv)}<small>kW</small></div><div class="s">${e.pvSrc ? 'from ' + e.pvSrc : 'no reading'}</div></div>
+        <div class="flow" style="--c:var(--home)"><div class="k">House</div><div class="v">${kw(e.house)}<small>kW</small></div><div class="s">excluding the car</div></div>
+        <div class="flow" style="--c:var(--car)"><div class="k">Car</div><div class="v">${kw(e.car)}<small>kW</small></div><div class="s">${esc(carSub)}</div></div>
+        <div class="flow" style="--c:${gridTxt[2]}"><div class="k">${gridTxt[0]}</div><div class="v">${gridTxt[1]}<small>kW</small></div><div class="s">${S.sems ? 'SEMS, lags a few min' : 'SEMS not reachable'}</div></div>
+      </div>
+      ${split}
+      ${chips ? `<div class="chips">${chips}</div>` : ''}
+      <div class="totals">
+        <div class="tot"><div class="k">Generated today</div><div class="v">${has(gen) ? f1(gen) : '--'}<small>kWh</small></div></div>
+        <div class="tot"><div class="k">Into the car</div><div class="v">${f1(t.car_kwh)}<small>kWh</small></div></div>
+        <div class="tot"><div class="k">Car from solar</div><div class="v">${f1(t.car_solar_kwh)}<small>kWh</small></div></div>
+      </div>`;
+  }
+
+  // ---------- render: today chart ----------
+  function renderToday() {
+    const wrap = $('chart'), series = S.ev?.series || [], hrs = todayHourly();
+    if (!series.length && !hrs.length) { if (failed.ev && failed.fc) wrap.innerHTML = '<div class="empty">No data for today yet.</div>'; return; }
+    const W = Math.max(300, wrap.clientWidth), H = Math.max(120, wrap.clientHeight);
+    const L = 34, R = 8, T = 8, B = 22, pw = W - L - R, ph = H - T - B;
+    const pts = series.map(p => ({ h: +p.t.slice(0, 2) + +p.t.slice(3, 5) / 60, pv: p.pv / 1000, car: p.car / 1000, house: Math.max(0, p.home - p.car) / 1000 }));
+    const fc = hrs.map(h => ({ h: fcHour(h.time), kw: fcKw(h.ghi), p: h.precipProbability || 0 }));
+    const top = Math.max(4, ...pts.map(p => Math.max(p.pv, p.car + 0.1, p.house)), ...fc.map(f => f.kw));
+    const ymax = Math.ceil(top / 2) * 2;
+    const x = h => L + pw * h / 24, y = v => T + ph - ph * Math.min(v, ymax) / ymax;
+    let s = '';
+    // off-peak band and grid
+    s += `<rect x="${x(0)}" y="${T}" width="${x(6) - x(0)}" height="${ph}" fill="var(--offpeak)"/>`;
+    for (let v = 0; v <= ymax; v += ymax > 8 ? 4 : 2) s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--border)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--text-dim)" font-family="var(--mono)">${v}</text>`;
+    [0, 3, 6, 9, 12, 15, 18, 21, 24].forEach(h => s += `<text x="${x(h)}" y="${H - 5}" text-anchor="middle" font-size="11" fill="var(--text-dim)" font-family="var(--sans)">${h === 24 ? '' : h === 0 ? '12a' : h === 12 ? '12p' : h < 12 ? h + 'a' : (h - 12) + 'p'}</text>`);
+    s += `<text x="${L - 6}" y="${T - 0}" text-anchor="end" font-size="10" fill="var(--text-dim)" dy="-0">kW</text>`;
+    // chance of rain as bars hanging from the top (up to a third of the height)
+    fc.forEach(f => { if (f.p >= 10) { const hgt = ph / 3 * f.p / 100; s += `<rect x="${(x(f.h) + pw / 24 * 0.2).toFixed(1)}" y="${T}" width="${Math.max(2, pw / 24 * 0.6).toFixed(1)}" height="${hgt.toFixed(1)}" rx="2" fill="var(--rain)" opacity="${(0.12 + 0.33 * f.p / 100).toFixed(2)}"/>`; } });
+    // forecast solar, dashed
+    if (fc.length) s += `<path d="${fc.map((f, i) => (i ? 'L' : 'M') + x(f.h + 0.5).toFixed(1) + ',' + y(f.kw).toFixed(1)).join(' ')}" fill="none" stroke="var(--solar)" stroke-width="1.6" stroke-dasharray="5 4" opacity=".75"/>`;
+    if (pts.length) {
+      const area = (key, col, op) => `<path d="M${x(pts[0].h).toFixed(1)},${y(0)} ${pts.map(p => 'L' + x(p.h).toFixed(1) + ',' + y(p[key]).toFixed(1)).join(' ')} L${x(pts[pts.length - 1].h).toFixed(1)},${y(0)} Z" fill="${col}" fill-opacity="${op}" stroke="none"/>`;
+      const line = (key, col, w) => `<path d="${pts.map((p, i) => (i ? 'L' : 'M') + x(p.h).toFixed(1) + ',' + y(p[key]).toFixed(1)).join(' ')}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"/>`;
+      s += area('pv', 'var(--solar)', 0.22) + line('pv', 'var(--solar)', 2.2);
+      s += area('car', 'var(--car)', 0.25) + line('car', 'var(--car)', 2);
+      s += line('house', 'var(--home)', 1.8);
+    }
+    const nh = mel().hf;
+    s += `<line x1="${x(nh)}" x2="${x(nh)}" y1="${T}" y2="${T + ph}" stroke="var(--text-muted)" stroke-dasharray="2 3"/><text x="${x(nh) + 4}" y="${T + ph - 4}" font-size="10" fill="var(--text-muted)">now</text>`;
+    wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Today's solar generation, house load and car charging against the solar forecast">${s}</svg>`;
+
+    // headline stats: solar so far (SEMS) vs forecast, plus what's left
+    const gen = S.sems?.dailyGeneration, dayFc = fcDays().find(d => d.date === mel().key);
+    const left = fc.filter(f => f.h + 1 > nh).reduce((a, f) => a + (f.h < nh ? f.kw * (f.h + 1 - nh) : f.kw), 0);
+    $('today-stats').innerHTML = [
+      has(gen) ? `<span>So far <b>${f1(gen)}</b> kWh</span>` : '',
+      dayFc ? `<span>Forecast <b>${dayFc.kwh}</b> kWh</span>` : '',
+      fc.length && nh < 20 && left >= 0.5 ? `<span>Still to come <b>≈${Math.round(left)}</b> kWh</span>` : '',
+    ].join('');
+  }
+
+  // ---------- render: forecast ----------
+  function renderForecast() {
+    const days = fcDays(), hrs = nextHours(8);
+    if (!days.length) { if (failed.fc) $('days').innerHTML = '<div class="empty">Forecast unavailable right now.</div>'; return; }
+    $('hours').innerHTML = hrs.map((h, i) => {
+      const hr = fcHour(h.time);
+      return `<div class="hr${i === 0 ? ' now' : ''}"><span>${i === 0 ? 'Now' : ampm(hr)}</span>${icon(hourKind(h, isNight(h.time)))}<b>${Math.round(h.temperature)}°</b><span class="p">${h.precipProbability >= 10 ? h.precipProbability + '%' : ''}</span></div>`;
+    }).join('');
+    const today = mel().key, tmw = tomorrowKey();
+    $('days').innerHTML = days.slice(0, 6).map(d => {
+      const name = d.date === today ? 'Today' : d.date === tmw ? 'Tmrw' : new Date(d.date + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short' });
+      const sc = solarScore(d);
+      const rain = d.rain >= 0.2 ? `${f1(d.rain)} mm` : d.rainProb >= 20 ? `${f0(d.rainProb)}%` : '';
+      return `<div class="day"><span class="n">${name}</span>${icon(dayKind(d))}<span class="r">${rain}</span><span class="t">${f0(d.tmax)}° <span>${f0(d.tmin)}°</span></span><span class="k" style="--sc:${scoreColor(sc)}" title="Estimated solar">${d.kwh}<small> kWh</small></span></div>`;
+    }).join('');
+    $('fc-meta').textContent = `Open-Meteo · ${S.fc.timestamp ? 'updated ' + clock(new Date(S.fc.timestamp)) : 'Dromana'}`;
+  }
+
+  // ---------- heads-up notes: the joined-up bit ----------
+  function renderNotes() {
+    const out = [], w = S.wx, now = mel(), hrs = nextHours(12), e = energyNow();
+    // Rain: what the station sees beats what the forecast says
+    if (w && has(w.rainRate) && w.rainRate > 0) out.push(['rain', `Raining now, ${f1(w.rainRate)} mm/h`]);
+    else {
+      const wet = hrs.slice(1, 7).find(h => h.precipProbability >= 50);
+      if (wet) out.push(['rain', `Rain likely around ${ampm(fcHour(wet.time))} (${wet.precipProbability}%)`]);
+    }
+    // Wind
+    const gust = Math.max(0, ...hrs.map(h => h.windGust || 0), w?.windGust || 0);
+    if (gust >= 55) out.push(['wind', `Gusty, up to ${Math.round(gust)} km/h in the next 12 hours`]);
+    // Solar and the car, during the solar window
+    const fcLeft = todayHourly().filter(h => fcHour(h.time) >= now.h).reduce((a, h) => a + fcKw(h.ghi), 0);
+    const plugged = e.c?.plug && e.c.plug !== 'unplugged';
+    if (now.h >= 7 && now.h < 16 && S.ev) {
+      if (e.c?.state === 'charging' && e.L?.window === 'day' && !e.L?.override) out.push(['car', `Car charging on solar at ${f0(e.c.amps)} A`]);
+      else if (!plugged && fcLeft >= 8) out.push(['sun', `About ${Math.round(fcLeft)} kWh of sun left today. Plug a car in to use it.`]);
+    }
+    // Evening: set expectations for tomorrow
+    if (now.h >= 17) {
+      const t = fcDays().find(d => d.date === tomorrowKey());
+      if (t) out.push(t.kwh >= 35 ? ['sun', `Tomorrow looks strong for solar, about ${t.kwh} kWh`]
+        : t.kwh <= 15 ? ['warn', `Tomorrow is poor for solar (about ${t.kwh} kWh). Overnight off-peak will do the heavy lifting.`]
+        : ['sun', `Tomorrow: about ${t.kwh} kWh of solar expected`]);
+    }
+    if (w && has(w.uvi) && w.uvi >= 8 && now.h >= 9 && now.h <= 16) out.push(['warn', `UV ${f1(w.uvi)}, very high`]);
+    if ((S.ev && at.ev && Date.now() - at.ev > STALE.ev) || (!S.ev && failed.ev)) out.unshift(['warn', "Can't reach the Pi. The charger controller keeps running on its own."]);
+    $('notes').innerHTML = out.slice(0, 3).map(([k, t]) => `<span class="note ${k}"><i></i>${esc(t)}</span>`).join('');
+  }
+
+  // ---------- radar (RainViewer, past 2 h, max native zoom 7 on the free tier) ----------
+  let map, frames = [], layers = [], idx = 0, playing = true, timer = null;
+  function initMap() {
+    if (!window.L) { $('map').innerHTML = '<div class="empty" style="position:absolute;inset:0;display:flex">Map library didn\'t load.</div>'; return; }
+    const dark = document.documentElement.dataset.theme !== 'light';
+    map = L.map('map', { center: HOME, zoom: 9, minZoom: 6, maxZoom: 11, zoomControl: false, attributionControl: true, zoomSnap: 0.5 });
+    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
+      subdomains: 'abcd', maxZoom: 19, attribution: '© OpenStreetMap © CARTO',
+    }).addTo(map);
+    L.marker(HOME, { icon: L.divIcon({ className: '', html: '<div class="home-pin"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }), keyboard: false, title: 'Home' }).addTo(map);
+    map.attributionControl.addAttribution('Radar <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>');
+    new ResizeObserver(() => map.invalidateSize()).observe($('map'));
+  }
+  async function loadRadar() {
+    if (!map) return;
+    const j = await pull('radar', API.radar, 15000);
+    const past = j?.radar?.past || [];
+    if (!past.length) return;
+    const key = past.map(f => f.path).join();
+    if (key === frames.map(f => f.path).join()) return;           // nothing new
+    layers.forEach(l => map.removeLayer(l));
+    frames = past;
+    // Universal Blue (scheme 2) is the only scheme left on the free API; smoothed, no snow
+    layers = frames.map(f => L.tileLayer(`${j.host}${f.path}/256/{z}/{x}/{y}/2/1_0.png`, {
+      tileSize: 256, maxNativeZoom: 7, maxZoom: 11, opacity: 0, zIndex: 10,
+    }).addTo(map));
+    $('frames').innerHTML = frames.map(() => '<i></i>').join('');
+    showFrame(frames.length - 1);
+  }
+  function showFrame(i) {
+    if (!layers.length) return;
+    layers.forEach((l, k) => l.setOpacity(k === i ? 0.72 : 0));
+    idx = i;
+    [...$('frames').children].forEach((el, k) => el.className = k === i ? 'on' : k < i ? 'past' : '');
+    const latest = i === frames.length - 1;
+    $('radar-time').textContent = clock(new Date(frames[i].time * 1000)) + (latest ? ' ●' : '');
+    $('radar-time').title = latest ? 'Latest frame' : '';
+  }
+  function tick() {
+    if (!playing || !layers.length || document.hidden) return;
+    const next = (idx + 1) % layers.length;
+    showFrame(next);
+    // hold on the latest frame so it's readable at a glance
+    timer = setTimeout(tick, next === layers.length - 1 ? 2600 : 550);
+  }
+  function setPlaying(p) {
+    playing = p; clearTimeout(timer);
+    $('radar-icon').innerHTML = p ? '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>' : '<path d="M7 5l12 7-12 7z"/>';
+    $('radar-play').setAttribute('aria-label', p ? 'Pause radar animation' : 'Play radar animation');
+    if (p) timer = setTimeout(tick, 600); else showFrame(layers.length - 1);
+  }
+  $('radar-play').addEventListener('click', () => setPlaying(!playing));
+  $('frames').addEventListener('click', ev => { const i = [...$('frames').children].indexOf(ev.target); if (i >= 0) { setPlaying(false); showFrame(i); } });
+
+  // ---------- wall-display behaviour ----------
+  // Keep the screen awake (needs a tap first on some browsers)
+  let lock = null;
+  async function wake() { try { if ('wakeLock' in navigator && !lock) { lock = await navigator.wakeLock.request('screen'); lock.addEventListener('release', () => lock = null); } } catch (e) {} }
+  document.addEventListener('click', wake, { passive: true });
+  // Night dimming 10 pm to 6 am. Tap anywhere to brighten for a minute. ?dim=off disables.
+  let dimMode = params.get('dim') === 'off' ? 'off' : 'auto', wakeUntil = 0;
+  function applyDim() {
+    const h = mel().h, night = h >= 22 || h < 6;
+    document.body.classList.toggle('dimmed', dimMode === 'on' || (dimMode === 'auto' && night && Date.now() > wakeUntil));
+  }
+  document.addEventListener('pointerdown', () => { wakeUntil = Date.now() + 60e3; applyDim(); }, { passive: true });
+  $('btn-dim').addEventListener('click', ev => { ev.stopPropagation(); dimMode = dimMode === 'auto' ? 'on' : dimMode === 'on' ? 'off' : 'auto'; $('btn-dim').title = 'Night dimming: ' + dimMode; wakeUntil = 0; applyDim(); });
+  $('btn-fs').addEventListener('click', () => { const d = document; (d.fullscreenElement ? d.exitFullscreen() : d.documentElement.requestFullscreen?.())?.catch?.(() => {}); });
+  // Nudge the whole layout by a pixel or two every few minutes (burn-in protection)
+  const shifts = [[0, 0], [1, 1], [-1, 1], [1, -1], [-1, -1], [2, 0], [0, 2]];
+  let si = 0; setInterval(() => { si = (si + 1) % shifts.length; $('screen').style.transform = `translate(${shifts[si][0]}px,${shifts[si][1]}px)`; }, 4 * 60e3);
+  // Full reload every 6 hours to pick up deploys and keep memory tidy
+  setTimeout(() => location.reload(), 6 * 3600e3);
+
+  // ---------- loops ----------
+  const renderAll = () => { renderClock(); renderWx(); renderEnergy(); renderToday(); renderForecast(); renderNotes(); };
+  async function refresh(name) {
+    if (name === 'radar') return loadRadar();
+    await pull(name, name === 'ev' ? API.ev : API[name]);
+    renderAll();
+  }
+  function schedule(name) { setInterval(() => { if (!document.hidden) refresh(name); }, EVERY[name]); }
+  initMap();
+  ['ev', 'sems', 'wx', 'fc'].forEach(n => { refresh(n); schedule(n); });
+  loadRadar().then(() => setPlaying(true)); schedule('radar');
+  setInterval(() => { renderClock(); renderDots(); applyDim(); }, 10e3);
+  setInterval(renderNotes, 60e3);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { lock = null; return; }
+    wake(); ['ev', 'wx'].forEach(refresh);
+    if (playing) setPlaying(true);
+  });
+  let rs; window.addEventListener('resize', () => { clearTimeout(rs); rs = setTimeout(renderToday, 150); });
+  renderClock(); applyDim(); wake();
+})();
+</script>
+</body>
+</html>

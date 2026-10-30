@@ -82,6 +82,20 @@ Investigation steps:
 **Reported:** 2026-10-29
 **Status:** Open. ~/clips filled the 58 GB card by early Sept; 61 oldest days deleted on 2026-10-28. Add a cron to delete clips older than 30 days.
 
+## Home Overview (wall display)
+
+### Verify Ecowitt piezo rain field on live data
+**Reported:** 2026-10-30
+**Status:** Open. ecowitt.js now prefers `rainfall_piezo` (WS90) and reports `rainSource`. Hit /.netlify/functions/ecowitt once and confirm `rainSource` is "piezo" and `rainDaily` matches the Ecowitt app.
+
+### Move Ecowitt application key to an env var
+**Reported:** 2026-10-30
+**Status:** Open. APPLICATION_KEY is hardcoded in ecowitt.js in a public repo. Low risk (the API key is already an env var) but tidy it: set ECOWITT_APP_KEY in Netlify, read it in the function, delete the literal.
+
+### Pick and mount the wall tablet
+**Reported:** 2026-10-30
+**Status:** Open. Open /home.html, tap once (enables screen wake lock), add to home screen, use the full screen button. Android tablets in kiosk mode (e.g. Fully Kiosk Browser) handle wake and auto-start best.
+
 ## Done
 
 ### Room card power button — rotate 90° clockwise

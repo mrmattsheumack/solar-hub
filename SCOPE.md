@@ -138,4 +138,36 @@ returns code 0 with empty data, so Solar Hub showed zeros. Live data now comes
 from v2/PowerStation/GetPowerflow (gridStatus -1 = import, 1 = export) and
 today's generation from v3/PowerStation/GetPlantDetailByPowerstationId.
 
+## Home Overview wall display (added 2026-10-30)
+
+Goal: one always-on screen that joins up weather, the WS90, rain radar, solar
+and EV charging, and links through to the EV page and the main app.
+
+Decisions agreed with Matt:
+- Lives at `public/home.html` on the same Netlify site. Read-only; controls stay
+  on ev.html and index.html. Linked from the main nav ("Wall Overview") and
+  from ev.html ("Overview ›").
+- Primary device is an always-on landscape tablet or wall screen: dark by
+  default, no scrolling at 1280x800 and up, stacks and scrolls on phones.
+- Radar is RainViewer (free Weather Maps API). Free tier since 1 Jan 2026:
+  past 2 hours only (10-minute frames, no nowcast), Universal Blue colour
+  scheme only, max native zoom 7 (overzoomed on the map), 100 requests per IP
+  per minute. A "BoM radar" link opens the Melbourne loop for detail.
+- No new data plumbing: reuses `ev`, `sems`, `ecowitt` and `forecast`
+  functions. Live PV prefers the inverter Modbus reading (`pv_live_w` in the
+  controller state) when fresh, falling back to SEMS.
+- Wall behaviour: screen wake lock, dims 10pm-6am (tap to brighten for a
+  minute, `?dim=off` disables), small layout shift every 4 min against burn-in,
+  full reload every 6 h, polling pauses when the tab is hidden.
+- Heads-up notes are rule-based (station rain, forecast rain within 6 h, gusts
+  >= 55 km/h, solar left vs car plugged in, tomorrow's solar after 5pm, high UV,
+  Pi unreachable). Max three shown.
+
+Function changes made for it (2026-10-30):
+- `ecowitt.js`: zero readings are now 0 instead of null; reads the WS90's
+  `rainfall_piezo` block (falls back to `rainfall`); adds feels like, dew point,
+  gust, rain event/hourly/weekly/monthly/yearly and station time.
+- `forecast.js`: adds hourly wind speed and gusts, daily min/max temperature,
+  max rain probability and max gust. Existing fields unchanged.
+
 End of file.
