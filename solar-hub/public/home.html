@@ -143,6 +143,8 @@ a.note:hover{border-color:var(--border-strong)}
 
 .rain-state{flex:none;font-size:12px;color:var(--text-muted);white-space:nowrap}
 .radar-img{image-rendering:pixelated}
+/* Esri's Ocean tiles carry a faint light row on some edges; draw each a pixel larger and clip it off */
+.basemap img.leaflet-tile{width:258px!important;height:258px!important;margin:-1px 0 0 -1px;clip-path:inset(1px)}
 
 /* ---------- energy flow ---------- */
 .flowcard{grid-area:flow}
