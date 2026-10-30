@@ -112,11 +112,10 @@ button{font:inherit;color:inherit}
 .hi{color:var(--import)} .lo{color:var(--home)}
 
 /* ---------- radar ---------- */
-.radar{grid-area:radar;padding:0}
-.radar .card-head{position:absolute;top:0;left:0;right:0;z-index:500;padding:var(--pad);pointer-events:none;
-  background:linear-gradient(var(--surface) 0%,color-mix(in srgb,var(--surface) 70%,transparent) 55%,transparent)}
-.radar .card-head > *{pointer-events:auto}
-#map{position:absolute;inset:0;background:var(--surface-2)}
+.radar{grid-area:radar;padding:0;gap:0}
+.radar .card-head{padding:10px var(--pad);border-bottom:1px solid var(--border)}
+.radar .map-wrap{position:relative;flex:1;min-height:0}
+#map{position:absolute;inset:0;background:#dfe6ea}
 .leaflet-container{font-family:var(--sans);background:var(--surface-2)}
 .leaflet-control-attribution{background:color-mix(in srgb,var(--surface) 80%,transparent)!important;color:var(--text-dim)!important;font-size:10px!important}
 .leaflet-control-attribution a{color:var(--text-muted)!important}
@@ -206,6 +205,7 @@ button{font:inherit;color:inherit}
 
 /* ---------- internet pill (UniFi) ---------- */
 .net{display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;border-radius:999px;background:var(--surface);border:1px solid var(--border);font-size:12px;color:var(--text-muted);white-space:nowrap}
+.net[hidden]{display:none}
 .net i{width:8px;height:8px;border-radius:50%;background:var(--ok)}
 .net b{font-family:var(--mono);font-weight:500;color:var(--text)}
 .net.warn i{background:var(--warn)} .net.down i{background:var(--import)} .net.down{color:var(--import)}
@@ -303,14 +303,14 @@ body.dimmed .dim{opacity:.62}
         <a class="card-link" href="https://www.bom.gov.au/products/IDR023.loop.shtml" target="_blank" rel="noopener">BoM radar ›</a>
       </div>
     </div>
-    <div id="map" role="img" aria-label="Animated rain radar centred on Dromana"></div>
+    <div class="map-wrap"><div id="map" role="img" aria-label="Animated rain radar centred on Dromana"></div>
     <div class="radar-bar">
       <button class="btn" id="radar-play" aria-label="Pause radar animation">
         <svg viewBox="0 0 24 24" fill="currentColor" id="radar-icon"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
       </button>
       <div class="frames" id="frames"></div>
       <span class="rain-state" id="rain-state"></span><span class="radar-time" id="radar-time">--:--</span>
-    </div>
+    </div></div>
   </section>
 
   <!-- ===== energy flow ===== -->
