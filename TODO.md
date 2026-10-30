@@ -86,7 +86,7 @@ Investigation steps:
 
 ### Verify Ecowitt piezo rain field on live data
 **Reported:** 2026-10-30
-**Status:** Open. ecowitt.js now prefers `rainfall_piezo` (WS90) and reports `rainSource`. Hit /.netlify/functions/ecowitt once and confirm `rainSource` is "piezo" and `rainDaily` matches the Ecowitt app.
+**Status:** Done 2026-10-30. Live response shows `rainSource: "piezo"` with daily, weekly, monthly and yearly totals populated. ecowitt.js prefers `rainfall_piezo` (WS90) and reports `rainSource`. Hit /.netlify/functions/ecowitt once and confirm `rainSource` is "piezo" and `rainDaily` matches the Ecowitt app.
 
 ### Move Ecowitt application key to an env var
 **Reported:** 2026-10-30
