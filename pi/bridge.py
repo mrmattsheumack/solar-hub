@@ -338,7 +338,7 @@ def _row_car(r: dict, tags: list) -> str:
 
 
 def _car_keys() -> dict:
-    return {f"car_{c}_{k}": 0.0 for c in CARS for k in ("kwh", "solar_kwh", "offpeak_kwh", "grid_day_kwh")}
+    return {f"car_{c}_{k}": 0.0 for c in CARS for k in ("kwh", "solar_kwh", "offpeak_kwh", "grid_day_kwh", "hours")}
 
 
 @app.get("/api/ev/state")
@@ -382,6 +382,8 @@ def ev_state():
             totals["car_kwh"] += e
             cid = _row_car(r, tags)
             totals[f"car_{cid}_kwh"] += e
+            if car_w > 200:
+                totals[f"car_{cid}_hours"] += h
             if r.get("window") == "offpeak":
                 totals["car_offpeak_kwh"] += e
                 totals[f"car_{cid}_offpeak_kwh"] += e
@@ -521,6 +523,8 @@ def _ev_day_summary(rows: list[dict]) -> dict:
             from_solar = min(car, max(0.0, pv - house)) if r.get("window") == "day" else 0.0
             cid = _row_car(r, tags)
             out[f"car_{cid}_kwh"] += car / 1000 * h
+            if car > 200:
+                out[f"car_{cid}_hours"] += h
             if r.get("window") == "offpeak":
                 out["car_offpeak_kwh"] += car / 1000 * h
                 out[f"car_{cid}_offpeak_kwh"] += car / 1000 * h

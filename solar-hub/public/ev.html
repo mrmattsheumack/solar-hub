@@ -70,44 +70,44 @@ a{color:inherit}
 .rowh .links{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 
 /* ---------- cars (photo or drawing behind the readings) ---------- */
-.car-card{position:relative;overflow:hidden;min-height:250px;padding:12px 14px 14px}
-.car-bg{position:absolute;top:0;right:0;bottom:0;width:72%;pointer-events:none;
-  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 45%);mask-image:linear-gradient(90deg,transparent 0,#000 45%)}
-.car-bg img,.car-bg svg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55}
-.car-bg svg{object-fit:contain;opacity:.5;padding:30px 0 20px}
-.car-fg{position:relative;display:flex;flex-direction:column;gap:8px;height:100%}
-.car-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.car-card{position:relative;overflow:hidden;min-height:228px;padding:12px 14px}
+.car-bg{position:absolute;top:0;right:0;bottom:0;width:70%;pointer-events:none;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 50%);mask-image:linear-gradient(90deg,transparent 0,#000 50%)}
+.car-bg img,.car-bg svg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.5}
+.car-bg svg{object-fit:contain;opacity:.42;padding:34px 0 16px}
+.car-fg{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 14px;align-items:start}
+.car-head{grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .car-name{font-size:22px;font-weight:600;letter-spacing:-.01em;text-shadow:0 1px 8px rgba(0,0,0,.6)}
-.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:3px 9px;border-radius:2px;background:rgba(17,18,23,.75);border:1px solid var(--border-strong);color:var(--text-muted);white-space:nowrap}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:2px;background:rgba(17,18,23,.78);border:1px solid var(--border-strong);color:var(--text-muted);white-space:nowrap}
 .chip .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
-.chip.charging{color:var(--green);border-color:rgba(115,191,105,.45)}
-.chip.on{color:var(--blue-l);border-color:rgba(87,148,242,.45)}
+.chip.solar{color:var(--yellow);border-color:rgba(250,222,42,.45)}
+.chip.offpeak{color:var(--blue-l);border-color:rgba(87,148,242,.5)}
+.chip.onpeak{color:var(--red);border-color:rgba(242,73,92,.5)}
+.chip.waiting{color:var(--text);border-color:rgba(204,204,220,.3)}
+.chip.full{color:var(--green);border-color:rgba(115,191,105,.45)}
 .chip.away{color:var(--orange)}
-.car-body{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
-.car-read{flex:1 1 220px;min-width:0;max-width:340px}
-.soc{display:flex;align-items:baseline;gap:8px}
-.soc b{font-size:40px;font-weight:600;line-height:1;letter-spacing:-.02em;text-shadow:0 2px 10px rgba(0,0,0,.5)}
-.soc span{font-size:12.5px;color:var(--text-muted)}
-.hbar{position:relative;height:12px;background:rgba(34,37,43,.85);border-radius:1px;margin-top:8px;overflow:hidden}
-.hbar .fill{position:absolute;left:0;top:0;bottom:0;border-radius:1px}
-.hbar .lim{position:absolute;top:0;bottom:0;width:2px;background:var(--text)}
-.hbar.empty{background:repeating-linear-gradient(135deg,rgba(34,37,43,.9) 0 6px,rgba(44,48,54,.9) 6px 12px)}
-.car-lines{margin-top:8px;font-size:12.5px;color:var(--text-muted);display:flex;flex-direction:column;gap:2px;text-shadow:0 1px 6px rgba(0,0,0,.7)}
+.car-read{min-width:0;max-width:360px;display:flex;flex-direction:column;gap:6px}
+.batt{width:190px;height:auto;display:block;filter:drop-shadow(0 2px 8px rgba(0,0,0,.45))}
+.car-lines{font-size:12.5px;color:var(--text-muted);display:flex;flex-direction:column;gap:1px;text-shadow:0 1px 6px rgba(0,0,0,.8)}
 .car-lines b{color:var(--text);font-weight:600}
-.chg{flex:0 1 230px;min-width:200px;background:rgba(17,18,23,.72);border:1px solid var(--border);border-radius:2px;padding:8px 10px;backdrop-filter:blur(2px)}
-.chg-top{display:flex;align-items:center;gap:10px}
-.chg svg{flex:0 0 92px;width:92px;height:auto}
-.chg-state{font-size:14px;font-weight:600;line-height:1.25}
-.chg-why{font-size:12px;color:var(--text-muted);margin-top:2px}
-.chg-ttf{font-size:12px;color:var(--text-muted);margin-top:6px;padding-top:6px;border-top:1px solid var(--border)}
-.chg-ttf b{color:var(--green);font-weight:600;font-size:14px}
-.car-act{margin-top:auto;display:flex;justify-content:flex-end}
-.strip-chg{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.strip-chg svg{width:80px;height:auto}
+.src-bar{display:flex;height:8px;border-radius:1px;overflow:hidden;background:rgba(44,48,54,.85);width:100%;max-width:300px}
+.src-bar div{min-width:2px}
+.src-leg{display:flex;gap:4px 10px;flex-wrap:wrap;font-size:11.5px;color:var(--text-muted);text-shadow:0 1px 6px rgba(0,0,0,.8)}
+.src-leg i{display:inline-block;width:8px;height:8px;border-radius:1px;margin-right:4px;vertical-align:0}
+.src-leg b{color:var(--text);font-weight:600}
+.chg{display:flex;flex-direction:column;align-items:center;gap:2px;width:150px;text-align:center;background:rgba(17,18,23,.55);border-radius:2px;padding:6px 6px 8px}
+.chg svg{width:120px;height:auto}
+.chg-why{font-size:11.5px;color:var(--text-muted);line-height:1.3}
+.chg-ttf{font-size:11.5px;color:var(--text-muted);line-height:1.3;margin-top:2px}
+.chg-ttf b{color:var(--green);font-weight:600}
+.car-act{grid-column:1/-1;display:flex;justify-content:flex-end;margin-top:4px}
+.strip-chg{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:13px}
+.strip-chg svg{width:84px;height:auto}
+.seg.sm button{padding:3px 8px;font-size:12px}
 
 /* ---------- energy flow diagram ---------- */
 .flow-wrap{position:relative}
-svg.flow{display:block;width:100%;height:auto}
+svg.flow{display:block;width:100%;height:auto;max-height:430px}
 .flow-line{fill:none;stroke:var(--surface-3);stroke-width:3}
 .flow-dash{fill:none;stroke-width:3;stroke-dasharray:3 9;stroke-linecap:round;animation:flow 1.2s linear infinite}
 .flow-dash.rev{animation-direction:reverse}
@@ -246,7 +246,12 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
   </div>
   <div class="dash">
     <section class="panel span-6">
-      <div class="p-title"><span id="car-h">Car charging today</span></div>
+      <div class="p-title"><span id="car-h">Car charging today</span>
+        <div class="seg sm" role="tablist" aria-label="Which car">
+          <button role="tab" data-carview="total" aria-pressed="true">Total</button>
+          <button role="tab" data-carview="ioniq5" aria-pressed="false">IONIQ 5</button>
+          <button role="tab" data-carview="ev5" aria-pressed="false">EV5</button>
+        </div></div>
       <div id="car-pie"></div>
       <div class="car-by" id="car-by"></div>
     </section>
@@ -409,91 +414,109 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
   // The Pi's kia_poll.py works out which car is on the charger; "This one's on the charger" corrects it.
   const PI_CAR = { ev5:'ev5', ioniq5:'ioniq' }, TO_PI = { ev5:'ev5', ioniq:'ioniq5' };
   let carInfo = null;
-  const carOnCharger = () => carInfo && PI_CAR[carInfo.car] ? PI_CAR[carInfo.car] : null;
+  // Which car is on the charger: the Pi's tag, or if a car is plugged in and the EV5 says it isn't, the IONIQ 5
+  const carOnCharger = () => {
+    if (carInfo && PI_CAR[carInfo.car]) return PI_CAR[carInfo.car];
+    const c = (lastD && lastD.latest && lastD.latest.charger) || {};
+    const plugged = c.plug === 'plugged' || c.plug === 'plugged_locked', k5 = carInfo && carInfo.ev5;
+    if (plugged && k5 && (k5.plugged === false || k5.at_home === false)) return 'ioniq';
+    return null;
+  };
 
-  // What the charger is doing, as one block (lives in the card of the car that's plugged in)
-  function chargerBlock(d, carName){
+  // Battery drawn as a battery: fill to the %, a tick at the charge limit, the % inside
+  function battSVG(soc, limit, est){
+    const W = 168, known = soc != null, pct = known ? soc : (est != null ? est : 0);
+    const col = !known ? 'rgba(115,191,105,.55)' : soc < 20 ? '#f2495c' : soc < 50 ? '#ff9830' : '#73bf69';
+    const label = known ? `${Math.round(soc)}%` : est != null ? `+${Math.round(est)}%` : '?';
+    return `<svg class="batt" viewBox="0 0 200 80" role="img" aria-label="${known ? 'Battery ' + Math.round(soc) + '%' : 'Battery unknown'}">
+      <defs><pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="#22252b"/><rect width="4" height="8" fill="#2c3036"/></pattern></defs>
+      <rect x="3" y="3" width="180" height="74" rx="11" fill="rgba(17,18,23,.75)" stroke="rgba(204,204,220,.7)" stroke-width="3"/>
+      <rect x="186" y="26" width="10" height="28" rx="3" fill="rgba(204,204,220,.7)"/>
+      ${known || est != null ? '' : `<rect x="10" y="10" width="${W}" height="60" rx="6" fill="url(#hatch)"/>`}
+      ${pct > 0 ? `<rect x="10" y="10" width="${(W * Math.min(100, pct) / 100).toFixed(1)}" height="60" rx="6" fill="${col}"/>` : ''}
+      ${limit ? `<rect x="${(10 + W * limit / 100 - 1.5).toFixed(1)}" y="6" width="3" height="68" rx="1" fill="#d8d9da" opacity=".85"><title>Charge limit ${limit}%</title></rect>` : ''}
+      <text x="93" y="52" text-anchor="middle" fill="#fff" font-family="Inter, sans-serif" font-size="32" font-weight="700" style="paint-order:stroke" stroke="rgba(0,0,0,.45)" stroke-width="3">${label}</text>
+    </svg>`;
+  }
+  const hm = h => { const m = Math.round(h * 60); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
+
+  // Where the car's power is coming from right now
+  function chargeSource(d){
+    const L = d.latest || {}, c = L.charger || {}, watts = c.power_w || 0;
+    const plugged = c.plug === 'plugged' || c.plug === 'plugged_locked';
+    if (!plugged) return null;
+    if (c.state === 'complete' || c.state === 'full' || (c.state === 'charging' && watts <= 200 && (lastPlugin && lastPlugin.kwh > 0.5))) return { cls:'full', text:'Plugged in, charged' };
+    if (!(c.state === 'charging' && watts > 200)) return { cls:'waiting', text:'Plugged in, awaiting charge' };
+    if (L.window === 'offpeak') return { cls:'offpeak', text:'Charging from grid, off-peak' };
+    const pv = L.pv_live_w != null ? L.pv_live_w : (L.pv_kw != null ? L.pv_kw * 1000 : 0);
+    const houseW = L.house_w != null ? L.house_w : (L.home_kw != null ? Math.max(0, L.home_kw * 1000 - watts) : 0);
+    const fromSolar = Math.min(watts, Math.max(0, pv - houseW));
+    return fromSolar >= watts * 0.5 ? { cls:'solar', text:'Charging from solar' } : { cls:'onpeak', text:'Charging from grid, on-peak' };
+  }
+
+  // Gauge, reason and time to full (inside the card of the car on the charger, or the strip)
+  function chargerBits(d){
     const L = d.latest || {}, c = L.charger || {};
     const plugged = c.plug === 'plugged' || c.plug === 'plugged_locked';
     const watts = c.power_w || 0, amps = c.amps || 0;
-    const ex = explain(L.reason);
-    let big, why;
-    if (!plugged) { big = 'Nothing plugged in'; why = 'Plug in a car and it will charge on the next spare solar' + (offpeakOn ? ', or from midnight.' : '.'); }
-    else if (c.state === 'charging' && watts > 200) {
-      big = L.override ? 'Charging, full rate' : L.window === 'offpeak' ? 'Charging, off-peak' : 'Charging on solar';
-      why = `${kw(watts)} kW` + (d.plugin && d.plugin.since ? ` · plugged in at ${fmtTime(d.plugin.since)}` : '');
-    } else if (c.state === 'charging') { big = 'Charged'; why = 'Stopped taking charge, so it is probably full.'; }
-    else if (c.state === 'complete' || c.state === 'full') { big = 'Charged'; why = 'Finished charging and still plugged in.'; }
-    else { big = 'Plugged in, waiting'; why = ex.text + '.'; }
-    if (!plugged) {} else if (!carName) big = 'Car ' + big.charAt(0).toLowerCase() + big.slice(1);
     const color = L.override ? '#f2495c' : L.window === 'offpeak' ? '#5794f2' : amps >= 16 ? '#73bf69' : '#fade2a';
-    // time to full (EV5 only, it's the one with a battery reading)
+    let why = '';
+    if (!plugged) why = 'Nothing plugged in. Plug in a car and it will charge on the next spare solar' + (offpeakOn ? ', or from midnight.' : '.');
+    else if (c.state === 'charging' && watts > 200) why = `${kw(watts)} kW`;
+    else if (!(c.state === 'complete' || c.state === 'full')) why = explain(L.reason).text + '.';
     let ttf = '';
     const k5 = carInfo && carInfo.ev5;
     if (plugged && carOnCharger() === 'ev5' && k5 && k5.soc != null) {
       const lim = k5.limit_ac || 100, need = Math.max(0, (lim - k5.soc) / 100 * CARS.ev5.kwh);
       if (need < 0.2) ttf = `At its <b>${lim}%</b> limit`;
-      else if (c.state === 'charging' && watts > 200) { const h = need / (watts / 1000 * 0.92); ttf = `Full to ${lim}% in <b>${h >= 1 ? `${Math.floor(h)} h ${Math.round((h % 1) * 60)} min` : `${Math.round(h * 60)} min`}</b> at this rate`; }
-      else ttf = `<b>${need.toFixed(1)} kWh</b> to ${lim}%, about ${(need / 7).toFixed(1)} h at full rate`;
-    } else if (plugged && carOnCharger() === 'ioniq') ttf = "Time to full needs the IONIQ 5's battery level";
-    return `<div class="chg-top">${gaugeSVG(amps, color)}<div><div class="chg-state">${esc(big)}</div><div class="chg-why">${esc(why)}</div></div></div>` +
-      (ttf ? `<div class="chg-ttf">${ttf}</div>` : '') +
-      `<div class="note" style="margin-top:4px">Charger · ${L.ts ? fmtTime(L.ts) : '–'}</div>`;
+      else if (c.state === 'charging' && watts > 200) ttf = `Full to ${lim}% in <b>${hm(need / (watts / 1000 * 0.92))}</b>`;
+      else ttf = `<b>${need.toFixed(1)} kWh</b> to ${lim}%, about ${hm(need / 6.5)} at full rate`;
+    }
+    return { gauge: gaugeSVG(amps, color), why, ttf };
   }
 
   function renderCars(d){
+    lastD = d;
     const c = (d.latest || {}).charger || {};
     const plugged = c.plug === 'plugged' || c.plug === 'plugged_locked';
-    const watts = c.power_w || 0, charging = c.state === 'charging' && watts > 200;
     const on = plugged ? carOnCharger() : null;
-    const T = liveTotals || {};
+    const T = liveTotals || {}, bits = chargerBits(d), src = chargeSource(d);
     // charger strip only when no card is hosting it
     $('chg-row').hidden = !!on;
-    if (!on) $('chg-strip').innerHTML = `<div class="strip-chg chg" style="background:transparent;border:0;padding:0;max-width:none">${chargerBlock(d, null)}</div>` +
-      (plugged ? '<div class="note" style="margin-top:6px">A car is plugged in but hasn\'t been identified yet. Tap "This one\'s on the charger" on the right car.</div>' : '');
+    if (!on) $('chg-strip').innerHTML = `<div class="strip-chg">${bits.gauge}<div><b>${plugged ? 'A car is plugged in' : 'Charger'}</b><div class="chg-why">${esc(bits.why)}</div>` +
+      (plugged ? '<div class="note" style="margin-top:4px">Not identified yet. Tap "This one\'s on the charger" on the right car.</div>' : '') + '</div></div>';
     ['ev5','ioniq'].forEach(k => {
-      const box = $(k === 'ev5' ? 'card-ev5' : 'card-ioniq'), car = CARS[k], isOn = on === k;
+      const box = $(k === 'ev5' ? 'card-ev5' : 'card-ioniq'), car = CARS[k], isOn = on === k, pk = TO_PI[k];
       const k5 = carInfo && carInfo.ev5;
-      let chip, lines = [], soc = null, limit = null, est = null;
-      if (isOn && charging) chip = `<span class="chip charging"><span class="dot"></span>Charging · ${kw(watts)} kW</span>`;
-      else if (isOn && (c.state === 'complete' || c.state === 'full')) chip = `<span class="chip on"><span class="dot"></span>On the charger · finished</span>`;
-      else if (isOn) chip = `<span class="chip on"><span class="dot"></span>On the charger</span>`;
+      let chip;
+      if (isOn && src) chip = `<span class="chip ${src.cls}"><span class="dot"></span>${src.text}</span>`;
       else if (k === 'ev5' && k5 && k5.plugged && k5.at_home === false) chip = `<span class="chip away"><span class="dot"></span>Plugged in away from home</span>`;
       else if (k === 'ev5' && k5 && k5.at_home === false) chip = `<span class="chip away"><span class="dot"></span>Away from home</span>`;
       else chip = `<span class="chip"><span class="dot"></span>Not on the charger</span>`;
 
+      let soc = null, limit = null, est = null;
+      const lines = [];
       if (k === 'ev5' && k5 && k5.soc != null) {
-        soc = Math.round(k5.soc); limit = k5.limit_ac || null;
-        const bits = [];
-        if (limit) bits.push(`Charging to <b>${limit}%</b>`);
-        if (k5.range_km) bits.push(`<b>${Math.round(k5.range_km)} km</b> range`);
-        lines.push(bits.join(' · '));
-        if (k5.status_time) lines.push(`<span class="note">Battery as of ${fmtTime(k5.status_time)}${carInfo.last_error ? ', Kia Connect not answering' : ''}</span>`);
+        soc = k5.soc; limit = k5.limit_ac || null;
+        lines.push([limit ? `Charging to <b>${limit}%</b>` : '', k5.range_km ? `<b>${Math.round(k5.range_km)} km</b> range` : ''].filter(Boolean).join(' · '));
       } else if (k === 'ioniq') {
-        lines.push('No battery reading yet. A WiCAN in the car would add it.');
-      } else {
-        lines.push('Waiting for Kia Connect.');
+        if (isOn && lastPlugin) est = Math.min(100, 100 * lastPlugin.kwh / car.kwh);
+        lines.push(isOn && lastPlugin ? `<b>${lastPlugin.kwh.toFixed(1)} kWh</b> added since plugged in` : 'No battery reading yet');
       }
-      if (isOn && lastPlugin) {
-        est = Math.min(100, 100 * lastPlugin.kwh / car.kwh);
-        lines.push(`<b>${lastPlugin.kwh.toFixed(1)} kWh</b> added since plugged in` + (soc == null ? ` (about +${Math.round(est)}%)` : ''));
-      }
-      const today = T[`car_${TO_PI[k]}_kwh`] || 0, todaySolar = T[`car_${TO_PI[k]}_solar_kwh`] || 0;
-      lines.push(`Today <b>${today.toFixed(1)} kWh</b>` + (todaySolar >= 0.05 ? `, ${todaySolar.toFixed(1)} from solar` : ''));
+      // charged today: time, then a small bar of where the energy came from
+      const hrs = T[`car_${pk}_hours`] || 0, so = T[`car_${pk}_solar_kwh`] || 0, op = T[`car_${pk}_offpeak_kwh`] || 0, gd = T[`car_${pk}_grid_day_kwh`] || 0, tot = so + op + gd;
+      lines.push(hrs >= 1/60 ? `Charged today for <b>${hm(hrs)}</b>` : 'Not charged today');
+      const srcParts = [['Solar', so, '#fade2a'], ['Off-peak', op, 'rgba(87,148,242,.85)'], ['On-peak', gd, '#f2495c']];
+      const srcBar = tot >= 0.05 ? `<div class="src-bar" role="img" aria-label="Today: ${srcParts.map(([n,v]) => `${n} ${v.toFixed(1)} kWh`).join(', ')}">${srcParts.map(([n,v,col]) => v > 0 ? `<div style="width:${(100*v/tot).toFixed(1)}%;background:${col}"></div>` : '').join('')}</div>
+        <div class="src-leg">${srcParts.filter(([,v]) => v >= 0.05).map(([n,v,col]) => `<span><i style="background:${col}"></i>${n} <b>${v.toFixed(1)} kWh</b> ${Math.round(100*v/tot)}%</span>`).join('')}</div>` : '';
 
-      const col = soc == null ? 'var(--surface-3)' : soc < 20 ? 'var(--red)' : soc < 50 ? 'var(--orange)' : 'var(--green)';
-      const big = soc != null ? `<b style="color:${col}">${soc}%</b><span>battery</span>` : `<b style="color:var(--text-dim)">–</b><span>battery unknown</span>`;
-      const bar = soc != null
-        ? `<div class="hbar"><div class="fill" style="width:${soc}%;background:linear-gradient(90deg,rgba(115,191,105,.35),${col})"></div>${limit ? `<div class="lim" style="left:calc(${limit}% - 1px)" title="Charge limit ${limit}%"></div>` : ''}</div>`
-        : `<div class="hbar empty">${est != null ? `<div class="fill" style="width:${est}%;background:rgba(115,191,105,.5)"></div>` : ''}</div>`;
       const bg = hasPhoto[k] ? `<img src="${car.photo}" alt="">` : carSVG(k);
       const fix = plugged && !isOn ? `<div class="car-act"><button class="btn" data-oncharger="${k}">This one's on the charger</button></div>` : '';
+      const chg = isOn ? `<div class="chg">${bits.gauge}${bits.why ? `<div class="chg-why">${esc(bits.why)}</div>` : ''}${bits.ttf ? `<div class="chg-ttf">${bits.ttf}</div>` : ''}</div>` : '';
       box.innerHTML = `<div class="car-bg">${bg}</div><div class="car-fg">
           <div class="car-head"><span class="car-name">${car.name}</span>${chip}</div>
-          <div class="car-body">
-            <div class="car-read"><div class="soc">${big}</div>${bar}<div class="car-lines">${lines.map(l => `<span>${l}</span>`).join('')}</div></div>
-            ${isOn ? `<div class="chg">${chargerBlock(d, car.name)}</div>` : ''}
-          </div>${fix}</div>`;
+          <div class="car-read">${battSVG(soc, limit, est)}<div class="car-lines">${lines.map(l => `<span>${l}</span>`).join('')}</div>${srcBar}</div>
+          ${chg}${fix}</div>`;
     });
     document.querySelectorAll('[data-oncharger]').forEach(b => b.addEventListener('click', async () => {
       const k = b.dataset.oncharger; b.disabled = true; b.textContent = 'Saving…';
@@ -627,20 +650,22 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     $('energy-h').textContent = 'Energy ' + name;
     $('car-h').textContent = 'Car charging ' + name;
     $('solar-h').textContent = 'Solar ' + name;
-    const solar = T.car_solar_kwh || 0, off = T.car_offpeak_kwh || 0, grid = T.car_grid_day_kwh || 0, carTotal = solar + off + grid;
+    document.querySelectorAll('[data-carview]').forEach(b => b.setAttribute('aria-pressed', b.dataset.carview === carView ? 'true' : 'false'));
+    const pre = carView === 'total' ? 'car_' : `car_${carView}_`, who = carView === 'total' ? 'the cars' : carView === 'ev5' ? 'the EV5' : 'the IONIQ 5';
+    const solar = T[pre + 'solar_kwh'] || 0, off = T[pre + 'offpeak_kwh'] || 0, grid = T[pre + 'grid_day_kwh'] || 0, carTotal = solar + off + grid;
     $('car-pie').innerHTML = pie([
       ['From solar', solar, '#fade2a', `$${(solar * (RATE.offpeak - RATE.feedin)).toFixed(2)} saved vs off-peak`],
       ['Grid, off-peak', off, 'rgba(242,73,92,.5)', `$${(off * RATE.offpeak).toFixed(2)} at 8c`],
       ['Grid, daytime', grid, '#f2495c', `$${(grid * RATE.general).toFixed(2)} at 27.6c`]
-    ], carTotal, 'kWh into cars', `${carTotal.toFixed(1)} kWh into the cars ${name}.`);
+    ], carTotal, carView === 'total' ? 'kWh, both cars' : (carView === 'ev5' ? 'kWh, EV5' : 'kWh, IONIQ 5'), `${carTotal.toFixed(1)} kWh into ${who} ${name}.`);
     const byCar = [['ev5','EV5'],['ioniq5','IONIQ 5'],['unknown','Not identified']].filter(([c]) => (T[`car_${c}_kwh`] || 0) >= 0.05)
       .map(([c, n]) => { const k = T[`car_${c}_kwh`] || 0, so = T[`car_${c}_solar_kwh`] || 0;
         return `<span>${n} <b>${k.toFixed(1)} kWh</b>${so >= 0.05 ? ` · ${so.toFixed(1)} from solar` : ''}</span>`; });
-    $('car-by').innerHTML = byCar.length ? '<span>By car:</span>' + byCar.join('') : '';
-    const houseSolar = T.house_solar_kwh || 0, exp = T.export_kwh || 0;
-    const solarTotal = Math.max(T.solar_kwh || 0, solar + houseSolar + exp);
+    $('car-by').innerHTML = carView === 'total' && byCar.length ? '<span>By car:</span>' + byCar.join('') : '';
+    const houseSolar = T.house_solar_kwh || 0, exp = T.export_kwh || 0, carSolarAll = T.car_solar_kwh || 0;
+    const solarTotal = Math.max(T.solar_kwh || 0, carSolarAll + houseSolar + exp);
     $('solar-pie').innerHTML = pie([
-      ['Into the car', solar, '#73bf69', `$${(solar * (RATE.offpeak - RATE.feedin)).toFixed(2)} saved vs off-peak`],
+      ['Into the cars', carSolarAll, '#73bf69', `$${(carSolarAll * (RATE.offpeak - RATE.feedin)).toFixed(2)} saved vs off-peak`],
       ['Used in the house', houseSolar, '#5794f2', `$${(houseSolar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs grid`],
       ['Exported to the grid', exp, 'rgba(204,204,220,.42)', `$${(exp * RATE.feedin).toFixed(2)} earned at 0.5c`]
     ], solarTotal, 'kWh generated', `${solarTotal.toFixed(1)} kWh generated ${name}` + (period === 'all' && HISTORY.length ? ` (since ${new Date(HISTORY[0].date + 'T12:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short'})})` : '') + '.');
@@ -674,6 +699,12 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     $('save-note').textContent = (days > 1 ? `About $${(total / days).toFixed(2)} a day over ${days} days. ` : '') +
       `Car charging from the grid cost $${carCost.toFixed(2)} ${name}. Savings compare against what the same energy would have cost on your AGL rates; the daily supply charge isn't included.`;
   }
+  let carView = 'total';
+  try { const v = localStorage.getItem('ev-carview'); if (['total','ev5','ioniq5'].includes(v)) carView = v; } catch (e) {}
+  document.querySelectorAll('[data-carview]').forEach(b => b.addEventListener('click', () => {
+    carView = b.dataset.carview; try { localStorage.setItem('ev-carview', carView); } catch (e) {}
+    renderTotals();
+  }));
   document.querySelectorAll('.period button').forEach(b => b.addEventListener('click', () => {
     period = b.dataset.period; try { localStorage.setItem('ev-period', period); } catch (e) {}
     renderTotals();
