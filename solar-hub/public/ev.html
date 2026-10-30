@@ -62,9 +62,9 @@ a{color:inherit}
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:2px;padding:8px 12px 12px;min-width:0}
 .p-title{font-size:13.5px;font-weight:500;color:var(--text);margin:0 0 6px;line-height:1.4;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .note{font-size:11.5px;color:var(--text-dim);font-weight:400}
-.span-12{grid-column:span 12}.span-6{grid-column:span 6}.span-4{grid-column:span 4}
-@media (max-width:980px){.span-4{grid-column:span 6}}
-@media (max-width:760px){.span-6,.span-4{grid-column:span 12}}
+.span-12{grid-column:span 12}.span-6{grid-column:span 6}.span-4{grid-column:span 4}.span-3{grid-column:span 3}
+@media (max-width:980px){.span-4,.span-3{grid-column:span 6}}
+@media (max-width:760px){.span-6,.span-4,.span-3{grid-column:span 12}}
 .rowh{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:16px 2px 8px}
 .rowh h2{font-size:15px;font-weight:500;margin:0;display:flex;align-items:center;gap:8px}
 .rowh h2::before{content:"";border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid var(--text-muted)}
@@ -127,14 +127,25 @@ svg.ts{display:block;width:100%;height:auto}
 
 /* ---------- pies, savings ---------- */
 .pie-box{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.pie-box svg{flex:0 0 120px;width:120px;height:120px}
-.pie-leg{flex:1 1 170px;display:flex;flex-direction:column;gap:5px;min-width:0}
-.pie-leg div{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:2px 8px;align-items:baseline}
-.pie-leg i{width:10px;height:10px;border-radius:1px;align-self:center}
-.pie-leg .k{font-size:13px}
-.pie-leg b{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
-.pie-leg b small{font-size:12px;color:var(--text-muted);font-weight:400}
-.pie-leg .s{grid-column:2/4;font-size:11px;color:var(--text-dim)}
+.pie-box svg{flex:0 0 96px;width:96px;height:96px}
+.pie-leg{flex:1 1 110px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.pie-leg div{display:grid;grid-template-columns:10px minmax(0,1fr);column-gap:7px;align-items:center;line-height:1.2}
+.pie-leg i{width:9px;height:9px;border-radius:1px;grid-row:1/3}
+.pie-leg .k{font-size:11.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pie-leg b{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pie-leg b small{font-size:11px;color:var(--text-muted);font-weight:400}
+.mini-stats{display:flex;gap:14px;font-size:12px;color:var(--text-muted);font-weight:400}
+.mini-stats b{font-size:15px;font-weight:600;margin-left:4px;font-variant-numeric:tabular-nums}
+.save-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+@media (max-width:760px){.save-grid{grid-template-columns:1fr}}
+.save-col{background:var(--surface-2);border-radius:2px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;font-size:12.5px}
+.save-col h3{margin:0 0 2px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
+.save-col .r{display:flex;justify-content:space-between;gap:8px}
+.save-col .r i{display:inline-block;width:9px;height:9px;border-radius:1px;margin-right:6px}
+.save-col .r b{color:var(--green);font-weight:600;font-variant-numeric:tabular-nums}
+.save-col .st{border-top:1px solid var(--border-strong);margin-top:auto;padding-top:4px;font-weight:600}
+.save-col.total{justify-content:center;align-items:center;text-align:center}
+.save-col.total .v{font-size:30px;font-weight:700;color:var(--green);line-height:1.1}
 .facts-note{font-size:11.5px;color:var(--text-dim);margin-top:8px}
 .car-by{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:8px;font-size:12.5px;color:var(--text-muted)}
 .car-by b{font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
@@ -190,6 +201,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
       <button class="toggle" id="offpeak-btn" aria-pressed="true" title="Charge at full rate 12–6 am at the 8c rate. Turn off ahead of sunny days to charge on solar instead.">
         <span class="sw" aria-hidden="true"></span><span>Off-peak 12–6 am</span>
       </button>
+      <span class="note num" id="clock">–</span>
       <span class="pill muted" id="status-pill"><span class="dot"></span><span id="status-text">Connecting…</span></span>
     </div>
   </header>
@@ -201,22 +213,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     <section class="panel span-6 car-card" id="card-ev5" aria-label="Kia EV5"></section>
     <section class="panel span-6 car-card" id="card-ioniq" aria-label="Hyundai IONIQ 5"></section>
   </div>
-  <div class="dash">
-    <section class="panel span-12">
-      <div class="p-title"><span>Energy flow</span><span class="note num" id="clock">–</span></div>
-      <svg class="flow" id="flow" viewBox="0 0 1200 190" role="img" aria-label="Where power is going right now"></svg>
-      <div class="ribbon" id="ribbon">Reading the charger and solar…</div>
-    </section>
-  </div>
-  <div class="dash">
-    <section class="panel span-12">
-      <div class="p-title"><span>Today</span><span class="wx-line" id="today-wx"></span></div>
-      <svg class="ts" id="ts" viewBox="0 0 1200 220" role="img" aria-label="Today: solar generation and forecast, house use and car charging"></svg>
-      <div class="ts-leg" id="ts-leg"></div>
-    </section>
-  </div>
-
-  <!-- energy over a chosen period -->
+  <!-- energy for the chosen period, and the live flow -->
   <div class="rowh">
     <h2 id="energy-h">Energy today</h2>
     <div class="links">
@@ -232,7 +229,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     </div>
   </div>
   <div class="dash">
-    <section class="panel span-4">
+    <section class="panel span-3">
       <div class="p-title"><span id="car-h">Car charging</span>
         <div class="seg sm" role="tablist" aria-label="Which car">
           <button role="tab" data-carview="total" aria-pressed="true">Total</button>
@@ -241,18 +238,25 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
         </div></div>
       <div id="car-pie"></div>
     </section>
-    <section class="panel span-4">
+    <section class="panel span-3">
       <div class="p-title"><span id="solar-h">Solar</span></div>
       <div id="solar-pie"></div>
     </section>
-    <section class="panel span-4">
-      <div class="p-title"><span id="save-h">Savings</span></div>
-      <table class="save" id="save"></table>
-      <div class="facts-note" id="save-note"></div>
+    <section class="panel span-6">
+      <div class="p-title"><span>Energy flow <span class="note">live</span></span>
+        <span class="mini-stats"><span>Cost today <b id="m-cost">–</b></span><span>Self sufficiency <b id="m-self">–</b></span></span></div>
+      <svg class="flow" id="flow" viewBox="0 0 600 170" role="img" aria-label="Where power is going right now"></svg>
+      <div class="ribbon" id="ribbon">Reading the charger and solar…</div>
+    </section>
+  </div>
+  <div class="dash">
+    <section class="panel span-12">
+      <div class="p-title"><span>Today</span><span class="wx-line" id="today-wx"></span></div>
+      <svg class="ts" id="ts" viewBox="0 0 1200 220" role="img" aria-label="Today: solar generation and forecast, house use and car charging"></svg>
+      <div class="ts-leg" id="ts-leg"></div>
     </section>
   </div>
 
-  <div class="rowh"><h2>Outlook</h2></div>
   <div class="dash">
     <section class="panel span-12">
       <div class="p-title"><span>Solar charging outlook</span><span class="note" id="outlook-note">Next 5 days · Open-Meteo forecast for Dromana</span></div>
@@ -261,6 +265,20 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
         <summary>How the score works</summary>
         <p>Each day's score out of 10 starts with the total sunlight forecast for the day, measured against a clear late-spring day in Dromana (about 7.8 kWh per m²). Patchy cloud then takes up to 3 points off, because cloud coming and going makes the charger pause and restart. Storms take off one more. Estimated generation assumes your 13.2 kW of panels turn about 65% of the forecast sunlight into power, allowing for panel angle, heat and the 10 kW inverter limit.</p>
       </details>
+    </section>
+  </div>
+
+  <div class="dash">
+    <section class="panel span-12">
+      <div class="p-title"><span id="save-h">Savings today</span><div class="seg period" role="tablist" aria-label="Period">
+        <button role="tab" data-period="today" aria-pressed="true">Today</button>
+        <button role="tab" data-period="week" aria-pressed="false">Week</button>
+        <button role="tab" data-period="month" aria-pressed="false">Month</button>
+        <button role="tab" data-period="year" aria-pressed="false">Year</button>
+        <button role="tab" data-period="all" aria-pressed="false">All time</button>
+      </div></div>
+      <div class="save-grid" id="save"></div>
+      <div class="facts-note" id="save-note"></div>
     </section>
   </div>
 
@@ -517,12 +535,12 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const houseW = L.house_w != null ? L.house_w : (L.home_kw != null ? Math.max(0, L.home_kw * 1000 - watts) : null);
     const g = (pv != null && houseW != null) ? houseW + watts - pv : null;     // + import, - export
     const exporting = g != null && g < -50;
-    const hub = [600, 95], R = 28;
+    const hub = [300, 85], R = 24;
     const nodes = {
-      solar: { p:[400, 45],  w: pv,     col:'#fade2a', name:'Solar', kwh: T.solar_kwh, side:'left' },
-      grid:  { p:[400, 145], w: g == null ? null : Math.abs(g), col: exporting ? '#73bf69' : '#ff9830', name: exporting ? 'Grid, exporting' : 'Grid', kwh: T.import_kwh, side:'left' },
-      house: { p:[800, 45],  w: houseW, col:'#8ab8ff', name:'House', kwh: T.house_kwh, side:'right' },
-      car:   { p:[800, 145], w: watts,  col:'#73bf69', name:'Car',   kwh: T.car_kwh,   side:'right' }
+      solar: { p:[160, 38],  w: pv,     col:'#fade2a', name:'Solar', side:'left' },
+      grid:  { p:[160, 132], w: g == null ? null : Math.abs(g), col: exporting ? '#73bf69' : '#ff9830', name: exporting ? 'Grid, exporting' : 'Grid', side:'left' },
+      house: { p:[440, 38],  w: houseW, col:'#8ab8ff', name:'House', side:'right' },
+      car:   { p:[440, 132], w: watts,  col:'#73bf69', name:'Car',   side:'right' }
     };
     const toHub = { solar: true, house: false, car: false, grid: g != null && g > 0 };
     const active = { solar: (pv || 0) > 30, house: (houseW || 0) > 30, car: watts > 30, grid: g != null && Math.abs(g) > 50 };
@@ -534,12 +552,12 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
       s += `<path class="flow-line" d="${dd}"/>`;
       if (active[k]) s += `<path class="flow-dash${toHub[k] ? '' : ' rev'}" d="${dd}" stroke="${n.col}" style="animation-duration:${Math.max(0.35, 1.8 - (n.w || 0) / 1000 * 0.15).toFixed(2)}s"/>`;
     });
-    s += `<circle cx="${hub[0]}" cy="${hub[1]}" r="11" fill="#22252b" stroke="rgba(204,204,220,.3)" stroke-width="1.5"/><circle cx="${hub[0]}" cy="${hub[1]}" r="4" fill="rgba(204,204,220,.55)"/>`;
+    s += `<circle cx="${hub[0]}" cy="${hub[1]}" r="10" fill="#22252b" stroke="rgba(204,204,220,.3)" stroke-width="1.5"/><circle cx="${hub[0]}" cy="${hub[1]}" r="4" fill="rgba(204,204,220,.55)"/>`;
     Object.entries(nodes).forEach(([k, n]) => {
       const [x, y] = n.p, v = n.w == null ? '–' : watt(n.w), sub = esc(n.name);
-      s += `<circle cx="${x}" cy="${y}" r="${R}" fill="#1d2025" stroke="${n.col}" stroke-width="2" stroke-opacity="${active[k] ? 1 : .35}"/><g transform="translate(${x} ${y}) scale(.9)">${ICON[k]}</g>`;
-      const tx = n.side === 'left' ? x - R - 12 : x + R + 12, anc = n.side === 'left' ? 'end' : 'start';
-      s += `<text x="${tx}" y="${y - 2}" text-anchor="${anc}" fill="${n.col}" font-size="20" font-weight="600" font-family="Inter, sans-serif">${v}</text><text x="${tx}" y="${y + 16}" text-anchor="${anc}" fill="rgba(204,204,220,.65)" font-size="12" font-family="Inter, sans-serif">${sub}</text>`;
+      s += `<circle cx="${x}" cy="${y}" r="${R}" fill="#1d2025" stroke="${n.col}" stroke-width="2" stroke-opacity="${active[k] ? 1 : .35}"/><g transform="translate(${x} ${y}) scale(.78)">${ICON[k]}</g>`;
+      const tx = n.side === 'left' ? x - R - 10 : x + R + 10, anc = n.side === 'left' ? 'end' : 'start';
+      s += `<text x="${tx}" y="${y - 1}" text-anchor="${anc}" fill="${n.col}" font-size="19" font-weight="600" font-family="Inter, sans-serif">${v}</text><text x="${tx}" y="${y + 15}" text-anchor="${anc}" fill="rgba(204,204,220,.65)" font-size="12" font-family="Inter, sans-serif">${sub}</text>`;
     });
     // edge stats: cost and self-sufficiency today
     const imp = T.import_kwh || 0, impOff = Math.min(imp, T.import_offpeak_kwh || 0), exp = T.export_kwh || 0;
@@ -547,11 +565,10 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const use = (T.house_kwh || 0) + (T.car_kwh || 0), fromSolar = (T.house_solar_kwh || 0) + (T.car_solar_kwh || 0);
     const self = use > 0.1 ? Math.round(100 * fromSolar / use) : null;
     const selfCol = self == null ? '#d8d9da' : self >= 60 ? '#73bf69' : self >= 30 ? '#fade2a' : '#ff9830';
-    const stat = (x, k, v, col, sub) => `<text x="${x}" y="62" text-anchor="middle" fill="#d8d9da" font-size="14" font-family="Inter, sans-serif">${k}</text>
-      <text x="${x}" y="102" text-anchor="middle" fill="${col}" font-size="36" font-weight="600" font-family="Inter, sans-serif">${v}</text>
-      <text x="${x}" y="124" text-anchor="middle" fill="rgba(204,204,220,.42)" font-size="11.5" font-family="Inter, sans-serif">${sub}</text>`;
-    s += stat(100, 'Cost today', `$${cost.toFixed(2)}`, cost > 10 ? '#ff9830' : '#73bf69', `${imp.toFixed(1)} kWh from the grid, incl. supply`);
-    s += stat(1100, 'Self sufficiency', self == null ? '–' : self + '%', selfCol, "of today's use from solar");
+    $('m-cost').textContent = '$' + cost.toFixed(2); $('m-cost').style.color = cost > 10 ? '#ff9830' : '#73bf69';
+    $('m-cost').parentElement.title = `${imp.toFixed(1)} kWh from the grid today, including the $${RATE.supply.toFixed(2)} daily supply charge`;
+    $('m-self').textContent = self == null ? '–' : self + '%'; $('m-self').style.color = selfCol;
+    $('m-self').parentElement.title = "Share of today's house and car use that came from solar";
     $('flow').innerHTML = s;
     $('flow').setAttribute('aria-label', `Right now: solar ${watt(pv)}, house ${watt(houseW)}, car ${watt(watts)}, grid ${g == null ? 'unknown' : g < 0 ? 'exporting ' + watt(-g) : 'importing ' + watt(g)}. Cost today $${cost.toFixed(2)}, ${self ?? '–'}% self-sufficient.`);
     const plugged = c.plug === 'plugged' || c.plug === 'plugged_locked';
@@ -621,22 +638,22 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const pre = carView === 'total' ? 'car_' : `car_${carView}_`, who = carView === 'total' ? 'the cars' : carView === 'ev5' ? 'the EV5' : 'the IONIQ 5';
     const solar = T[pre + 'solar_kwh'] || 0, off = T[pre + 'offpeak_kwh'] || 0, grid = T[pre + 'grid_day_kwh'] || 0, carTotal = solar + off + grid;
     $('car-pie').innerHTML = pie([
-      ['From solar', solar, '#fade2a', `$${(solar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs on-peak`],
-      ['Grid, off-peak', off, '#e89cbd', `$${(off * RATE.offpeak).toFixed(2)} at 8c`],
-      ['Grid, daytime', grid, '#f2495c', `$${(grid * RATE.general).toFixed(2)} at 27.6c`]
+      ['Solar', solar, '#fade2a', `$${(solar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs on-peak`],
+      ['Off-peak grid', off, '#e89cbd', `$${(off * RATE.offpeak).toFixed(2)} at 8c`],
+      ['On-peak grid', grid, '#f2495c', `$${(grid * RATE.general).toFixed(2)} at 27.6c`]
     ], carTotal, carView === 'total' ? 'kWh, both cars' : (carView === 'ev5' ? 'kWh, EV5' : 'kWh, IONIQ 5'), `${carTotal.toFixed(1)} kWh into ${who} ${name}.`);
 
     const houseSolar = T.house_solar_kwh || 0, exp = T.export_kwh || 0, carSolarAll = T.car_solar_kwh || 0;
     const solarTotal = Math.max(T.solar_kwh || 0, carSolarAll + houseSolar + exp);
     $('solar-pie').innerHTML = pie([
-      ['Into the cars', carSolarAll, '#73bf69', `$${(carSolarAll * (RATE.general - RATE.feedin)).toFixed(2)} saved vs on-peak`],
-      ['Used in the house', houseSolar, '#5794f2', `$${(houseSolar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs grid`],
-      ['Exported to the grid', exp, 'rgba(204,204,220,.42)', `$${(exp * RATE.feedin).toFixed(2)} earned at 0.5c`]
+      ['Cars', carSolarAll, '#73bf69', `$${(carSolarAll * (RATE.general - RATE.feedin)).toFixed(2)} saved vs on-peak`],
+      ['House', houseSolar, '#5794f2', `$${(houseSolar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs grid`],
+      ['Exported', exp, 'rgba(204,204,220,.42)', `$${(exp * RATE.feedin).toFixed(2)} earned at 0.5c`]
     ], solarTotal, 'kWh generated', `${solarTotal.toFixed(1)} kWh generated ${name}` + (period === 'all' && HISTORY.length ? ` (since ${new Date(HISTORY[0].date + 'T12:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short'})})` : '') + '.');
     renderSavings(T, name);
   }
   function renderSavings(T, name){
-    $('save-h').textContent = 'Savings';
+    $('save-h').textContent = 'Savings ' + name;
     const g = RATE.general, o = RATE.offpeak, f = RATE.feedin, c = v => (v * 100).toFixed(1).replace(/\.0$/, '') + 'c';
     const groups = [
       ['Solar', 'Solar savings', [
@@ -650,14 +667,13 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     ];
     let total = 0, body = '';
     groups.forEach(([head, subName, rows]) => {
-      let sub = 0, subKwh = 0;
-      body += `<tr class="grp"><td colspan="2">${head}</td></tr>`;
-      rows.forEach(([n, kwh, rate, how, col]) => { const v = kwh * rate; sub += v; subKwh += kwh;
-        body += `<tr title="${esc(how)}"><td><i style="background:${col}"></i>${n}</td><td class="money">$${v.toFixed(2)}</td></tr>`; });
-      body += `<tr class="sub"><td>${subName}</td><td class="money">$${sub.toFixed(2)}</td></tr>`;
+      let sub = 0, lines = '';
+      rows.forEach(([n, kwh, rate, how, col]) => { const v = kwh * rate; sub += v;
+        lines += `<div class="r" title="${esc(how)}"><span><i style="background:${col}"></i>${n}</span><b>$${v.toFixed(2)}</b></div>`; });
+      body += `<div class="save-col"><h3>${head}</h3>${lines}<div class="r st"><span>${subName}</span><b>$${sub.toFixed(2)}</b></div></div>`;
       total += sub;
     });
-    $('save').innerHTML = `<thead><tr><th>Source</th><th>Saved</th></tr></thead><tbody>${body}<tr class="total"><td>Grand total</td><td class="money">$${total.toFixed(2)}</td></tr></tbody>`;
+    $('save').innerHTML = body + `<div class="save-col total"><h3>Grand total ${name}</h3><div class="v">$${total.toFixed(2)}</div></div>`;
     const carCost = (T.car_offpeak_kwh || 0) * o + (T.car_grid_day_kwh || 0) * g;
     const days = period === 'today' ? 1 : (T._days || 1);
     $('save-note').textContent = (days > 1 ? `About $${(total / days).toFixed(2)} a day over ${days} days. ` : '') +
