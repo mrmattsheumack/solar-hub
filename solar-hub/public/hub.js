@@ -763,14 +763,26 @@ window.Hub = (() => {
   const lat2tile = (lat, z) => { const r = lat * Math.PI / 180; return Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 2 ** z); };
   const loadImg = src => new Promise((ok, bad) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => ok(im); im.onerror = bad; im.src = src; });
   function recolour(x, w, h) {
-    const d = x.getImageData(0, 0, w, h), p = d.data;
+    const d = x.getImageData(0, 0, w, h), p = d.data, Z = new Int8Array(w * h).fill(-99);
+    for (let i = 0, k = 0; i < Z.length; i++, k += 4) if (p[k + 3]) Z[i] = dbzFor(p[k], p[k + 1], p[k + 2]);
+    // RainViewer's composite leaves one-pixel-wide streaks of light echo along the joins between
+    // radars, which read as faint gridlines on the map. Real rain is never a single pixel thin, so a
+    // light pixel with nothing either side of it (left and right, or above and below) is dropped.
+    const on = (i) => Z[i] >= MIN_DBZ;
+    const keep = new Uint8Array(Z.length);
+    for (let y = 0; y < h; y++) for (let xx = 0; xx < w; xx++) {
+      const i = y * w + xx; if (!on(i)) continue;
+      if (Z[i] >= 25) { keep[i] = 1; continue; }                   // anything heavier always stays
+      const lr = (xx > 0 && on(i - 1)) || (xx < w - 1 && on(i + 1));
+      const ud = (y > 0 && on(i - w)) || (y < h - 1 && on(i + w));
+      keep[i] = lr && ud ? 1 : 0;
+    }
     let rain = 0;
-    for (let k = 0; k < p.length; k += 4) {
-      if (!p[k + 3]) continue;
-      const z = dbzFor(p[k], p[k + 1], p[k + 2]), col = z >= MIN_DBZ ? bomColour(z) : null;
+    for (let i = 0, k = 0; i < Z.length; i++, k += 4) {
+      const col = keep[i] ? bomColour(Z[i]) : null;
       if (col == null) { p[k + 3] = 0; continue; }
       p[k] = col >> 16; p[k + 1] = (col >> 8) & 255; p[k + 2] = col & 255; p[k + 3] = 255;
-      if (z >= 18) rain++;                   // 0.5 mm/h or more counts as rain for the status line
+      if (Z[i] >= 18) rain++;                // 0.5 mm/h or more counts as rain for the status line
     }
     x.putImageData(d, 0, 0);
     return rain;
