@@ -132,8 +132,9 @@ button{font:inherit;color:inherit}
 .legend span{display:flex;height:8px;border-radius:2px;overflow:hidden}
 .legend span i{display:block;width:7px;height:8px}
 .leaflet-tile-pane canvas.leaflet-tile{image-rendering:pixelated}
-/* overlap map tiles by half a pixel so scaled screens don't show hairline seams */
-.leaflet-tile-container img.leaflet-tile{width:256.5px!important;height:256.5px!important}
+/* Esri's Ocean tiles have a light 1px border on some edges (a compression artefact), which shows as
+   gridlines across the map: draw each tile a pixel larger all round and clip that border off */
+.basemap img.leaflet-tile{width:258px!important;height:258px!important;margin:-1px 0 0 -1px;clip-path:inset(1px)}
 .rain-state{flex:none;font-size:12px;color:var(--text-muted);white-space:nowrap}
 
 /* ---------- energy flow ---------- */
@@ -821,10 +822,10 @@ body.dimmed .dim{opacity:.62}
     // BoM-style background: Esri's Ocean basemap (blue sea, pale land with relief), keyless.
     // (CARTO stopped serving keyless tiles in 2026; they come back watermarked.)
     const esri = n => `https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/${n}/MapServer/tile/{z}/{y}/{x}`;
-    L.tileLayer(esri('World_Ocean_Base'), { maxZoom: 13, attribution: 'Tiles © Esri, GEBCO, NOAA, Garmin, HERE' }).addTo(map);
+    L.tileLayer(esri('World_Ocean_Base'), { maxZoom: 13, className: 'basemap', attribution: 'Tiles © Esri, GEBCO, NOAA, Garmin, HERE' }).addTo(map);
     // place names drawn above the radar so towns stay readable through rain
     // (kept in the normal tile stack with a higher zIndex; a separate pane showed hairline seams when scaled)
-    L.tileLayer(esri('World_Ocean_Reference'), { maxZoom: 13, zIndex: 20 }).addTo(map);
+    L.tileLayer(esri('World_Ocean_Reference'), { maxZoom: 13, zIndex: 20, className: 'basemap' }).addTo(map);
     L.marker(HOME, { icon: L.divIcon({ className: '', html: '<div class="home-pin"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }), keyboard: false, title: 'Home' }).addTo(map);
     map.attributionControl.addAttribution('Radar <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>');
     new ResizeObserver(() => map.invalidateSize()).observe($('map'));
