@@ -361,7 +361,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     off:  'Never start a charge. The button on the charger still works.'
   };
   let currentMode = null;
-  const btns = [...document.querySelectorAll('.seg button')];
+  const btns = [...document.querySelectorAll('button[data-mode]')];
   function showMode(m){
     currentMode = m;
     btns.forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === m ? 'true' : 'false'));
