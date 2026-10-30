@@ -207,6 +207,20 @@ Revision 3 (2026-10-30, Matt's feedback):
   Site: UniFi Dream Router (UDR), Aussie Broadband. Needs Netlify env var
   UNIFI_API_KEY; the pill stays hidden until it's set.
 
+Revision 4 (2026-10-30, Matt's feedback):
+- Notes moved to their own full-width strip under the clock (up to two rows),
+  in this order: official warnings (emergency / watch and act / BoM severe),
+  excess solar (bold), wind, UV, advice warnings, which car is plugged in (or
+  "No car plugged in"), rain, solar outlook, nearby incidents, Pi offline.
+  Warning notes link to the BoM or VicEmergency page.
+- Warnings come from the VicEmergency public feed (new `warnings` function):
+  BoM weather warnings, fires, floods, EMV advice and planned burns. A warning
+  counts when its map area covers Dromana (point-in-polygon) or it's statewide;
+  a point incident counts within 15 km (planned burns 8 km). BoM's own app API
+  (api.weather.bom.gov.au) carries a "must not use" notice, so it isn't used.
+- Wind over 50 km/h (speed or gust, station or next-12-hour forecast) and UV
+  of 6 or more go red, bold and bigger: in the weather tile and as red notes.
+
 Function changes made for it (2026-10-30):
 - `ecowitt.js`: zero readings are now 0 instead of null; reads the WS90's
   `rainfall_piezo` block (falls back to `rainfall`); adds feels like, dew point,

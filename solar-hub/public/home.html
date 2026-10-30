@@ -49,8 +49,8 @@ button{font:inherit;color:inherit}
 .screen{height:100dvh;display:grid;gap:var(--gap);
   padding:calc(var(--gap) + env(safe-area-inset-top,0px)) max(var(--gap),env(safe-area-inset-right,0px)) calc(var(--gap) + env(safe-area-inset-bottom,0px)) max(var(--gap),env(safe-area-inset-left,0px));
   grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) minmax(0,1fr);
-  grid-template-rows:auto minmax(0,1.12fr) minmax(0,1fr);
-  grid-template-areas:"head head head" "wx radar flow" "fc mix car";
+  grid-template-rows:auto auto minmax(0,1.12fr) minmax(0,1fr);
+  grid-template-areas:"head head head" "notes notes notes" "wx radar flow" "fc mix car";
   transition:transform 2s ease}
 
 /* ---------- header ---------- */
@@ -60,15 +60,22 @@ button{font:inherit;color:inherit}
 .date{display:flex;flex-direction:column;gap:2px}
 .date b{font-size:clamp(15px,1.2vw,19px);font-weight:600;white-space:nowrap}
 .date span{color:var(--text-muted);font-size:13px;white-space:nowrap}
-.head-mid{flex:1;min-width:0;display:flex;justify-content:center}
-.notes{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;min-width:0;height:38px;overflow:hidden}
-.note{flex:none;display:flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:999px;background:var(--surface);border:1px solid var(--border);
-  font-size:14px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.notes{grid-area:notes;display:flex;flex-wrap:wrap;gap:6px 8px;min-width:0;max-height:70px;overflow:hidden}
+.notes:empty{display:none}
+.note{flex:none;display:flex;align-items:center;gap:8px;height:32px;padding:0 12px;border-radius:999px;background:var(--surface);border:1px solid var(--border);
+  font-size:13.5px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .note i{width:8px;height:8px;border-radius:50%;flex:none;background:var(--text-muted)}
 .note.rain i{background:var(--rain)} .note.sun i{background:var(--solar)} .note.car i{background:var(--car)}
 .note.warn i{background:var(--import)} .note.wind i{background:var(--home)}
 .note.strong{font-weight:700;color:var(--solar);border-color:color-mix(in srgb,var(--solar) 60%,transparent);background:color-mix(in srgb,var(--solar) 12%,var(--surface))}
 .note.strong i{background:var(--solar)}
+.note.alert{font-weight:700;font-size:15px;color:var(--import);border-color:color-mix(in srgb,var(--import) 65%,transparent);background:color-mix(in srgb,var(--import) 13%,var(--surface))}
+.note.alert i{background:var(--import);width:10px;height:10px}
+.note.emergency{animation:alertpulse 1.6s ease-in-out infinite}
+@keyframes alertpulse{50%{background:color-mix(in srgb,var(--import) 30%,var(--surface))}}
+.note.info i{background:var(--text-muted)}
+a.note{text-decoration:none}
+a.note:hover{border-color:var(--border-strong)}
 .head-right{display:flex;align-items:center;gap:10px;flex:none}
 .dots{display:flex;gap:6px;padding:8px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--border)}
 .dot{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted);letter-spacing:.04em}
@@ -110,6 +117,8 @@ button{font:inherit;color:inherit}
 .warrow{width:14px;height:14px}
 .raining{color:var(--rain)}
 .hi{color:var(--import)} .lo{color:var(--home)}
+.wrow.alert .k,.wrow.alert .s{color:var(--import)}
+.wrow.alert .v{color:var(--import);font-weight:700;font-size:clamp(20px,1.75vw,27px)}
 
 /* ---------- radar ---------- */
 .radar{grid-area:radar;padding:0;gap:0}
@@ -244,18 +253,18 @@ body.dimmed .dim{opacity:.62}
 @media (max-width:1000px), (max-height:560px) and (max-width:1200px){
   body{overflow:auto}
   .screen{height:auto;grid-template-columns:1fr 1fr;grid-template-rows:auto;
-    grid-template-areas:"head head" "wx flow" "fc car" "radar radar" "mix mix"}
+    grid-template-areas:"head head" "notes notes" "wx flow" "fc car" "radar radar" "mix mix"}
   .radar{min-height:420px} .flowcard{min-height:420px} .mix{min-height:300px}
-  .head{flex-wrap:wrap} .head-mid{order:3;flex-basis:100%;justify-content:flex-start}
-  .notes{height:auto;justify-content:flex-start} .note{white-space:normal;height:auto;padding:8px 14px}
+  .head{flex-wrap:wrap}
+  .notes{max-height:none} .note{white-space:normal;height:auto;padding:8px 14px}
 }
 @media (max-width:640px){
-  .screen{grid-template-columns:1fr;grid-template-areas:"head" "wx" "flow" "car" "radar" "mix" "fc"}
+  .screen{grid-template-columns:1fr;grid-template-areas:"head" "notes" "wx" "flow" "car" "radar" "mix" "fc"}
   .pies{grid-template-columns:1fr}
   .head{flex-wrap:wrap} .dots{display:none}
   .head-right{flex-wrap:wrap;flex:1 1 100%} .net span{display:none} #btn-fs{display:none}
 }
-@media (prefers-reduced-motion:reduce){ .screen,.split-bar i,.dim{transition:none} .wire.live,.excess{animation:none} }
+@media (prefers-reduced-motion:reduce){ .note.emergency{animation:none} .screen,.split-bar i,.dim{transition:none} .wire.live,.excess{animation:none} }
 </style>
 </head>
 <body>
@@ -267,7 +276,6 @@ body.dimmed .dim{opacity:.62}
       <div class="clock" id="clock">--:--</div>
       <div class="date"><b id="date">Dromana</b><span id="sun">Sunrise and sunset loading</span></div>
     </div>
-    <div class="head-mid"><div class="notes" id="notes" aria-live="polite"></div></div>
     <div class="head-right">
       <div class="dots" id="dots" title="Data sources">
         <span class="dot" id="dot-wx"><i></i><b>STATION</b></span>
@@ -276,6 +284,7 @@ body.dimmed .dim{opacity:.62}
         <span class="dot" id="dot-fc"><i></i><b>FORECAST</b></span>
         <span class="dot" id="dot-radar"><i></i><b>RADAR</b></span>
         <span class="dot" id="dot-net"><i></i><b>NET</b></span>
+        <span class="dot" id="dot-warn"><i></i><b>WARNINGS</b></span>
       </div>
       <div class="net" id="net" hidden></div>
       <a class="btn btn-ev" href="ev.html">EV charging ›</a>
@@ -284,6 +293,7 @@ body.dimmed .dim{opacity:.62}
       <button class="btn icon" id="btn-fs" aria-label="Full screen" title="Full screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
     </div>
   </header>
+  <div class="notes" id="notes" aria-live="polite"></div>
 
   <!-- ===== weather: WS90 + next 12 h ===== -->
   <section class="card wx" aria-labelledby="wx-h">
@@ -360,15 +370,16 @@ body.dimmed .dim{opacity:.62}
     fc: '/.netlify/functions/forecast',
     radar: 'https://api.rainviewer.com/public/weather-maps.json',
     net: '/.netlify/functions/unifi',
+    warn: '/.netlify/functions/warnings',
   };
-  const EVERY = { ev: 30e3, wx: 60e3, sems: 120e3, fc: 30 * 60e3, radar: 10 * 60e3, net: 5 * 60e3 };
+  const EVERY = { ev: 30e3, wx: 60e3, sems: 120e3, fc: 30 * 60e3, radar: 10 * 60e3, net: 5 * 60e3, warn: 3 * 60e3 };
   // How old before a source is shown amber. Pi or cloud hiccups shouldn't look like outages.
-  const STALE = { ev: 3 * 60e3, wx: 10 * 60e3, sems: 10 * 60e3, fc: 3 * 3600e3, radar: 30 * 60e3, net: 20 * 60e3 };
+  const STALE = { ev: 3 * 60e3, wx: 10 * 60e3, sems: 10 * 60e3, fc: 3 * 3600e3, radar: 30 * 60e3, net: 20 * 60e3, warn: 15 * 60e3 };
   const params = new URLSearchParams(location.search);
   if (params.get('theme') === 'light') document.documentElement.dataset.theme = 'light';
 
   const $ = id => document.getElementById(id);
-  const S = { ev: null, sems: null, wx: null, fc: null, radar: null, net: null };   // latest payloads
+  const S = { ev: null, sems: null, wx: null, fc: null, radar: null, net: null, warn: null };   // latest payloads
   const at = {}, failed = {};                                             // last success time, failure flags
 
   // ---------- time helpers (always Melbourne, whatever the device thinks) ----------
@@ -407,7 +418,7 @@ body.dimmed .dim{opacity:.62}
     return S[name];
   }
   function renderDots() {
-    for (const n of ['wx', 'sems', 'ev', 'fc', 'radar', 'net']) {
+    for (const n of ['wx', 'sems', 'ev', 'fc', 'radar', 'net', 'warn']) {
       const el = $('dot-' + n), age = at[n] ? Date.now() - at[n] : Infinity;
       el.className = 'dot ' + (!at[n] ? (failed[n] ? 'err' : '') : age > STALE[n] ? (failed[n] ? 'err' : 'stale') : 'ok');
       el.title = at[n] ? `Updated ${ago(at[n])}` + (failed[n] ? ', last try failed' : '') : (failed[n] ? 'Not reachable' : 'Loading');
@@ -510,7 +521,8 @@ body.dimmed .dim{opacity:.62}
   const uvLabel = u => !has(u) ? '' : u < 3 ? 'Low' : u < 6 ? 'Moderate' : u < 8 ? 'High' : u < 11 ? 'Very high' : 'Extreme';
   // Small arrow pointing where the wind is blowing to; the text says where it comes from (BoM convention)
   const windArrow = deg => has(deg) ? `<svg class="warrow" viewBox="-8 -8 16 16" aria-hidden="true"><path transform="rotate(${deg + 180})" d="M0-7l5 10-5-3-5 3z" fill="var(--home)"/></svg>` : '';
-  const GUST_ALERT = 55;   // km/h
+  const WIND_ALERT = 50;   // km/h: wind or gusts above this go red
+  const UV_ALERT = 6;      // UV at or above this goes red
   function next12Range() {
     const hs = nextHours(13).slice(1);
     if (!hs.length) return null;
@@ -527,7 +539,8 @@ body.dimmed .dim{opacity:.62}
     if (WX_DETAIL_URL) $('wx-title').href = WX_DETAIL_URL;
     if (!w) { if (failed.wx) box.innerHTML = '<div class="empty">Weather station not reachable right now.</div>'; return; }
     const raining = has(w.rainRate) && w.rainRate > 0, r12 = next12Range();
-    const row = (k, v, s = '') => `<div class="wrow"><span class="k">${k}</span><span class="v">${v}</span>${s ? `<span class="s">${s}</span>` : ''}</div>`;
+    const row = (k, v, s = '', alert = false) => `<div class="wrow${alert ? ' alert' : ''}"><span class="k">${k}</span><span class="v">${v}</span>${s ? `<span class="s">${s}</span>` : ''}</div>`;
+    const windy = (w.windSpeed || 0) > WIND_ALERT || (w.windGust || 0) > WIND_ALERT;
     box.innerHTML = `
       <div class="temps">
         <div><div class="label">Outside</div><div class="temp">${f1(w.temperature)}<sup>°</sup></div></div>
@@ -536,9 +549,9 @@ body.dimmed .dim{opacity:.62}
       <div class="wgrid">
         ${row('Feels like', `${f1(w.feelsLike)}°`)}
         ${row('Humidity', `${f0(w.humidity)}%`)}
-        ${row('Wind', `${windArrow(w.windDirection)}${f0(w.windSpeed)}<small> km/h</small>`, [cardinal(w.windDirection), has(w.windGust) ? `gust ${f0(w.windGust)}` : ''].filter(Boolean).join(' · '))}
+        ${row('Wind', `${windArrow(w.windDirection)}${f0(w.windSpeed)}<small> km/h</small>`, [cardinal(w.windDirection), has(w.windGust) ? `gust ${f0(w.windGust)}` : ''].filter(Boolean).join(' · '), windy)}
         ${row('Rain today', `<span class="${raining ? 'raining' : ''}">${f1(w.rainDaily ?? 0)}</span><small> mm</small>`, raining ? `<span class="raining">${f1(w.rainRate)} mm/h now</span>` : (has(w.rainWeekly) ? `${f1(w.rainWeekly)} this week` : ''))}
-        ${row('UV', has(w.uvi) ? f1(w.uvi) : '--', uvLabel(w.uvi))}
+        ${row('UV', has(w.uvi) ? f1(w.uvi) : '--', uvLabel(w.uvi), has(w.uvi) && w.uvi >= UV_ALERT)}
         ${row('Next 12 h', r12 ? `<span class="hi">${f0(r12.hi)}°</span><small> / </small><span class="lo">${f0(r12.lo)}°</span>` : '--', r12 ? `${r12.hiAt} · ${r12.loAt}` : '')}
       </div>`;
     const t = w.stationTime ? new Date(w.stationTime) : (at.wx ? new Date(at.wx) : null);
@@ -778,37 +791,57 @@ body.dimmed .dim{opacity:.62}
   }
 
   // ---------- heads-up notes: the joined-up bit ----------
+  // Header notes, most important first:
+  //   official warnings (emergency / watch) > excess solar > wind > UV > advice warnings > car > rain >
+  //   solar outlook > nearby incidents (planned burns etc.) > Pi offline
+  function warnNotes() {
+    const list = S.warn?.items || [];
+    const where = i => i.covers ? (i.location ? ` · ${i.location}` : '') : (i.distanceKm != null ? ` · ${i.distanceKm < 1 ? 'under 1' : Math.round(i.distanceKm)} km away` : '');
+    return list.map(i => {
+      const what = i.level === 'info' || i.level === 'advice' && !/warning|advice/i.test(i.title) ? `${(i.kind || '').split(' · ').pop() || 'Incident'}: ${i.title}` : i.title;
+      const cls = i.level === 'emergency' ? 'alert emergency' : i.level === 'watch' ? 'alert' : i.level === 'advice' ? 'warn' : 'info';
+      return { cls, text: (i.cap && i.level === 'advice' ? `${i.cap} advice` : what) + where(i), href: i.url, tip: i.headline, level: i.level };
+    });
+  }
+  function carNote() {
+    if (!S.ev) return null;
+    const c = S.ev.latest?.charger || {};
+    if (!plugState(c)) return { cls: 'info', text: 'No car plugged in' };
+    const on = carOnCharger(), src = chargeSource(), k5 = S.ev.car?.ev5;
+    const name = on ? CARS[on].name : 'A car (not identified)';
+    const charging = c.state === 'charging' && (c.power_w || 0) > 200;
+    const soc = on === 'ev5' && k5?.soc != null ? ` · ${Math.round(k5.soc)}%` : on === 'ioniq5' && S.ev.plugin ? ` · +${Math.round(100 * S.ev.plugin.kwh / CARS.ioniq5.kwh)}%` : '';
+    return { cls: 'car', text: `${name} plugged in${charging ? ` · ${src ? src.text.toLowerCase() : 'charging'} ${kw(c.power_w)} kW` : src ? ` · ${src.text.replace(/^Plugged in, /, '')}` : ''}${soc}` };
+  }
   function renderNotes() {
-    const out = [], w = S.wx, now = mel(), hrs = nextHours(12), e = energyNow();
-    // Rain: what the station sees beats what the forecast says
-    if (w && has(w.rainRate) && w.rainRate > 0) out.push(['rain', `Raining now, ${f1(w.rainRate)} mm/h`]);
-    else {
-      const wet = hrs.slice(1, 7).find(h => h.precipProbability >= 50);
-      if (wet) out.push(['rain', `Rain likely around ${ampm(fcHour(wet.time))} (${wet.precipProbability}%)`]);
-    }
-    // Gusts in the next 12 hours (station now, forecast after) go to the front, after excess solar
-    const gust = maxGust12();
-    if (gust.v >= GUST_ALERT) out.unshift(['wind', `Gusty, up to ${Math.round(gust.v)} km/h in the next 12 hours${gust.at !== 'now' ? ` (around ${gust.at})` : ''}`]);
-    // Excess solar going to the grid with no car charging: always first, and bold
+    const out = [], w = S.wx, now = mel(), hrs = nextHours(12), e = energyNow(), warns = warnNotes();
+    const add = (cls, text, extra = {}) => out.push({ cls, text, ...extra });
+    warns.filter(x => x.level === 'emergency' || x.level === 'watch').forEach(x => out.push(x));
     const ex = excessSolar();
-    if (ex) out.unshift(['sun strong', `Excess solar - Suggest Car Charging (${ex.kw.toFixed(1)} kW spare)`]);
-    // Solar and the car, during the solar window
+    if (ex) add('sun strong', `Excess solar - Suggest Car Charging (${ex.kw.toFixed(1)} kW spare)`);
+    // Wind: what the station sees now, or the strongest forecast gust in the next 12 hours
+    const gust = maxGust12(), windNow = Math.max(w?.windSpeed || 0, w?.windGust || 0);
+    if (windNow > WIND_ALERT) add('alert', `Strong wind now: ${Math.round(w.windSpeed || 0)} km/h, gusting ${Math.round(w.windGust || 0)}`);
+    else if (gust.v > WIND_ALERT) add('alert', `Gusts up to ${Math.round(gust.v)} km/h in the next 12 hours${gust.at !== 'now' ? ` (around ${gust.at})` : ''}`);
+    if (w && has(w.uvi) && w.uvi >= UV_ALERT) add('alert', `UV ${f1(w.uvi)}, ${uvLabel(w.uvi).toLowerCase()}. Sun protection needed`);
+    warns.filter(x => x.level === 'advice').forEach(x => out.push(x));
+    const cn = carNote(); if (cn) out.push(cn);
+    if (w && has(w.rainRate) && w.rainRate > 0) add('rain', `Raining now, ${f1(w.rainRate)} mm/h`);
+    else { const wet = hrs.slice(1, 7).find(h => h.precipProbability >= 50); if (wet) add('rain', `Rain likely around ${ampm(fcHour(wet.time))} (${wet.precipProbability}%)`); }
     const fcLeft = todayHourly().filter(h => fcHour(h.time) >= now.h).reduce((a, h) => a + fcKw(h.ghi), 0);
-    const plugged = e.c?.plug && e.c.plug !== 'unplugged';
-    if (now.h >= 7 && now.h < 16 && S.ev) {
-      if (e.c?.state === 'charging' && e.L?.window === 'day' && !e.L?.override) out.push(['car', `Car charging on solar at ${f0(e.c.amps)} A`]);
-      else if (!plugged && fcLeft >= 8 && !ex) out.push(['sun', `About ${Math.round(fcLeft)} kWh of sun left today. Plug a car in to use it.`]);
-    }
-    // Evening: set expectations for tomorrow
+    const plugged = plugState(e.c);
+    if (now.h >= 7 && now.h < 16 && S.ev && !plugged && fcLeft >= 8 && !ex) add('sun', `About ${Math.round(fcLeft)} kWh of sun left today. Plug a car in to use it.`);
     if (now.h >= 17) {
       const t = fcDays().find(d => d.date === tomorrowKey());
-      if (t) out.push(t.kwh >= 35 ? ['sun', `Tomorrow looks strong for solar, about ${t.kwh} kWh`]
-        : t.kwh <= 15 ? ['warn', `Tomorrow is poor for solar (about ${t.kwh} kWh). Overnight off-peak will do the heavy lifting.`]
-        : ['sun', `Tomorrow: about ${t.kwh} kWh of solar expected`]);
+      if (t) t.kwh >= 35 ? add('sun', `Tomorrow looks strong for solar, about ${t.kwh} kWh`)
+        : t.kwh <= 15 ? add('warn', `Tomorrow is poor for solar (about ${t.kwh} kWh). Overnight off-peak will do the heavy lifting.`)
+        : add('sun', `Tomorrow: about ${t.kwh} kWh of solar expected`);
     }
-    if (w && has(w.uvi) && w.uvi >= 8 && now.h >= 9 && now.h <= 16) out.push(['warn', `UV ${f1(w.uvi)}, very high`]);
-    if ((S.ev && at.ev && Date.now() - at.ev > STALE.ev) || (!S.ev && failed.ev)) out.unshift(['warn', "Can't reach the Pi. The charger controller keeps running on its own."]);
-    $('notes').innerHTML = out.slice(0, 3).map(([k, t]) => `<span class="note ${k}"><i></i>${esc(t)}</span>`).join('');
+    warns.filter(x => x.level === 'info').forEach(x => out.push(x));
+    if ((S.ev && at.ev && Date.now() - at.ev > STALE.ev) || (!S.ev && failed.ev)) add('warn', "Can't reach the Pi. The charger controller keeps running on its own.");
+    $('notes').innerHTML = out.slice(0, 5).map(n => n.href
+      ? `<a class="note ${n.cls}" href="${esc(n.href)}" target="_blank" rel="noopener" title="${esc(n.tip || '')}"><i></i>${esc(n.text)}</a>`
+      : `<span class="note ${n.cls}"><i></i>${esc(n.text)}</span>`).join('');
   }
 
   // ---------- radar (RainViewer, past 2 h, max native zoom 7 on the free tier) ----------
@@ -984,7 +1017,7 @@ body.dimmed .dim{opacity:.62}
   }
   function schedule(name) { setInterval(() => { if (!document.hidden) refresh(name); }, EVERY[name]); }
   initMap();
-  ['ev', 'sems', 'wx', 'fc', 'net'].forEach(n => { refresh(n); schedule(n); });
+  ['ev', 'sems', 'wx', 'fc', 'net', 'warn'].forEach(n => { refresh(n); schedule(n); });
   loadRadar().then(() => setPlaying(true)); schedule('radar');
   setInterval(() => { renderClock(); renderDots(); applyDim(); }, 10e3);
   setInterval(renderNotes, 60e3);
