@@ -62,24 +62,25 @@ a{color:inherit}
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:2px;padding:8px 12px 12px;min-width:0}
 .p-title{font-size:13.5px;font-weight:500;color:var(--text);margin:0 0 6px;line-height:1.4;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .note{font-size:11.5px;color:var(--text-dim);font-weight:400}
-.span-12{grid-column:span 12}.span-6{grid-column:span 6}.span-3{grid-column:span 3}
-@media (max-width:900px){.span-6{grid-column:span 12}.span-3{grid-column:span 6}}
-@media (max-width:560px){.span-3{grid-column:span 12}}
+.span-12{grid-column:span 12}.span-6{grid-column:span 6}.span-4{grid-column:span 4}
+@media (max-width:980px){.span-4{grid-column:span 6}}
+@media (max-width:760px){.span-6,.span-4{grid-column:span 12}}
 .rowh{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:16px 2px 8px}
 .rowh h2{font-size:15px;font-weight:500;margin:0;display:flex;align-items:center;gap:8px}
 .rowh h2::before{content:"";border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid var(--text-muted)}
 .rowh .links{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 
-/* ---------- cars: narrow cards, readings over a faded photo or drawing ---------- */
-.car-card{position:relative;overflow:hidden;padding:10px 12px 12px;display:flex;flex-direction:column}
-.car-bg{position:absolute;left:0;right:0;bottom:0;height:62%;pointer-events:none;
-  -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 55%);mask-image:linear-gradient(180deg,transparent 0,#000 55%)}
-.car-bg img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.5}
-.car-bg svg{position:absolute;left:4%;right:4%;bottom:6px;width:92%;height:auto;opacity:.5}
-.car-fg{position:relative;display:flex;flex-direction:column;gap:8px;flex:1}
-.car-head{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
-.car-name{font-size:20px;font-weight:600;letter-spacing:-.01em;line-height:1.2}
-.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:2px;background:rgba(17,18,23,.78);border:1px solid var(--border-strong);color:var(--text-muted);max-width:100%}
+/* ---------- cars: wide, short cards; readings over a faded photo or drawing ---------- */
+.car-card{position:relative;overflow:hidden;padding:10px 12px}
+.car-bg{position:absolute;top:0;right:0;bottom:0;width:58%;pointer-events:none;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 55%);mask-image:linear-gradient(90deg,transparent 0,#000 55%)}
+.car-bg img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.45}
+.car-bg svg{position:absolute;right:2%;bottom:4px;width:96%;height:auto;max-height:92%;opacity:.38}
+.car-fg{position:relative;display:flex;gap:12px;align-items:center}
+.car-info{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:5px}
+.car-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.car-name{font-size:19px;font-weight:600;letter-spacing:-.01em;line-height:1.2}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:2px;background:rgba(17,18,23,.78);border:1px solid var(--border-strong);color:var(--text-muted);white-space:nowrap}
 .chip .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:0 0 auto}
 .chip.solar{color:var(--yellow);border-color:rgba(250,222,42,.45)}
 .chip.offpeak{color:var(--blue-l);border-color:rgba(87,148,242,.5)}
@@ -87,21 +88,23 @@ a{color:inherit}
 .chip.waiting{color:var(--text);border-color:rgba(204,204,220,.3)}
 .chip.full{color:var(--green);border-color:rgba(115,191,105,.45)}
 .chip.away{color:var(--orange)}
-.car-top{display:flex;align-items:center;gap:8px}
-.batt{flex:1 1 auto;min-width:0;max-width:170px;height:auto;display:block;filter:drop-shadow(0 2px 8px rgba(0,0,0,.45))}
-.car-top .gauge{flex:0 0 92px;width:92px;height:auto}
-.car-lines{font-size:12.5px;color:var(--text-muted);display:flex;flex-direction:column;gap:1px;text-shadow:0 1px 6px rgba(0,0,0,.8)}
+.car-lines{font-size:12.5px;color:var(--text-muted);display:flex;flex-direction:column;gap:0;text-shadow:0 1px 6px rgba(0,0,0,.8)}
 .car-lines b{color:var(--text);font-weight:600}
-.src-bar{display:flex;height:8px;border-radius:1px;overflow:hidden;background:rgba(44,48,54,.85);width:100%}
+.next{font-size:12.5px;color:var(--text);text-shadow:0 1px 6px rgba(0,0,0,.8)}
+.next .lbl{color:var(--blue-l);font-weight:600}
+.src-bar{display:flex;height:7px;border-radius:1px;overflow:hidden;background:rgba(44,48,54,.85);width:100%;max-width:260px}
 .src-bar div{min-width:2px}
-.src-leg{display:flex;flex-direction:column;gap:1px;font-size:11.5px;color:var(--text-muted);text-shadow:0 1px 6px rgba(0,0,0,.8)}
-.src-leg i{display:inline-block;width:8px;height:8px;border-radius:1px;margin-right:5px}
+.src-leg{display:flex;gap:2px 10px;flex-wrap:wrap;font-size:11.5px;color:var(--text-muted);text-shadow:0 1px 6px rgba(0,0,0,.8)}
+.src-leg i{display:inline-block;width:8px;height:8px;border-radius:1px;margin-right:4px}
 .src-leg b{color:var(--text);font-weight:600}
-
+.car-side{flex:0 0 auto;display:flex;align-items:center;gap:6px}
+.batt{width:150px;height:auto;display:block;filter:drop-shadow(0 2px 8px rgba(0,0,0,.45))}
+.car-side .gauge{width:88px;height:auto}
+@media (max-width:560px){.car-fg{flex-direction:column;align-items:flex-start}}
 .seg.sm button{padding:3px 8px;font-size:12px}
 /* ---------- energy flow diagram ---------- */
 .flow-wrap{position:relative}
-svg.flow{display:block;width:100%;height:auto;max-height:430px}
+svg.flow{display:block;width:100%;height:auto}
 .flow-line{fill:none;stroke:var(--surface-3);stroke-width:3}
 .flow-dash{fill:none;stroke-width:3;stroke-dasharray:3 9;stroke-linecap:round;animation:flow 1.2s linear infinite}
 .flow-dash.rev{animation-direction:reverse}
@@ -123,28 +126,28 @@ svg.ts{display:block;width:100%;height:auto}
 .wx-line b{font-size:15px}
 
 /* ---------- pies, savings ---------- */
-.pie-box{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
-.pie-box svg{flex:0 0 150px;width:150px;height:150px}
-.pie-leg{flex:1 1 200px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.pie-box{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.pie-box svg{flex:0 0 120px;width:120px;height:120px}
+.pie-leg{flex:1 1 170px;display:flex;flex-direction:column;gap:5px;min-width:0}
 .pie-leg div{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:2px 8px;align-items:baseline}
 .pie-leg i{width:10px;height:10px;border-radius:1px;align-self:center}
 .pie-leg .k{font-size:13px}
-.pie-leg b{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pie-leg b{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
 .pie-leg b small{font-size:12px;color:var(--text-muted);font-weight:400}
 .pie-leg .s{grid-column:2/4;font-size:11px;color:var(--text-dim)}
 .facts-note{font-size:11.5px;color:var(--text-dim);margin-top:8px}
 .car-by{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:8px;font-size:12.5px;color:var(--text-muted)}
 .car-by b{font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
-table.save{width:100%;border-collapse:collapse;font-size:13.5px}
-table.save th{font-size:12px;color:var(--blue-l);font-weight:500;text-align:right;padding:6px 8px;border-bottom:1px solid var(--border)}
+table.save{width:100%;border-collapse:collapse;font-size:12.5px}
+table.save th{font-size:11.5px;color:var(--blue-l);font-weight:500;text-align:right;padding:3px 6px;border-bottom:1px solid var(--border)}
 table.save th:first-child,table.save td:first-child{text-align:left}
-table.save td{padding:8px;text-align:right;font-variant-numeric:tabular-nums;border-bottom:1px solid var(--border);vertical-align:top}
+table.save td{padding:4px 6px;text-align:right;font-variant-numeric:tabular-nums;border-bottom:1px solid var(--border);vertical-align:top}
 table.save td small{display:block;color:var(--text-dim);font-size:11.5px;margin-top:1px}
 table.save i{display:inline-block;width:10px;height:10px;border-radius:1px;margin-right:7px}
 table.save td.money{color:var(--green)}
-table.save tr.grp td{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600;padding:14px 8px 4px}
+table.save tr.grp td{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600;padding:8px 6px 2px}
 table.save tr.sub td{font-weight:600;background:var(--surface-2);border-bottom:0}
-table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong);font-weight:700;font-size:17px}
+table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong);font-weight:700;font-size:15px;padding-top:6px}
 
 /* ---------- outlook + plan ---------- */
 .outlook{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
@@ -201,20 +204,22 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
   <div class="mode-msg" id="mode-msg" aria-live="polite"></div>
   <div class="banner" id="banner" hidden></div>
 
-  <!-- the two cars (the one on the charger also shows the charger), then the energy flow -->
+  <!-- the two cars side by side (the one on the charger also shows the charger) -->
   <div class="dash">
-    <section class="panel span-3 car-card" id="card-ev5" aria-label="Kia EV5"></section>
-    <section class="panel span-3 car-card" id="card-ioniq" aria-label="Hyundai IONIQ 5"></section>
-    <section class="panel span-6">
+    <section class="panel span-6 car-card" id="card-ev5" aria-label="Kia EV5"></section>
+    <section class="panel span-6 car-card" id="card-ioniq" aria-label="Hyundai IONIQ 5"></section>
+  </div>
+  <div class="dash">
+    <section class="panel span-12">
       <div class="p-title"><span>Energy flow</span><span class="note num" id="clock">–</span></div>
-      <div class="flow-wrap"><svg class="flow" id="flow" viewBox="0 0 560 400" role="img" aria-label="Where power is going right now"></svg></div>
+      <svg class="flow" id="flow" viewBox="0 0 1200 190" role="img" aria-label="Where power is going right now"></svg>
       <div class="ribbon" id="ribbon">Reading the charger and solar…</div>
     </section>
   </div>
   <div class="dash">
     <section class="panel span-12">
       <div class="p-title"><span>Today</span><span class="wx-line" id="today-wx"></span></div>
-      <svg class="ts" id="ts" viewBox="0 0 1200 300" role="img" aria-label="Today: solar generation and forecast, house use and car charging"></svg>
+      <svg class="ts" id="ts" viewBox="0 0 1200 220" role="img" aria-label="Today: solar generation and forecast, house use and car charging"></svg>
       <div class="ts-leg" id="ts-leg"></div>
     </section>
   </div>
@@ -235,7 +240,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     </div>
   </div>
   <div class="dash">
-    <section class="panel span-6">
+    <section class="panel span-4">
       <div class="p-title"><span id="car-h">Car charging today</span>
         <div class="seg sm" role="tablist" aria-label="Which car">
           <button role="tab" data-carview="total" aria-pressed="true">Total</button>
@@ -245,11 +250,11 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
       <div id="car-pie"></div>
       <div class="car-by" id="car-by"></div>
     </section>
-    <section class="panel span-6">
+    <section class="panel span-4">
       <div class="p-title"><span id="solar-h">Solar today</span></div>
       <div id="solar-pie"></div>
     </section>
-    <section class="panel span-12">
+    <section class="panel span-4">
       <div class="p-title"><span id="save-h">Savings today</span></div>
       <table class="save" id="save"></table>
       <div class="facts-note" id="save-note"></div>
@@ -445,6 +450,36 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     return fromSolar >= watts * 0.5 ? { cls:'solar', text:'Charging from solar' } : { cls:'onpeak', text:'Charging from grid, on-peak' };
   }
 
+  // When will spare solar next hold above 1.4 kW? (forecast, house assumed ~0.6 kW)
+  function solarStart(dayOffset, fromHour){
+    if (!FORECAST) return null;
+    const t = new Date(); t.setDate(t.getDate() + dayOffset);
+    const k = `${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;
+    const hrs = (FORECAST.hourly || []).filter(h => h.time.startsWith(k)).map(h => ({ h: +h.time.slice(11,13), kw: fcKw(h.ghi) }));
+    const hit = hrs.find(h => h.h >= (fromHour || 0) && h.kw - 0.6 >= 1.4);
+    return hit ? hit.h : null;
+  }
+  const hh = h => h === 0 ? '12 am' : h < 12 ? `${h} am` : h === 12 ? '12 pm' : `${h - 12} pm`;
+  function nextCharge(d, k, soc, limit){
+    const L = d.latest || {}, c = L.charger || {}, watts = c.power_w || 0;
+    const mode = d.mode || L.mode || 'auto';
+    if (mode === 'off') return 'none, charging is turned off';
+    if (mode === 'full') return 'charging at full speed whenever the car will take it';
+    if (k === 'ev5' && soc != null && limit && soc >= limit - 0.3) return `none needed, it's at its ${limit}% limit`;
+    if (c.state === 'complete' || c.state === 'full') return 'none needed, it finished charging';
+    if (c.state === 'charging' && watts > 200) return null;                 // charging now
+    const now = new Date(), H = now.getHours() + now.getMinutes() / 60;
+    const night = offpeakOn ? '<b>tonight 12 am – 6 am</b>, off-peak full rate at 8c' : null;
+    if (H < 6 && offpeakOn) return '<b>now until 6 am</b>, off-peak full rate at 8c';
+    if (H >= 6 && H < 20) {
+      const sh = solarStart(0, Math.ceil(H));
+      if (sh != null) return `<b>spare solar from about ${hh(Math.max(sh, Math.ceil(H)))}</b> today` + (night ? `, then ${night}` : '');
+    }
+    if (night) return night;
+    const t = solarStart(1, 6);
+    return t != null ? `<b>tomorrow from about ${hh(t)}</b> on spare solar` : 'tomorrow, if there is spare solar';
+  }
+
   function renderCars(d){
     lastD = d;
     const L = d.latest || {}, c = L.charger || {};
@@ -476,10 +511,14 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
       const srcBar = tot >= 0.05 ? `<div class="src-bar" role="img" aria-label="Today: ${parts.map(([n,v]) => `${n} ${v.toFixed(1)} kWh`).join(', ')}">${parts.map(([n,v,col]) => v > 0 ? `<div style="width:${(100*v/tot).toFixed(1)}%;background:${col}"></div>` : '').join('')}</div>
         <div class="src-leg">${parts.filter(([,v]) => v >= 0.05).map(([n,v,col]) => `<span><i style="background:${col}"></i>${n} <b>${v.toFixed(1)} kWh</b> · ${Math.round(100*v/tot)}%</span>`).join('')}</div>` : '';
       const bg = hasPhoto[k] ? `<img src="${car.photo}" alt="">` : carSVG(k);
+      const nx = isOn ? nextCharge(d, k, soc, limit) : null;
       box.innerHTML = `<div class="car-bg">${bg}</div><div class="car-fg">
-          <div class="car-head"><span class="car-name">${car.name}</span>${chip}</div>
-          <div class="car-top">${battSVG(soc, limit, est)}${isOn ? gaugeSVG(amps, color) : ''}</div>
-          <div class="car-lines">${lines.map(l => `<span>${l}</span>`).join('')}</div>${srcBar}
+          <div class="car-info">
+            <div class="car-head"><span class="car-name">${car.name}</span>${chip}</div>
+            <div class="car-lines">${lines.map(l => `<span>${l}</span>`).join('')}</div>${srcBar}
+            ${nx ? `<div class="next"><span class="lbl">Next charge:</span> ${nx}</div>` : ''}
+          </div>
+          <div class="car-side">${battSVG(soc, limit, est)}${isOn ? gaugeSVG(amps, color) : ''}</div>
         </div>`;
     });
   }
@@ -497,51 +536,44 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const pv = L.pv_live_w != null ? L.pv_live_w : (L.pv_kw != null ? L.pv_kw * 1000 : null);
     const houseW = L.house_w != null ? L.house_w : (L.home_kw != null ? Math.max(0, L.home_kw * 1000 - watts) : null);
     const g = (pv != null && houseW != null) ? houseW + watts - pv : null;     // + import, - export
-    const hub = [280, 170];
+    const exporting = g != null && g < -50;
+    const hub = [600, 95], R = 28;
     const nodes = {
-      solar: { p:[280, 52],  w: pv,     col:'#fade2a', name:'Solar', kwh: T.solar_kwh, lab:'right' },
-      house: { p:[92, 170],  w: houseW, col:'#8ab8ff', name:'House', kwh: T.house_kwh, lab:'below' },
-      car:   { p:[468, 170], w: watts,  col:'#73bf69', name:'Car',   kwh: T.car_kwh,   lab:'below' },
-      grid:  { p:[280, 288], w: g == null ? null : Math.abs(g), col: g != null && g < -50 ? '#73bf69' : '#ff9830', name: g != null && g < -50 ? 'Grid, exporting' : 'Grid', kwh: T.import_kwh, lab:'right' }
+      solar: { p:[400, 45],  w: pv,     col:'#fade2a', name:'Solar', kwh: T.solar_kwh, side:'left' },
+      grid:  { p:[400, 145], w: g == null ? null : Math.abs(g), col: exporting ? '#73bf69' : '#ff9830', name: exporting ? 'Grid, exporting' : 'Grid', kwh: T.import_kwh, side:'left' },
+      house: { p:[800, 45],  w: houseW, col:'#8ab8ff', name:'House', kwh: T.house_kwh, side:'right' },
+      car:   { p:[800, 145], w: watts,  col:'#73bf69', name:'Car',   kwh: T.car_kwh,   side:'right' }
     };
-    const R = 32;
-    // direction of flow on each spoke: true = towards the hub
     const toHub = { solar: true, house: false, car: false, grid: g != null && g > 0 };
     const active = { solar: (pv || 0) > 30, house: (houseW || 0) > 30, car: watts > 30, grid: g != null && Math.abs(g) > 50 };
     let s = '';
     Object.entries(nodes).forEach(([k, n]) => {
       const [x, y] = n.p, dx = hub[0] - x, dy = hub[1] - y, len = Math.hypot(dx, dy), ux = dx/len, uy = dy/len;
-      const x0 = x + ux*(R+4), y0 = y + uy*(R+4), x1 = hub[0] - ux*14, y1 = hub[1] - uy*14;
-      s += `<path class="flow-line" d="M${x0.toFixed(1)},${y0.toFixed(1)} L${x1.toFixed(1)},${y1.toFixed(1)}"/>`;
-      if (active[k]) {
-        const kW = (n.w || 0) / 1000, dur = Math.max(0.35, 1.8 - kW * 0.15).toFixed(2);
-        s += `<path class="flow-dash${toHub[k] ? '' : ' rev'}" d="M${x0.toFixed(1)},${y0.toFixed(1)} L${x1.toFixed(1)},${y1.toFixed(1)}" stroke="${n.col}" style="animation-duration:${dur}s"/>`;
-      }
+      const x0 = x + ux*(R+4), y0 = y + uy*(R+4), x1 = hub[0] - ux*13, y1 = hub[1] - uy*13;
+      const dd = `M${x0.toFixed(1)},${y0.toFixed(1)} L${x1.toFixed(1)},${y1.toFixed(1)}`;
+      s += `<path class="flow-line" d="${dd}"/>`;
+      if (active[k]) s += `<path class="flow-dash${toHub[k] ? '' : ' rev'}" d="${dd}" stroke="${n.col}" style="animation-duration:${Math.max(0.35, 1.8 - (n.w || 0) / 1000 * 0.15).toFixed(2)}s"/>`;
     });
-    s += `<circle cx="${hub[0]}" cy="${hub[1]}" r="12" fill="#22252b" stroke="rgba(204,204,220,.3)" stroke-width="1.5"/><circle cx="${hub[0]}" cy="${hub[1]}" r="4" fill="rgba(204,204,220,.55)"/>`;
+    s += `<circle cx="${hub[0]}" cy="${hub[1]}" r="11" fill="#22252b" stroke="rgba(204,204,220,.3)" stroke-width="1.5"/><circle cx="${hub[0]}" cy="${hub[1]}" r="4" fill="rgba(204,204,220,.55)"/>`;
     Object.entries(nodes).forEach(([k, n]) => {
-      const [x, y] = n.p;
-      s += `<circle cx="${x}" cy="${y}" r="${R}" fill="#1d2025" stroke="${n.col}" stroke-width="2" stroke-opacity="${active[k] ? 1 : .35}"/><g transform="translate(${x} ${y})">${ICON[k]}</g>`;
-      const v = n.w == null ? '–' : watt(n.w), sub = `${(n.kwh || 0).toFixed(1)} kWh today`;
-      if (n.lab === 'right') s += `<text x="${x + R + 12}" y="${y - 4}" fill="${n.col}" font-size="20" font-weight="600" font-family="Inter, sans-serif">${v}</text><text x="${x + R + 12}" y="${y + 15}" fill="rgba(204,204,220,.65)" font-size="12" font-family="Inter, sans-serif">${esc(n.name)} · ${sub}</text>`;
-      else s += `<text x="${x}" y="${y + R + 22}" text-anchor="middle" fill="${n.col}" font-size="20" font-weight="600" font-family="Inter, sans-serif">${v}</text><text x="${x}" y="${y + R + 39}" text-anchor="middle" fill="rgba(204,204,220,.65)" font-size="12" font-family="Inter, sans-serif">${esc(n.name)} · ${sub}</text>`;
+      const [x, y] = n.p, v = n.w == null ? '–' : watt(n.w), sub = `${esc(n.name)} · ${(n.kwh || 0).toFixed(1)} kWh today`;
+      s += `<circle cx="${x}" cy="${y}" r="${R}" fill="#1d2025" stroke="${n.col}" stroke-width="2" stroke-opacity="${active[k] ? 1 : .35}"/><g transform="translate(${x} ${y}) scale(.9)">${ICON[k]}</g>`;
+      const tx = n.side === 'left' ? x - R - 12 : x + R + 12, anc = n.side === 'left' ? 'end' : 'start';
+      s += `<text x="${tx}" y="${y - 2}" text-anchor="${anc}" fill="${n.col}" font-size="20" font-weight="600" font-family="Inter, sans-serif">${v}</text><text x="${tx}" y="${y + 16}" text-anchor="${anc}" fill="rgba(204,204,220,.65)" font-size="12" font-family="Inter, sans-serif">${sub}</text>`;
     });
-    // corner stats: cost and self-sufficiency today
+    // edge stats: cost and self-sufficiency today
     const imp = T.import_kwh || 0, impOff = Math.min(imp, T.import_offpeak_kwh || 0), exp = T.export_kwh || 0;
     const cost = (imp - impOff) * RATE.general + impOff * RATE.offpeak - exp * RATE.feedin + RATE.supply;
     const use = (T.house_kwh || 0) + (T.car_kwh || 0), fromSolar = (T.house_solar_kwh || 0) + (T.car_solar_kwh || 0);
     const self = use > 0.1 ? Math.round(100 * fromSolar / use) : null;
     const selfCol = self == null ? '#d8d9da' : self >= 60 ? '#73bf69' : self >= 30 ? '#fade2a' : '#ff9830';
-    s += `<line x1="8" x2="552" y1="326" y2="326" stroke="rgba(204,204,220,.08)"/>
-      <text x="140" y="346" text-anchor="middle" fill="#d8d9da" font-size="13" font-family="Inter, sans-serif">Cost today</text>
-      <text x="140" y="374" text-anchor="middle" fill="${cost > 10 ? '#ff9830' : '#73bf69'}" font-size="28" font-weight="600" font-family="Inter, sans-serif">$${cost.toFixed(2)}</text>
-      <text x="140" y="389" text-anchor="middle" fill="rgba(204,204,220,.42)" font-size="10.5" font-family="Inter, sans-serif">incl. $${RATE.supply.toFixed(2)} supply</text>
-      <text x="420" y="346" text-anchor="middle" fill="#d8d9da" font-size="13" font-family="Inter, sans-serif">Self sufficiency</text>
-      <text x="420" y="374" text-anchor="middle" fill="${selfCol}" font-size="28" font-weight="600" font-family="Inter, sans-serif">${self == null ? '–' : self + '%'}</text>
-      <text x="420" y="389" text-anchor="middle" fill="rgba(204,204,220,.42)" font-size="10.5" font-family="Inter, sans-serif">of today's use came from solar</text>`;
+    const stat = (x, k, v, col, sub) => `<text x="${x}" y="62" text-anchor="middle" fill="#d8d9da" font-size="14" font-family="Inter, sans-serif">${k}</text>
+      <text x="${x}" y="102" text-anchor="middle" fill="${col}" font-size="36" font-weight="600" font-family="Inter, sans-serif">${v}</text>
+      <text x="${x}" y="124" text-anchor="middle" fill="rgba(204,204,220,.42)" font-size="11.5" font-family="Inter, sans-serif">${sub}</text>`;
+    s += stat(100, 'Cost today', `$${cost.toFixed(2)}`, cost > 10 ? '#ff9830' : '#73bf69', `incl. $${RATE.supply.toFixed(2)} supply`);
+    s += stat(1100, 'Self sufficiency', self == null ? '–' : self + '%', selfCol, "of today's use from solar");
     $('flow').innerHTML = s;
     $('flow').setAttribute('aria-label', `Right now: solar ${watt(pv)}, house ${watt(houseW)}, car ${watt(watts)}, grid ${g == null ? 'unknown' : g < 0 ? 'exporting ' + watt(-g) : 'importing ' + watt(g)}. Cost today $${cost.toFixed(2)}, ${self ?? '–'}% self-sufficient.`);
-    // ribbon: excess solar prompt, otherwise what the controller is doing
     const plugged = c.plug === 'plugged' || c.plug === 'plugged_locked';
     const spare = (pv != null && houseW != null) ? pv - houseW - watts : 0;
     const rib = $('ribbon');
@@ -645,15 +677,15 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
       let sub = 0, subKwh = 0;
       body += `<tr class="grp"><td colspan="3">${head}</td></tr>`;
       rows.forEach(([n, kwh, rate, how, col]) => { const v = kwh * rate; sub += v; subKwh += kwh;
-        body += `<tr><td><i style="background:${col}"></i>${n}<small>${how}</small></td><td>${kwh.toFixed(1)}</td><td class="money">$${v.toFixed(2)}</td></tr>`; });
+        body += `<tr title="${esc(how)}"><td><i style="background:${col}"></i>${n}</td><td>${kwh.toFixed(1)}</td><td class="money">$${v.toFixed(2)}</td></tr>`; });
       body += `<tr class="sub"><td>${subName}</td><td>${subKwh.toFixed(1)}</td><td class="money">$${sub.toFixed(2)}</td></tr>`;
       total += sub;
     });
-    $('save').innerHTML = `<thead><tr><th>Where it came from</th><th>kWh</th><th>Saved</th></tr></thead><tbody>${body}<tr class="total"><td>Grand total</td><td></td><td class="money">$${total.toFixed(2)}</td></tr></tbody>`;
+    $('save').innerHTML = `<thead><tr><th>Source</th><th>kWh</th><th>Saved</th></tr></thead><tbody>${body}<tr class="total"><td>Grand total</td><td></td><td class="money">$${total.toFixed(2)}</td></tr></tbody>`;
     const carCost = (T.car_offpeak_kwh || 0) * o + (T.car_grid_day_kwh || 0) * g;
     const days = period === 'today' ? 1 : (T._days || 1);
     $('save-note').textContent = (days > 1 ? `About $${(total / days).toFixed(2)} a day over ${days} days. ` : '') +
-      `Car charging from the grid cost $${carCost.toFixed(2)} ${name}. Savings compare against what the same energy would have cost on your AGL rates; the daily supply charge isn't included.`;
+      `Car charging from the grid cost $${carCost.toFixed(2)} ${name}. Compared with the same energy at your AGL rates, excluding supply.`;
   }
   let carView = 'total';
   try { const v = localStorage.getItem('ev-carview'); if (['total','ev5','ioniq5'].includes(v)) carView = v; } catch (e) {}
@@ -688,7 +720,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const peak = Math.max(3, ...pts.map(p=>Math.max(p.pv, p.home, p.car)), ...fp.map(p=>p.v));
     const ymax = Math.ceil(peak / 2) * 2;
     const svg = $('ts'); svg.innerHTML = '';
-    const W=1200,H=300,L=44,R=8,T=8,B=24, ns='http://www.w3.org/2000/svg';
+    const W=1200,H=220,L=44,R=8,T=8,B=24, ns='http://www.w3.org/2000/svg';
     const el=(n,a,txt)=>{const e=document.createElementNS(ns,n);for(const k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;svg.appendChild(e);return e;};
     const x=h=>L+(W-L-R)*h/24, y=v=>T+(H-T-B)*(1-v/ymax);
     el('rect',{x:x(0),y:T,width:x(6)-x(0),height:H-T-B,fill:'rgba(87,148,242,.07)'});
@@ -766,6 +798,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
       if (t0) $('today-wx').innerHTML = `${icon(t0.k[0])}<span>${t0.k[1]} · ${t0.tmax}° · ≈ ${t0.kwh} kWh forecast</span><b style="color:${scoreColor(t0.s)}">${t0.s}</b><span>/10</span>`;
       const days = all.slice(1);
       if (lastSeries) renderChart(lastSeries);
+      if (lastD) renderCars(lastD);
       if (!days.length) throw new Error('no days');
       const best = Math.max(...days.map(d=>d.s));
       $('outlook').innerHTML = days.map(d=>{ const dt=new Date(d.date+'T12:00:00'), col=scoreColor(d.s);
