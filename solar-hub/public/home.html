@@ -830,8 +830,8 @@ body.dimmed .dim{opacity:.62}
     // every tile and draws hairline seams along tile edges. Nudge the map onto whole pixels whenever it moves.
     const snap = () => {
       const m = $('map'), r = m.parentElement.getBoundingClientRect();
-      m.style.left = (Math.round(r.left) - r.left).toFixed(3) + 'px';
-      m.style.top = (Math.round(r.top) - r.top).toFixed(3) + 'px';
+      m.style.left = (Math.round(r.left) - r.left) + 'px';     // full precision: even 0.01 px brings the seams back
+      m.style.top = (Math.round(r.top) - r.top) + 'px';
       map.invalidateSize();
     };
     new ResizeObserver(snap).observe($('map').parentElement);
