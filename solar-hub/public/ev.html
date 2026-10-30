@@ -6,250 +6,208 @@
 <title>EV Charging · Solar Hub</title>
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 /* Solar Hub EV Charging. Live view of the Pi controller (ev_solar.py) via the bridge.
-   Tokens copied from Solar Hub index.html (dark-first). */
+   Dashboard look: dark panels, coloured stat values, bar gauges, time-series panels. */
 :root{
-  --import-soft:rgba(255,84,112,.45);
-  --bg:#0b0f1a; --surface:#121828; --surface-2:#1a2137; --surface-3:#242c46;
-  --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
-  --text:#ecedf5; --text-muted:#8890a8; --text-dim:#5a6178;
-  --solar:#f5a623; --export:#00d4a6; --import:#ff5470; --home:#7ba3f7; --car:#00d4a6;
-  --offpeak:rgba(123,163,247,.10); --peak:rgba(255,84,112,.07);
-  --warn:#f5a623; --ok:#00d4a6;
-  --r-sm:8px; --r-md:14px; --r-lg:20px;
+  --bg:#111217; --surface:#181b1f; --surface-2:#22252b; --surface-3:#2c3036;
+  --border:rgba(204,204,220,.08); --border-strong:rgba(204,204,220,.16);
+  --text:#d8d9da; --text-muted:rgba(204,204,220,.65); --text-dim:rgba(204,204,220,.42);
+  --green:#73bf69; --yellow:#fade2a; --blue:#5794f2; --blue-l:#8ab8ff; --red:#f2495c; --orange:#ff9830;
+  --import-soft:rgba(242,73,92,.45); --offpeak:rgba(87,148,242,.10); --peak:rgba(242,73,92,.07);
+  --ev5:#2f6fe0; --ioniq:#16181c;
   --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
-  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --mono:'Roboto Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
   color-scheme:dark;
-}
-@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){
-  --bg:#f6f5ef; --surface:#ffffff; --surface-2:#faf9f3; --surface-3:#f0ede2;
-  --border:rgba(0,0,0,.08); --border-strong:rgba(0,0,0,.16);
-  --text:#1b1f2a; --text-muted:#6b7286; --text-dim:#9aa0b4;
-  --solar:#d9890a; --export:#00a383; --import:#e0304f; --home:#4a76d8; --car:#00a383;
-  --offpeak:rgba(74,118,216,.09); --peak:rgba(224,48,79,.06);
-  --warn:#c77a00; --ok:#00a383; color-scheme:light;
-}}
-:root[data-theme="light"]{
-  --bg:#f6f5ef; --surface:#ffffff; --surface-2:#faf9f3; --surface-3:#f0ede2;
-  --border:rgba(0,0,0,.08); --border-strong:rgba(0,0,0,.16);
-  --text:#1b1f2a; --text-muted:#6b7286; --text-dim:#9aa0b4;
-  --solar:#d9890a; --export:#00a383; --import:#e0304f; --home:#4a76d8; --car:#00a383;
-  --offpeak:rgba(74,118,216,.09); --peak:rgba(224,48,79,.06);
-  --warn:#c77a00; --ok:#00a383; color-scheme:light;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.5;
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
-  padding-top:calc(20px + env(safe-area-inset-top,0px));padding-bottom:calc(48px + env(safe-area-inset-bottom,0px))}
-.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
-.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
-.label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
-h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0;text-wrap:balance}
-h2{font-size:15px;font-weight:600;margin:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.45;
+  padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));
+  padding-top:calc(10px + env(safe-area-inset-top,0px));padding-bottom:calc(40px + env(safe-area-inset-bottom,0px))}
 a{color:inherit}
-.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.top-left{display:flex;align-items:center;gap:12px}
-.back{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:var(--surface);border:1px solid var(--border);text-decoration:none;color:var(--text-muted);font-size:18px}
-.back:focus-visible{outline:2px solid var(--export);outline-offset:2px}
-.top .where{color:var(--text-muted);font-size:13px}
-.top-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
-.seg-sm{padding:3px;border-radius:10px;gap:3px}
-.seg-sm button{font-size:12px;padding:6px 10px;border-radius:8px}
-.mode-msg{text-align:right;margin-top:-12px}
-.facts-2{grid-template-columns:repeat(2,minmax(0,1fr))!important}
-.pie-legend{display:flex;flex-direction:column;gap:6px;font-size:13px;min-width:0}
-.pie-legend div{display:flex;align-items:center;gap:8px}
-.pie-legend i{width:10px;height:10px;border-radius:3px;flex:0 0 auto}
-.pie-legend b{font-family:var(--mono);font-weight:500;margin-left:auto;padding-left:12px;font-variant-numeric:tabular-nums}
-.batt{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
-.batt-top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
-.car-pick button{padding:5px 10px}
-.batt-row{display:flex;align-items:center;gap:12px}
-.batt-svg{width:84px;height:31px;flex:0 0 auto}
-.batt-src{font-size:11.5px;color:var(--text-dim)}
-.car-by{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px;font-size:12.5px;color:var(--text-muted)}
-.car-by b{font-family:var(--mono);font-weight:500;color:var(--text)}
-.batt-text{display:flex;flex-direction:column;min-width:0;font-size:12px;color:var(--text-muted)}
-.batt-text b{font-family:var(--mono);font-size:17px;font-weight:500;color:var(--text)}
-.toggle{display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:12px;font-weight:600;color:var(--text-muted);background:var(--surface-2);border:1px solid var(--border-strong);border-radius:999px;padding:5px 12px 5px 6px;cursor:pointer;white-space:nowrap}
-.toggle .sw{width:28px;height:16px;border-radius:999px;background:var(--surface-3);position:relative;transition:background .2s}
-.toggle .sw::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--text-muted);transition:transform .2s,background .2s}
+.wrap{max-width:1400px;margin:0 auto}
+
+/* ---------- top bar ---------- */
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:6px 2px 12px}
+.crumb{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:500;min-width:0}
+.crumb a{text-decoration:none;color:var(--text-muted)}
+.crumb a:hover{color:var(--text)}
+.crumb .sep{color:var(--text-dim)}
+.top-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.btn{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:12.5px;font-weight:500;color:var(--text);background:var(--surface-2);border:1px solid var(--border-strong);border-radius:2px;padding:5px 10px;text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--surface-3)}
+.btn:focus-visible,.seg button:focus-visible,.toggle:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+.seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:2px;padding:2px;gap:2px}
+.seg button{font:inherit;font-size:12.5px;font-weight:500;color:var(--text-muted);background:transparent;border:0;border-radius:2px;padding:4px 10px;cursor:pointer;white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--surface-3);color:var(--text);box-shadow:inset 0 -2px 0 var(--orange)}
+.seg button[disabled]{opacity:.5;cursor:wait}
+.toggle{display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:12.5px;font-weight:500;color:var(--text-muted);background:var(--surface-2);border:1px solid var(--border-strong);border-radius:2px;padding:5px 10px 5px 7px;cursor:pointer;white-space:nowrap}
+.toggle .sw{width:28px;height:15px;border-radius:999px;background:var(--surface-3);position:relative;transition:background .2s}
+.toggle .sw::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:var(--text-muted);transition:transform .2s,background .2s}
 .toggle[aria-pressed="true"]{color:var(--text)}
-.toggle[aria-pressed="true"] .sw{background:color-mix(in srgb,var(--home) 45%,transparent)}
-.toggle[aria-pressed="true"] .sw::after{transform:translateX(12px);background:var(--home)}
-.toggle:focus-visible{outline:2px solid var(--export);outline-offset:2px}
+.toggle[aria-pressed="true"] .sw{background:rgba(87,148,242,.45)}
+.toggle[aria-pressed="true"] .sw::after{transform:translateX(13px);background:var(--blue-l)}
 .toggle[disabled]{opacity:.5;cursor:wait}
 @media (prefers-reduced-motion:reduce){.toggle .sw,.toggle .sw::after{transition:none}}
-.strip .op.skipped{background:var(--surface-2);color:var(--text-muted);text-decoration:line-through}
-.sub-h{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text);margin:22px 0 10px;padding-top:16px;border-top:1px solid var(--border)}
-.excess{margin-top:8px;font-size:14px;font-weight:600;color:var(--import)}
-.today-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:20px;align-items:center}
-@media (max-width:760px){.today-grid{grid-template-columns:1fr}}
-.today-pie{margin-top:0}
-.today-right .batt{margin-top:0;padding-top:0;border-top:0}
-.facts-3{grid-template-columns:repeat(3,minmax(0,1fr))!important;margin-top:14px}
-@media (max-width:560px){.facts-3{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
-.split-bar{display:flex;height:22px;border-radius:8px;overflow:hidden;background:var(--surface-3)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:2px;font-size:12.5px;font-weight:500;border:1px solid var(--border-strong);background:var(--surface-2);white-space:nowrap}
+.pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.pill.live{color:var(--green)} .pill.watch{color:var(--orange)} .pill.err{color:var(--red)} .pill.muted{color:var(--text-muted)}
+.mode-msg{font-size:12px;color:var(--text-dim);text-align:right;margin:-6px 2px 8px}
+.mode-msg:empty{display:none}
+.banner{border-radius:2px;padding:10px 12px;font-size:13px;background:rgba(242,73,92,.12);border:1px solid rgba(242,73,92,.4);margin-bottom:8px}
+
+/* ---------- panels ---------- */
+.dash{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:8px;margin-bottom:8px}
+.col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:2px;padding:8px 12px 12px;min-width:0}
+.p-title{font-size:13.5px;font-weight:500;color:var(--text);text-align:center;margin:0 0 6px;line-height:1.4;display:flex;justify-content:center;align-items:center;gap:8px}
+.p-title.left{justify-content:space-between;text-align:left}
+.p-title .note{font-weight:400}
+.note{font-size:11.5px;color:var(--text-dim)}
+.span-12{grid-column:span 12}.span-6{grid-column:span 6}.span-5{grid-column:span 5}.span-4{grid-column:span 4}.span-3{grid-column:span 3}
+@media (max-width:1100px){.span-5{grid-column:span 12}.span-4,.span-3{grid-column:span 6}}
+@media (max-width:700px){.span-6,.span-5,.span-4,.span-3{grid-column:span 12}}
+.rowh{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:16px 2px 8px}
+.rowh h2{font-size:15px;font-weight:500;margin:0;display:flex;align-items:center;gap:8px}
+.rowh h2::before{content:"";border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid var(--text-muted)}
+.rowh .links{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+
+/* ---------- cars ---------- */
+.car{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:14px;align-items:center}
+@media (max-width:520px){.car{grid-template-columns:1fr}}
+.car-img{width:100%;height:auto;display:block;max-height:130px}
+.car-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.car-name{font-size:20px;font-weight:600;letter-spacing:-.01em}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:3px 9px;border-radius:2px;background:var(--surface-2);border:1px solid var(--border-strong);color:var(--text-muted);white-space:nowrap}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.chip.charging{color:var(--green);border-color:rgba(115,191,105,.45)}
+.chip.on{color:var(--blue-l);border-color:rgba(87,148,242,.45)}
+.chip.away{color:var(--orange)}
+.soc{display:flex;align-items:baseline;gap:8px;margin-top:8px}
+.soc b{font-size:36px;font-weight:600;line-height:1;letter-spacing:-.02em}
+.soc span{font-size:12.5px;color:var(--text-muted)}
+.hbar{position:relative;height:14px;background:var(--surface-2);border-radius:1px;margin-top:8px;overflow:hidden}
+.hbar .fill{position:absolute;left:0;top:0;bottom:0;border-radius:1px}
+.hbar .lim{position:absolute;top:0;bottom:0;width:2px;background:var(--text)}
+.hbar.empty{background:repeating-linear-gradient(135deg,var(--surface-2) 0 6px,var(--surface-3) 6px 12px)}
+.car-lines{margin-top:8px;font-size:12.5px;color:var(--text-muted);display:flex;flex-direction:column;gap:2px}
+.car-lines b{color:var(--text);font-weight:600}
+.car-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:11.5px;color:var(--text-dim);min-height:26px}
+
+/* ---------- overview (stats + bar gauges) ---------- */
+.clock{font-size:26px;font-weight:500;color:var(--blue-l);text-align:center;font-variant-numeric:tabular-nums;margin:2px 0 8px}
+.ribbon{min-height:22px;background:var(--surface-2);border-radius:1px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;font-size:12.5px;color:var(--text-muted);padding:2px 8px;text-align:center}
+.ribbon.excess{background:rgba(242,73,92,.16);color:#ff8a98;font-weight:600}
+.stats{display:grid;gap:6px;text-align:center}
+.stats.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.stats.four{grid-template-columns:repeat(4,minmax(0,1fr));margin-top:14px}
+.stat .k{font-size:15px;color:var(--text)}
+.stat .v{font-size:30px;font-weight:600;line-height:1.15;letter-spacing:-.01em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat .v small{font-size:15px;font-weight:600}
+.stats.four .stat .v{font-size:22px}
+.stats.four .stat .v small{font-size:12px}
+.stat .sub{font-size:11px;color:var(--text-dim)}
+@media (max-width:520px){.stats.four{grid-template-columns:repeat(2,minmax(0,1fr))}.stat .v{font-size:26px}}
+.bars{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:16px}
+.bar{display:flex;flex-direction:column;align-items:stretch;gap:4px;min-width:0}
+.bar .bv{text-align:center;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bar .track{position:relative;height:130px;background:var(--surface-2);border-radius:1px;overflow:hidden}
+.bar .lvl{position:absolute;left:0;right:0;bottom:0;transition:height .6s ease}
+.bar .lvl::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:currentColor}
+.bar .bl{text-align:center;font-size:13px;color:var(--text)}
+@media (prefers-reduced-motion:reduce){.bar .lvl{transition:none}}
+
+/* ---------- charger gauge ---------- */
+.gauge{display:block;width:100%;max-width:210px;height:auto;margin:0 auto}
+.gauge .arc{transition:stroke-dashoffset .6s ease}
+@media (prefers-reduced-motion:reduce){.gauge .arc{transition:none}}
+.state-big{font-size:16px;font-weight:600;text-align:center;margin:0 0 2px;text-wrap:balance}
+.state-why{font-size:12.5px;color:var(--text-muted);text-align:center}
+.big-mid{font-size:26px;font-weight:600;text-align:center;line-height:1.2;font-variant-numeric:tabular-nums}
+.big-mid.dim{color:var(--text-muted);font-size:20px}
+
+/* ---------- time series ---------- */
+svg.ts{display:block;width:100%;height:auto}
+.ts-leg{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:2px 14px;font-size:12px;margin-top:6px;align-items:center;border-top:1px solid var(--border);padding-top:6px}
+.ts-leg .h{color:var(--blue-l);font-size:11.5px;text-align:right}
+.ts-leg .n{display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ts-leg .n i{width:14px;height:4px;border-radius:2px;flex:0 0 auto}
+.ts-leg .n i.dash{background:repeating-linear-gradient(90deg,var(--yellow) 0 3px,transparent 3px 6px)}
+.ts-leg .val{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* ---------- energy splits, savings ---------- */
+.split-bar{display:flex;height:22px;border-radius:1px;overflow:hidden;background:var(--surface-2)}
 .split-bar div{min-width:2px}
 .split-leg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px;font-size:13px}
-@media (max-width:560px){.split-leg{grid-template-columns:1fr}}
-.split-leg div{display:flex;flex-direction:column;gap:2px;min-width:0}
+@media (max-width:520px){.split-leg{grid-template-columns:1fr}}
+.split-leg div{display:flex;flex-direction:column;gap:1px;min-width:0}
 .split-leg .k{display:flex;align-items:center;gap:6px;color:var(--text-muted);font-size:12px}
-.split-leg i{width:10px;height:10px;border-radius:3px}
-.split-leg b{font-family:var(--mono);font-weight:500;font-size:16px}
+.split-leg i{width:10px;height:10px;border-radius:1px}
+.split-leg b{font-weight:600;font-size:18px;font-variant-numeric:tabular-nums}
 .split-leg span.s{font-size:11px;color:var(--text-dim)}
-.sub-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-.seg.period{grid-template-columns:repeat(5,auto);text-transform:none;letter-spacing:0;font-weight:600}
-.seg.period button{padding:6px 10px;white-space:nowrap}
-@media (max-width:560px){.seg.period button{padding:6px 7px;font-size:11.5px}}
-#batt{margin-top:14px;padding-top:0;border-top:0}
-table.save{width:100%;border-collapse:collapse;font-size:14px}
-table.save th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600;text-align:right;padding:6px 8px;border-bottom:1px solid var(--border)}
+.facts-note{font-size:11.5px;color:var(--text-dim);margin-top:8px}
+.car-by{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:8px;font-size:12.5px;color:var(--text-muted)}
+.car-by b{font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+table.save{width:100%;border-collapse:collapse;font-size:13.5px}
+table.save th{font-size:12px;color:var(--blue-l);font-weight:500;text-align:right;padding:6px 8px;border-bottom:1px solid var(--border)}
 table.save th:first-child,table.save td:first-child{text-align:left}
-table.save td{padding:10px 8px;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;border-bottom:1px solid var(--border);vertical-align:top}
-table.save td:first-child{font-family:inherit}
-table.save td small{display:block;color:var(--text-dim);font-size:11.5px;margin-top:2px}
-table.save i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:7px}
-table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong,var(--border));font-weight:700;font-size:16px;color:var(--text)}
-table.save td.money,table.save tr.total td.money{color:var(--export)}
-table.save tr.grp td{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600;padding:16px 8px 6px;font-family:inherit}
-table.save tr.sub td{font-weight:700;background:var(--surface-2);border-bottom:0}
-table.save tr.sub td:first-child{border-radius:8px 0 0 8px}table.save tr.sub td:last-child{border-radius:0 8px 8px 0}
-.link-stack{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
-.fact .sub{font-size:11px;color:var(--text-dim);margin-top:2px;line-height:1.3}
-.fact .label{line-height:1.3}
-.link-btn{font-size:13px;font-weight:600;color:var(--export);text-decoration:none;padding:4px 10px;border-radius:8px;border:1px solid var(--border-strong)}
-.link-btn:hover{background:var(--surface-2)}
-.link-btn:focus-visible{outline:2px solid var(--export);outline-offset:2px}
-@media (max-width:560px){.top-right{width:100%;justify-content:space-between}.mode-msg{text-align:left;margin-top:-8px}}
-.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid var(--border-strong);background:var(--surface-2);white-space:nowrap}
-.pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
-.pill.live{color:var(--ok)} .pill.watch{color:var(--warn)} .pill.err{color:var(--import)} .pill.muted{color:var(--text-muted)}
-.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;min-width:0}
-.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-.note{font-size:12px;color:var(--text-dim)}
-.banner{border-radius:var(--r-md);padding:12px 14px;font-size:14px;background:color-mix(in srgb,var(--import) 12%,transparent);color:var(--text);border:1px solid color-mix(in srgb,var(--import) 40%,transparent)}
+table.save td{padding:8px;text-align:right;font-variant-numeric:tabular-nums;border-bottom:1px solid var(--border);vertical-align:top}
+table.save td small{display:block;color:var(--text-dim);font-size:11.5px;margin-top:1px}
+table.save i{display:inline-block;width:10px;height:10px;border-radius:1px;margin-right:7px}
+table.save td.money{color:var(--green)}
+table.save tr.grp td{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600;padding:14px 8px 4px}
+table.save tr.sub td{font-weight:600;background:var(--surface-2);border-bottom:0}
+table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong);font-weight:700;font-size:17px}
 
-.hero{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px}
-@media (max-width:760px){.hero{grid-template-columns:1fr}}
-.state{display:flex;gap:18px;align-items:center;margin-top:6px}
-.gauge{flex:0 0 auto;width:112px;height:112px}
-.gauge .ring{transition:stroke-dashoffset .6s ease}
-@media (prefers-reduced-motion:reduce){.gauge .ring{transition:none}}
-.state-text{min-width:0}
-.state-big{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.15;margin:4px 0 6px;text-wrap:balance}
-.state-why{color:var(--text-muted);font-size:14px}
-.state-why ul{margin:2px 0 0;padding-left:18px}
-.state-why li{margin:2px 0}
-.today-wx{margin-left:auto;flex:0 0 220px;min-width:0}
-.today-wx .day-card{background:var(--surface-2)}
-.today-wx .now-tick{stroke:var(--text-dim);stroke-dasharray:2 2}
-@media (max-width:760px){.state{flex-wrap:wrap}.today-wx{flex:1 1 100%;margin-left:0}}
-.facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:18px}
-@media (max-width:560px){.facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.facts-note{font-size:12px;color:var(--text-dim);margin-top:8px}
-.fact{background:var(--surface-2);border-radius:var(--r-sm);padding:10px 12px;min-width:0}
-.fact .v{font-family:var(--mono);font-size:17px;font-weight:500;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fact .v small{font-size:12px;color:var(--text-muted);font-weight:400}
-
-.modes{display:flex;flex-direction:column;gap:12px}
-.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--surface-2);padding:5px;border-radius:12px}
-.seg button{font:inherit;font-size:14px;font-weight:600;color:var(--text-muted);background:transparent;border:0;border-radius:9px;padding:10px 6px;cursor:pointer}
-.seg button[aria-pressed="true"]{background:var(--surface-3);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.25)}
-.seg button:focus-visible{outline:2px solid var(--export);outline-offset:2px}
-.seg button[disabled]{opacity:.5;cursor:wait}
-.mode-desc{font-size:13px;color:var(--text-muted);min-height:40px}
-.mode-msg{font-size:12px;color:var(--text-dim);min-height:16px}
-.override{display:flex;gap:12px;align-items:flex-start;background:var(--surface-2);border:1px dashed var(--border-strong);border-radius:var(--r-md);padding:12px 14px;font-size:13px;color:var(--text-muted)}
-.override strong{color:var(--text)}
-.override svg{flex:0 0 22px;margin-top:1px}
-
-.strip{display:grid;grid-template-columns:6fr 15fr 3fr;border-radius:10px;overflow:hidden;font-size:12px;font-weight:600}
-.strip div{padding:9px 10px;min-width:0;position:relative}
-.strip .op{background:var(--offpeak);color:var(--home)}
-.strip .day{background:color-mix(in srgb,var(--solar) 12%,transparent);color:var(--solar)}
-.strip .ev{background:var(--peak);color:var(--import)}
-.strip span{display:block;font-weight:400;color:var(--text-muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.strip .now{outline:2px solid currentColor;outline-offset:-2px;border-radius:10px}
-
-.chart-box{width:100%;overflow-x:auto}
-svg.chart{display:block;width:100%;min-width:560px;height:auto}
-.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text-muted);margin-top:10px}
-.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
-
-.totals{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-@media (max-width:760px){.totals{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.tot{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;min-width:0}
-.tot .v{font-family:var(--mono);font-size:24px;font-weight:500;margin-top:4px}
-.tot .v small{font-size:13px;color:var(--text-muted)}
-.tot .sub{font-size:12px;color:var(--text-dim);margin-top:2px}
-
-.log{display:flex;flex-direction:column}
-.row{display:grid;grid-template-columns:76px 80px minmax(0,1fr) 70px;gap:12px;padding:9px 0;border-top:1px solid var(--border);font-size:13px;align-items:baseline}
-.row:first-child{border-top:0}
-.row .t{font-family:var(--mono);color:var(--text-muted);white-space:nowrap}
-.row .a{font-family:var(--mono);text-align:right}
-.row .r{min-width:0}
-.tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;justify-self:start;white-space:nowrap}
-.tag.full{background:var(--offpeak);color:var(--home)}
-.tag.solar{background:color-mix(in srgb,var(--solar) 15%,transparent);color:var(--solar)}
-.tag.pause{background:var(--surface-3);color:var(--text-muted)}
-.tag.over{background:color-mix(in srgb,var(--import) 15%,transparent);color:var(--import)}
-.empty{color:var(--text-muted);font-size:13px;padding:8px 0}
-@media (max-width:520px){.row{grid-template-columns:72px minmax(0,1fr) 50px}.row .tag{grid-column:2}.row .r{grid-column:2}.row .a{grid-row:1;grid-column:3}}
-
-.outlook{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
-@media (max-width:760px){.outlook{grid-template-columns:1fr;gap:8px}}
-.day-card{background:var(--surface-2);border:1px solid transparent;border-radius:var(--r-md);padding:12px;display:flex;flex-direction:column;gap:6px;min-width:0}
-.day-card.best{border-color:color-mix(in srgb,var(--solar) 55%,transparent)}
+/* ---------- outlook + plan ---------- */
+.outlook{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+@media (max-width:760px){.outlook{grid-template-columns:1fr}}
+.day-card{background:var(--surface-2);border:1px solid transparent;border-radius:2px;padding:10px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.day-card.best{border-color:rgba(250,222,42,.5)}
 .day-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
-.day-name{font-weight:700;font-size:15px;line-height:1.2}
+.day-name{font-weight:600;font-size:14px;line-height:1.2}
 .day-date{font-size:12px;color:var(--text-muted)}
-.best-tag{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--solar)}
+.best-tag{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--yellow)}
 .score{display:flex;align-items:baseline;gap:2px;flex:0 0 auto}
-.score .n{font-family:var(--mono);font-size:26px;font-weight:500;line-height:1}
+.score .n{font-size:26px;font-weight:600;line-height:1}
 .score .of{font-size:12px;color:var(--text-muted)}
 .wx{display:flex;align-items:center;gap:8px;min-width:0}
-.wx svg{flex:0 0 34px;width:34px;height:34px}
-.wx b{font-size:13px;font-weight:600;line-height:1.25;min-width:0}
+.wx svg{flex:0 0 32px;width:32px;height:32px}
+.wx b{font-size:13px;font-weight:500;line-height:1.25;min-width:0}
 .day-meta{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--text-muted);font-variant-numeric:tabular-nums}
 .spark{width:100%;height:26px;display:block}
-@media (max-width:760px){
-  .day-card{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.5fr) auto;align-items:center;column-gap:10px;row-gap:4px;padding:10px 12px}
-  .wx svg{flex-basis:28px;width:28px;height:28px}
-  .wx b{font-size:12px;overflow-wrap:anywhere}
-  .day-top{display:contents}
-  .day-top>div:first-child{grid-column:1;grid-row:1}
-  .score{grid-column:3;grid-row:1}
-  .wx{grid-column:2;grid-row:1}
-  .spark{display:none}
-  .day-meta{grid-column:1/-1;grid-row:2}
-}
-.how{margin-top:12px;font-size:13px;color:var(--text-muted)}
-.how summary{cursor:pointer;color:var(--text);font-weight:600;font-size:13px}
-.how summary:focus-visible{outline:2px solid var(--export);outline-offset:2px;border-radius:4px}
-.how p{margin:8px 0 0;max-width:70ch}
-.foot{font-size:12px;color:var(--text-dim)}
+.today-wx .day-card{background:transparent;padding:0}
+.today-wx .now-tick{stroke:var(--text-dim);stroke-dasharray:2 2}
+.how{margin-top:10px;font-size:12.5px;color:var(--text-muted)}
+.how summary{cursor:pointer;color:var(--text);font-weight:500}
+.how p{margin:6px 0 0;max-width:80ch}
+.strip{display:grid;grid-template-columns:6fr 15fr 3fr;border-radius:1px;overflow:hidden;font-size:12px;font-weight:600}
+.strip div{padding:8px 10px;min-width:0}
+.strip .op{background:var(--offpeak);color:var(--blue-l)}
+.strip .day{background:rgba(250,222,42,.10);color:var(--yellow)}
+.strip .ev{background:var(--peak);color:var(--red)}
+.strip span{display:block;font-weight:400;color:var(--text-muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.strip .now{outline:2px solid currentColor;outline-offset:-2px}
+.strip .op.skipped{background:var(--surface-2);color:var(--text-muted);text-decoration:line-through}
+.empty{color:var(--text-muted);font-size:13px;padding:8px 0}
+.foot{font-size:11.5px;color:var(--text-dim);margin:12px 2px 0}
+@media (max-width:700px){.top-right{width:100%;justify-content:flex-start}.mode-msg{text-align:left}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="top-left">
-      <a class="back" href="./" aria-label="Back to Solar Hub">‹</a>
-      <div>
-        <h1>EV Charging</h1>
-        <div class="where">Dromana · EVSE4280 charger · 7 kW single-phase</div>
-      </div>
+    <div class="crumb">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><g fill="rgba(204,204,220,.65)"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></g></svg>
+      <a href="./">Solar Hub</a><span class="sep">/</span><span>EV Charging</span>
     </div>
     <div class="top-right">
-      <div class="seg seg-sm" role="group" aria-label="Charging mode">
-        <button id="m-auto" aria-pressed="false" data-mode="auto" title="Full rate midnight to 6 am, spare solar by day, off in the evening">Auto</button>
-        <button id="m-full" aria-pressed="false" data-mode="full" title="Charge at 32 A now, whatever the sun is doing">Full speed</button>
-        <button id="m-off" aria-pressed="false" data-mode="off" title="Never start a charge (the charger button still works)">Off</button>
+      <div class="seg" role="group" aria-label="Charging mode">
+        <button aria-pressed="false" data-mode="auto" title="Full rate midnight to 6 am, spare solar by day, off in the evening">Auto</button>
+        <button aria-pressed="false" data-mode="full" title="Charge at 32 A now, whatever the sun is doing">Full speed</button>
+        <button aria-pressed="false" data-mode="off" title="Never start a charge (the charger button still works)">Off</button>
       </div>
       <button class="toggle" id="offpeak-btn" aria-pressed="true" title="Charge at full rate 12–6 am at the 8c rate. Turn off ahead of sunny days to charge on solar instead.">
         <span class="sw" aria-hidden="true"></span><span>Off-peak 12–6 am</span>
@@ -258,190 +216,176 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     </div>
   </header>
   <div class="mode-msg" id="mode-msg" aria-live="polite"></div>
-
   <div class="banner" id="banner" hidden></div>
 
-  <section class="panel">
-    <div class="label" id="now-label">Right now</div>
-    <div class="state">
-        <svg class="gauge" viewBox="0 0 120 120" aria-hidden="true">
-          <circle cx="60" cy="60" r="50" fill="none" stroke="var(--surface-3)" stroke-width="10"/>
-          <circle class="ring" id="ring" cx="60" cy="60" r="50" fill="none" stroke="var(--car)" stroke-width="10" stroke-linecap="round"
-                  stroke-dasharray="314.16" stroke-dashoffset="314.16" transform="rotate(-90 60 60)"/>
-          <text id="g-val" x="60" y="58" text-anchor="middle" fill="var(--text)" font-family="JetBrains Mono, monospace" font-size="24" font-weight="500">–</text>
-          <text x="60" y="78" text-anchor="middle" fill="var(--text-muted)" font-family="Inter, sans-serif" font-size="11">amps</text>
+  <!-- the two cars, always shown -->
+  <div class="dash">
+    <section class="panel span-6" id="card-ev5" aria-label="Kia EV5"></section>
+    <section class="panel span-6" id="card-ioniq" aria-label="Hyundai IONIQ 5"></section>
+  </div>
+
+  <div class="dash">
+    <!-- overview: clock, today's stats, live bar gauges -->
+    <section class="panel span-5">
+      <div class="clock" id="clock">–</div>
+      <div class="ribbon" id="ribbon">Reading the charger and solar…</div>
+      <div class="stats two">
+        <div class="stat"><div class="k">Cost today</div><div class="v" id="s-cost" style="color:var(--green)">–</div><div class="sub" id="s-cost-sub"></div></div>
+        <div class="stat"><div class="k">Self sufficiency</div><div class="v" id="s-self" style="color:var(--yellow)">–</div><div class="sub">of today's use came from solar</div></div>
+      </div>
+      <div class="stats four">
+        <div class="stat"><div class="k">Grid</div><div class="v" id="s-grid" style="color:var(--yellow)">–</div></div>
+        <div class="stat"><div class="k">House</div><div class="v" id="s-house" style="color:var(--blue-l)">–</div></div>
+        <div class="stat"><div class="k">Car</div><div class="v" id="s-car" style="color:var(--green)">–</div></div>
+        <div class="stat"><div class="k">Solar</div><div class="v" id="s-solar" style="color:var(--yellow)">–</div></div>
+      </div>
+      <div class="bars" role="img" aria-label="Power right now" id="bars">
+        <div class="bar"><div class="bv" id="b-house-v" style="color:var(--blue-l)">–</div><div class="track"><div class="lvl" id="b-house" style="color:var(--blue);background:rgba(87,148,242,.35);height:0"></div></div><div class="bl">house</div></div>
+        <div class="bar"><div class="bv" id="b-grid-v" style="color:var(--yellow)">–</div><div class="track"><div class="lvl" id="b-grid" style="color:var(--yellow);background:rgba(250,222,42,.30);height:0"></div></div><div class="bl">grid</div></div>
+        <div class="bar"><div class="bv" id="b-solar-v" style="color:var(--green)">–</div><div class="track"><div class="lvl" id="b-solar" style="color:var(--green);background:rgba(115,191,105,.35);height:0"></div></div><div class="bl">solar</div></div>
+        <div class="bar"><div class="bv" id="b-car-v" style="color:var(--green)">–</div><div class="track"><div class="lvl" id="b-car" style="color:var(--green);background:rgba(115,191,105,.35);height:0"></div></div><div class="bl">car</div></div>
+      </div>
+    </section>
+
+    <!-- middle column: charger gauge, time to full, today's forecast -->
+    <div class="col span-3">
+      <section class="panel">
+        <div class="p-title" id="now-label">Charger</div>
+        <svg class="gauge" id="gauge" viewBox="0 0 200 150" aria-hidden="true">
+          <path id="g-track" fill="none" stroke="#2c3036" stroke-width="18"/>
+          <path id="g-arc" class="arc" fill="none" stroke="#73bf69" stroke-width="18"/>
+          <text id="g-val" x="100" y="100" text-anchor="middle" fill="#d8d9da" font-family="Inter, sans-serif" font-size="34" font-weight="600">–</text>
+          <text x="100" y="121" text-anchor="middle" fill="rgba(204,204,220,.65)" font-family="Inter, sans-serif" font-size="12">amps of 32</text>
         </svg>
-      <div class="state-text">
         <div class="state-big" id="state-big">Loading</div>
-        <div class="state-why" id="state-why">Reading the charger and solar.</div>
-        <div class="excess" id="excess" hidden></div>
-      </div>
-      <div class="today-wx" id="today-wx" aria-label="Today's solar forecast"></div>
+        <div class="state-why" id="state-why"></div>
+      </section>
+      <section class="panel">
+        <div class="p-title">Time to full</div>
+        <div class="big-mid" id="ttf">–</div>
+        <div class="state-why" id="ttf-sub"></div>
+      </section>
+      <section class="panel">
+        <div class="p-title">Today's solar</div>
+        <div class="today-wx" id="today-wx"></div>
+      </section>
     </div>
 
-    <div class="sub-h">Live current</div>
-    <div class="facts">
-      <div class="fact"><div class="label">Solar gen</div><div class="v" id="f-solar">–</div></div>
-      <div class="fact"><div class="label">Car consumption</div><div class="v" id="f-power">–</div></div>
-      <div class="fact"><div class="label">House consumption</div><div class="v" id="f-house">–</div></div>
-      <div class="fact"><div class="label">Grid export / import</div><div class="v" id="f-grid">–</div></div>
+    <!-- right column: time series -->
+    <div class="col span-4">
+      <section class="panel">
+        <div class="p-title left"><span>Solar generation</span><span class="note">kW, today</span></div>
+        <svg class="ts" id="ts-solar" viewBox="0 0 520 190" role="img" aria-label="Solar generation today, with forecast for the rest of the day"></svg>
+        <div class="ts-leg" id="leg-solar"></div>
+      </section>
+      <section class="panel">
+        <div class="p-title left"><span>Household consumption</span><span class="note">kW, today</span></div>
+        <svg class="ts" id="ts-house" viewBox="0 0 520 190" role="img" aria-label="House use and car charging today"></svg>
+        <div class="ts-leg" id="leg-house"></div>
+      </section>
     </div>
-    <div class="facts-note">Solar = car + house + grid. House excludes the car.</div>
+  </div>
 
-    <div class="sub-h sub-row"><span id="car-h">Car charging today</span>
-      <div class="seg seg-sm period" role="tablist" aria-label="Period">
+  <!-- energy over a chosen period -->
+  <div class="rowh">
+    <h2 id="energy-h">Energy today</h2>
+    <div class="links">
+      <div class="seg period" role="tablist" aria-label="Period">
         <button role="tab" data-period="today" aria-pressed="true">Today</button>
         <button role="tab" data-period="week" aria-pressed="false">Week</button>
         <button role="tab" data-period="month" aria-pressed="false">Month</button>
         <button role="tab" data-period="year" aria-pressed="false">Year</button>
         <button role="tab" data-period="all" aria-pressed="false">All time</button>
       </div>
+      <a class="btn" href="decisions.html">Decisions ›</a>
+      <a class="btn" href="history.html">History ›</a>
     </div>
-    <div class="split" id="car-split"></div>
-    <div class="car-by" id="car-by"></div>
-      <div class="batt" id="batt" hidden>
-        <div class="batt-top">
-          <div class="seg seg-sm car-pick" role="group" aria-label="Which car is plugged in">
-            <button id="car-ioniq" aria-pressed="false" data-car="ioniq">IONIQ 5</button>
-            <button id="car-ev5" aria-pressed="false" data-car="ev5">EV5</button>
-          </div>
-        </div>
-        <div class="batt-row">
-          <svg viewBox="0 0 120 44" class="batt-svg" aria-hidden="true">
-            <rect x="2" y="4" width="104" height="36" rx="7" fill="none" stroke="var(--text-muted)" stroke-width="2.5"/>
-            <rect x="108" y="15" width="7" height="14" rx="2" fill="var(--text-muted)"/>
-            <rect id="batt-fill" x="7" y="9" width="0" height="26" rx="4" fill="var(--car)"/>
-            <rect id="batt-limit" x="0" y="6" width="2.5" height="32" rx="1" fill="var(--text)" opacity="0" />
-          </svg>
-          <div class="batt-text"><b id="batt-pct">–</b><span id="batt-detail"></span></div>
-        </div>
-        <div class="batt-src" id="batt-src"></div>
+  </div>
+  <div class="dash">
+    <section class="panel span-6">
+      <div class="p-title left"><span id="car-h">Car charging today</span></div>
+      <div id="car-split"></div>
+      <div class="car-by" id="car-by"></div>
+    </section>
+    <section class="panel span-6">
+      <div class="p-title left"><span id="solar-h">Solar today</span></div>
+      <div id="split"></div>
+    </section>
+    <section class="panel span-12">
+      <div class="p-title left"><span id="save-h">Savings today</span></div>
+      <table class="save" id="save"></table>
+      <div class="facts-note" id="save-note"></div>
+    </section>
+  </div>
+
+  <div class="rowh"><h2>Outlook</h2></div>
+  <div class="dash">
+    <section class="panel span-12">
+      <div class="p-title left"><span>Solar charging outlook</span><span class="note" id="outlook-note">Next 5 days · Open-Meteo forecast for Dromana</span></div>
+      <div class="outlook" id="outlook"></div>
+      <details class="how">
+        <summary>How the score works</summary>
+        <p>Each day's score out of 10 starts with the total sunlight forecast for the day, measured against a clear late-spring day in Dromana (about 7.8 kWh per m²). Patchy cloud then takes up to 3 points off, because cloud coming and going makes the charger pause and restart. Storms take off one more. Estimated generation assumes your 13.2 kW of panels turn about 65% of the forecast sunlight into power, allowing for panel angle, heat and the 10 kW inverter limit.</p>
+      </details>
+    </section>
+    <section class="panel span-12">
+      <div class="p-title left"><span>The daily plan</span><span class="note">What Auto does across 24 hours</span></div>
+      <div class="strip">
+        <div class="op" id="w-offpeak">12 am – 6 am<span>Full rate, 8c off-peak</span></div>
+        <div class="day" id="w-day">6 am – 9 pm<span>Follow spare solar, pause below 1.4 kW</span></div>
+        <div class="ev" id="w-evening">9 pm<span>Off</span></div>
       </div>
+    </section>
+  </div>
 
-    <div class="sub-h sub-row"><span id="solar-h">Solar today</span>
-      <div class="seg seg-sm period" role="tablist" aria-label="Period">
-        <button role="tab" data-period="today" aria-pressed="true">Today</button>
-        <button role="tab" data-period="week" aria-pressed="false">Week</button>
-        <button role="tab" data-period="month" aria-pressed="false">Month</button>
-        <button role="tab" data-period="year" aria-pressed="false">Year</button>
-        <button role="tab" data-period="all" aria-pressed="false">All time</button>
-      </div>
-    </div>
-    <div class="split" id="split"></div>
-  </section>
-
-  <section class="panel">
-    <div class="panel-head">
-      <h2>Today</h2>
-      <div class="link-stack"><a class="link-btn" href="home.html">Overview ›</a><a class="link-btn" href="decisions.html">Decisions ›</a><a class="link-btn" href="history.html">History ›</a></div>
-    </div>
-    <div class="chart-box"><svg class="chart" id="chart" viewBox="0 0 1000 340" role="img" aria-label="Today: solar generation, house use and car charging by hour"></svg></div>
-    <div class="legend">
-      <span><i style="background:var(--solar)"></i>Solar generation</span><span><i style="background:repeating-linear-gradient(90deg,var(--solar) 0 3px,transparent 3px 6px);height:3px;vertical-align:3px"></i>Forecast for the rest of today</span>
-      <span><i style="background:var(--home)"></i>Total house use</span><span><i style="background:var(--import)"></i>From the grid, 27.6c</span><span><i style="background:var(--import-soft)"></i>From the grid, off-peak 8c</span>
-      <span><i style="background:var(--car)"></i>Car charging</span>
-      <span><i style="background:var(--offpeak);border:1px solid var(--home)"></i>Off-peak window</span>
-    </div>
-  </section>
-
-
-  <section class="panel">
-    <div class="panel-head">
-      <h2>Solar charging outlook</h2>
-      <span class="note" id="outlook-note">Next 5 days · Open-Meteo forecast for Dromana</span>
-    </div>
-    <div class="outlook" id="outlook"></div>
-    <details class="how">
-      <summary>How the score works</summary>
-      <p>Each day's score out of 10 starts with the total sunlight forecast for the day, measured against a clear late-spring day in Dromana (about 7.8 kWh per m²). Patchy cloud then takes up to 3 points off, because cloud coming and going makes the charger pause and restart. Storms take off one more. Estimated generation assumes your 13.2 kW of panels turn about 65% of the forecast sunlight into power, allowing for panel angle, heat and the 10 kW inverter limit.</p>
-    </details>
-  </section>
-
-
-  <section class="panel">
-    <div class="panel-head">
-      <h2 id="save-h">Savings today</h2>
-      <div class="seg seg-sm period" role="tablist" aria-label="Period">
-        <button role="tab" data-period="today" aria-pressed="true">Today</button>
-        <button role="tab" data-period="week" aria-pressed="false">Week</button>
-        <button role="tab" data-period="month" aria-pressed="false">Month</button>
-        <button role="tab" data-period="year" aria-pressed="false">Year</button>
-        <button role="tab" data-period="all" aria-pressed="false">All time</button>
-      </div>
-    </div>
-    <div class="save-wrap"><table class="save" id="save"></table></div>
-    <div class="facts-note" id="save-note"></div>
-  </section>
-
-
-  <section class="panel">
-    <div class="panel-head">
-      <h2>The daily plan</h2>
-      <span class="note">What Auto does across 24 hours</span>
-    </div>
-    <div class="strip">
-      <div class="op" id="w-offpeak">12 am – 6 am<span>Full rate, 8c off-peak</span></div>
-      <div class="day" id="w-day">6 am – 9 pm<span>Follow spare solar, pause below 1.4 kW</span></div>
-      <div class="ev" id="w-evening">9 pm<span>Off</span></div>
-    </div>
-  </section>
-
-  <p class="foot" id="foot">Live data from the controller on the Pi, refreshed every 30 seconds. Solar is read straight from the inverter; house use comes from GoodWe's cloud and runs a few minutes behind. Rates from the AGL bill (Night Saver EV): 27.6c general, 8c off-peak 12–6 am, 0.5c feed-in.</p>
+  <p class="foot">Live data from the controller on the Pi, refreshed every 30 seconds. Solar is read straight from the inverter; house use comes from GoodWe's cloud and runs a few minutes behind. EV5 battery from Kia Connect. Rates from the AGL bill (Night Saver EV): 27.6c general, 8c off-peak 12–6 am, 0.5c feed-in, $1.11 a day supply.</p>
 </div>
 
 <script>
 (function(){
   const EV_API = '/.netlify/functions/ev';   // Netlify proxies to the Pi; no key in the page
   // AGL Night Saver EV, from the bill for 16 Sep to 15 Oct 2026 (incl. GST)
-  const RATE = { general: 0.27621, offpeak: 0.08, feedin: 0.005 };
+  const RATE = { general: 0.27621, offpeak: 0.08, feedin: 0.005, supply: 1.10781 };
   // Usable battery sizes (kWh). 2023 IONIQ 5 Long Range and EV5 Long Range; change here if yours differ.
   const CARS = { ioniq: { name:'IONIQ 5', kwh:72.6 }, ev5: { name:'EV5', kwh:88 } };
-  let carKey = 'ioniq';
-  try { const k = localStorage.getItem('ev-car'); if (CARS[k]) carKey = k; } catch (e) {}
-  let lastPlugin = null;
-  const REFRESH_MS = 30000, V_NOM = 240, MAX_A = 32;
+  const REFRESH_MS = 30000, MAX_A = 32, BAR_MAX_W = 10000;
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const kw = w => (w == null ? '–' : (w / 1000).toFixed(1));
-  const fmtTime = iso => { const d = new Date(iso); return d.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit'}).replace(' ', ' ').toLowerCase(); };
+  const watt = w => w == null ? '–' : Math.abs(w) >= 1000 ? `${(w/1000).toFixed(2)} kW` : `${Math.round(w)} W`;
+  const fmtTime = iso => new Date(iso).toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit'}).toLowerCase();
+  const pad = n => String(n).padStart(2,'0');
+  let lastPlugin = null, lastD = null;
+  let offpeakOn = true, offpeakBusy = false;
 
   // ---------- reason text: controller log -> plain English ----------
-  function explain(r, st){
+  function explain(r){
     const reason = r || '';
     let m;
     if (/MANUAL OVERRIDE/.test(reason)) {
       const who = (reason.match(/started by '([^']*)'/) || [])[1];
       const src = who === 'Clock' ? "the charger's own schedule" : who ? `the charger (${who})` : 'the button or app';
-      return { tag:'Override', cls:'over', text:`Full charge started by ${src}. Hands off.` };
+      return { tag:'Override', text:`Full charge started by ${src}. Hands off.` };
     }
-    if (/skipped the charger's own midnight schedule/.test(reason)) return { tag:'Skipped', cls:'pause', text:"Off-peak turned off, stopped the charger's midnight schedule" };
-    if (/off-peak turned off/.test(reason)) return { tag:'Waiting', cls:'pause', text:'Off-peak turned off, waiting for solar' };
-    if (/off-peak window/.test(reason)) return { tag:'Off-peak', cls:'full', text:'Off-peak window, full rate' };
-    if (/mode full/.test(reason)) return { tag:'Full', cls:'full', text:'Full speed mode' };
-    if (/mode off/.test(reason)) return { tag:'Off', cls:'pause', text:'Charging turned off' };
-    if (/evening peak/.test(reason)) return { tag:'Evening', cls:'pause', text: offpeakOn ? 'Evening peak rate, waiting for midnight' : 'Evening peak rate. Off-peak is off, so it waits for solar tomorrow' };
-    if (/fail-safe/.test(reason)) return { tag:'Paused', cls:'pause', text:'No solar reading, paused to be safe' };
-    if ((m = reason.match(/spare (-?\d+) W, holding (\d+)\/(\d+)s/))) return { tag:'Waiting', cls:'solar', text:`${kw(+m[1])} kW spare, checking it holds (${m[2]} of ${m[3]} s)` };
-    if ((m = reason.match(/spare (-?\d+) W low, riding at min/))) return { tag:'Cloud', cls:'solar', text:`Spare solar dropped to ${kw(Math.max(0,+m[1]))} kW, easing at the minimum` };
-    if ((m = reason.match(/spare (-?\d+) W -> (\d+) A/))) return { tag:'Solar', cls:'solar', text:`Following ${kw(+m[1])} kW of spare solar` };
-    if ((m = reason.match(/spare (-?\d+) W below/))) return { tag:'Pause', cls:'pause', text: +m[1] > 0 ? `Only ${kw(+m[1])} kW spare, needs 1.4 kW` : 'No spare solar, house is using it all' };
-    if (/charger unreachable/.test(reason)) return { tag:'Error', cls:'over', text:"Can't reach the charger" };
-    return { tag:'Info', cls:'pause', text: reason.split('|')[0].trim() || '–' };
+    if (/skipped the charger's own midnight schedule/.test(reason)) return { tag:'Skipped', text:"Off-peak turned off, stopped the charger's midnight schedule" };
+    if (/off-peak turned off/.test(reason)) return { tag:'Waiting', text:'Off-peak turned off, waiting for solar' };
+    if (/off-peak window/.test(reason)) return { tag:'Off-peak', text:'Off-peak window, full rate' };
+    if (/mode full/.test(reason)) return { tag:'Full', text:'Full speed mode' };
+    if (/mode off/.test(reason)) return { tag:'Off', text:'Charging turned off' };
+    if (/evening peak/.test(reason)) return { tag:'Evening', text: offpeakOn ? 'Evening peak rate, waiting for midnight' : 'Evening peak rate. Off-peak is off, so it waits for solar tomorrow' };
+    if (/fail-safe/.test(reason)) return { tag:'Paused', text:'No solar reading, paused to be safe' };
+    if ((m = reason.match(/spare (-?\d+) W, holding (\d+)\/(\d+)s/))) return { tag:'Waiting', text:`${kw(+m[1])} kW spare, checking it holds (${m[2]} of ${m[3]} s)` };
+    if ((m = reason.match(/spare (-?\d+) W low, riding at min/))) return { tag:'Cloud', text:`Spare solar dropped to ${kw(Math.max(0,+m[1]))} kW, easing at the minimum` };
+    if ((m = reason.match(/spare (-?\d+) W -> (\d+) A/))) return { tag:'Solar', text:`Following ${kw(+m[1])} kW of spare solar` };
+    if ((m = reason.match(/spare (-?\d+) W below/))) return { tag:'Pause', text: +m[1] > 0 ? `Only ${kw(+m[1])} kW spare, needs 1.4 kW` : 'No spare solar, house is using it all' };
+    if (/charger unreachable/.test(reason)) return { tag:'Error', text:"Can't reach the charger" };
+    return { tag:'Info', text: reason.split('|')[0].trim() || '–' };
   }
-  const stateWords = { charging:'On', ready:'Ready', complete:'Full', full:'Full', not_connected:'Unplugged', reserved:'Booked' };
 
   // ---------- mode control ----------
-  const desc = {
-    auto: 'Full rate midnight to 6 am. During the day the car takes only spare solar. Off in the evening.',
-    full: 'Charge at 32 A now, whatever the sun is doing. Switch back to Auto when you are done.',
-    off:  'Never start a charge. The button on the charger still works.'
-  };
   let currentMode = null;
   const btns = [...document.querySelectorAll('button[data-mode]')];
-  function showMode(m){
-    currentMode = m;
-    btns.forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === m ? 'true' : 'false'));
-  }
+  function showMode(m){ currentMode = m; btns.forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === m ? 'true' : 'false')); }
   btns.forEach(b => b.addEventListener('click', async () => {
     const m = b.dataset.mode; if (m === currentMode) return;
     btns.forEach(x => x.disabled = true); $('mode-msg').textContent = 'Saving…';
@@ -454,58 +398,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     finally { btns.forEach(x => x.disabled = false); }
   }));
 
-  // ---------- battery: real % for the EV5 (Kia Connect), estimate for the IONIQ 5 ----------
-  // The Pi's kia_poll.py works out which car is on the charger; tapping a car here corrects it.
-  const PI_CAR = { ev5:'ev5', ioniq5:'ioniq' }, TO_PI = { ev5:'ev5', ioniq:'ioniq5' };
-  let carInfo = null, carBusy = false;
-  const carOnCharger = () => carInfo && PI_CAR[carInfo.car] ? PI_CAR[carInfo.car] : null;
-  function renderBattery(plugin){
-    lastPlugin = plugin;
-    const box = $('batt');
-    if (!plugin) { box.hidden = true; return; }
-    box.hidden = false;
-    const known = carOnCharger();
-    if (known && !carBusy) carKey = known;
-    document.querySelectorAll('.car-pick button').forEach(b => b.setAttribute('aria-pressed', b.dataset.car === carKey ? 'true' : 'false'));
-    const car = CARS[carKey], k5 = carInfo && carInfo.ev5;
-    const lim = $('batt-limit');
-    if (carKey === 'ev5' && k5 && k5.soc != null && k5.plugged) {
-      $('batt-fill').setAttribute('width', (96 * k5.soc / 100).toFixed(1));
-      $('batt-pct').textContent = k5.soc + '%';
-      const bits = [];
-      if (k5.limit_ac) bits.push(`charging to ${k5.limit_ac}%`);
-      if (k5.range_km) bits.push(`${Math.round(k5.range_km)} km range`);
-      bits.push(`${plugin.kwh.toFixed(1)} kWh added`);
-      $('batt-detail').textContent = bits.join(' · ');
-      if (k5.limit_ac) { lim.setAttribute('x', (7 + 96 * k5.limit_ac / 100 - 1).toFixed(1)); lim.setAttribute('opacity', '.55'); } else lim.setAttribute('opacity', '0');
-    } else {
-      const pct = Math.min(100, 100 * plugin.kwh / car.kwh);
-      $('batt-fill').setAttribute('width', (96 * pct / 100).toFixed(1));
-      $('batt-pct').textContent = '+' + Math.round(pct) + '%';
-      $('batt-detail').textContent = `${plugin.kwh.toFixed(1)} of ${car.kwh} kWh added (estimate)`;
-      lim.setAttribute('opacity', '0');
-    }
-    const how = carInfo && carInfo.car_how;
-    let src = '';
-    if (!known) src = 'Car not identified yet. Tap the car that is plugged in.';
-    else if (how === 'manual') src = 'You picked this car.';
-    else if (how === 'kia_connect') src = 'Detected by Kia Connect' + (k5 && k5.status_time ? `, battery as of ${fmtTime(k5.status_time)}` : '') + '.';
-    else if (how === 'elimination') src = 'Kia Connect says the EV5 isn\'t plugged in here, so this is the IONIQ 5. Battery is estimated from kWh added.';
-    if (carInfo && carInfo.last_error) src += ' Kia Connect is not answering right now.';
-    $('batt-src').textContent = src;
-  }
-  document.querySelectorAll('.car-pick button').forEach(b => b.addEventListener('click', async () => {
-    carKey = b.dataset.car; try { localStorage.setItem('ev-car', carKey); } catch (e) {}
-    carBusy = true; renderBattery(lastPlugin);
-    try {
-      const r = await fetch(EV_API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ car: TO_PI[carKey] }) });
-      if (r.ok) { carInfo = Object.assign({}, carInfo || {}, { car: TO_PI[carKey], car_how: 'manual' }); }
-    } catch (e) {}
-    carBusy = false; renderBattery(lastPlugin);
-  }));
-
   // ---------- off-peak on/off ----------
-  let offpeakOn = true, offpeakBusy = false;
   function showOffpeak(on){
     offpeakOn = on;
     $('offpeak-btn').setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -521,68 +414,208 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
       showOffpeak(want);
       $('mode-msg').textContent = want ? 'Off-peak charging on: full rate 12–6 am.' : 'Off-peak charging off: the car will only charge on solar (or when you press the charger button).';
       setTimeout(() => { $('mode-msg').textContent = ''; }, 8000);
+      if (lastD) renderNow(lastD);
     } catch (e) { $('mode-msg').textContent = "Couldn't save. Check the Pi is online and try again."; }
     finally { offpeakBusy = false; $('offpeak-btn').disabled = false; }
   });
 
-  // ---------- render ----------
+  // ---------- cars ----------
+  // The Pi's kia_poll.py works out which car is on the charger; "This one's on the charger" corrects it.
+  const PI_CAR = { ev5:'ev5', ioniq5:'ioniq' }, TO_PI = { ev5:'ev5', ioniq:'ioniq5' };
+  let carInfo = null;
+  const carOnCharger = () => carInfo && PI_CAR[carInfo.car] ? PI_CAR[carInfo.car] : null;
+
+  // Side-on car drawings (front to the right). Simple original shapes, not brand artwork.
+  function carSVG(kind){
+    const ev5 = kind === 'ev5';
+    const paint = ev5 ? '#2f6fe0' : '#16181c';
+    const edge = ev5 ? 'rgba(160,195,255,.55)' : 'rgba(220,225,235,.38)';
+    const body = ev5
+      ? 'M12,76 L12,55 Q12,47 21,45 L52,41 L72,22 Q76,18 84,18 L196,18 Q204,18 208,24 L221,42 Q230,44 231,53 L231,74 Q231,78 226,78 L16,78 Q12,78 12,76 Z'
+      : 'M10,76 L10,53 L20,46 L60,41 L84,24 L198,24 L216,41 L228,45 Q232,47 232,54 L232,74 Q232,78 227,78 L14,78 Q10,78 10,76 Z';
+    const glass = ev5 ? 'M78,24 L192,24 L208,42 L62,42 Z' : 'M89,29 L194,29 L208,41 L71,41 Z';
+    const pillar = ev5 ? 'M138,24 L136,42' : 'M140,29 L138,41';
+    const wheel = cx => `<circle cx="${cx}" cy="76" r="20" fill="#181b1f"/><circle cx="${cx}" cy="76" r="16" fill="#0b0c0f" stroke="rgba(255,255,255,.12)"/><circle cx="${cx}" cy="76" r="9.5" fill="none" stroke="rgba(210,215,225,.55)" stroke-width="2.5"/><circle cx="${cx}" cy="76" r="2.5" fill="rgba(210,215,225,.7)"/>`;
+    return `<svg class="car-img" viewBox="0 0 244 100" role="img" aria-label="${ev5 ? 'Blue EV5' : 'Black IONIQ 5'}">
+      <ellipse cx="122" cy="95" rx="112" ry="4" fill="rgba(0,0,0,.45)"/>
+      <path d="${body}" fill="${paint}" stroke="${edge}" stroke-width="1.4" stroke-linejoin="round"/>
+      <path d="${ev5 ? 'M18,56 L226,56' : 'M16,58 L228,58'}" stroke="rgba(255,255,255,.10)" stroke-width="1.5"/>
+      <path d="${glass}" fill="#0d1118" stroke="${edge}" stroke-width="1"/>
+      <path d="${pillar}" stroke="${paint}" stroke-width="5"/>
+      <path d="M150,60 L162,60" stroke="rgba(255,255,255,.30)" stroke-width="2" stroke-linecap="round"/>
+      <rect x="${ev5 ? 222 : 224}" y="${ev5 ? 47 : 48}" width="7" height="4" rx="1.5" fill="#e9f1ff"/>
+      <rect x="${ev5 ? 13 : 11}" y="${ev5 ? 49 : 50}" width="6" height="4" rx="1.5" fill="#ff4d5e"/>
+      ${wheel(ev5 ? 60 : 58)}${wheel(ev5 ? 184 : 188)}
+    </svg>`;
+  }
+
+  function renderCars(d){
+    const c = (d.latest || {}).charger || {};
+    const plugged = c.plug === 'plugged' || c.plug === 'plugged_locked';
+    const watts = c.power_w || 0, charging = c.state === 'charging' && watts > 200;
+    const on = plugged ? carOnCharger() : null;
+    const T = liveTotals || {};
+    ['ev5','ioniq'].forEach(k => {
+      const box = $(k === 'ev5' ? 'card-ev5' : 'card-ioniq'), car = CARS[k], isOn = on === k;
+      const k5 = carInfo && carInfo.ev5;
+      let chip, lines = [], soc = null, limit = null, est = null;
+      if (isOn && charging) chip = `<span class="chip charging"><span class="dot"></span>Charging · ${kw(watts)} kW</span>`;
+      else if (isOn && (c.state === 'complete' || c.state === 'full')) chip = `<span class="chip on"><span class="dot"></span>On the charger · finished</span>`;
+      else if (isOn) chip = `<span class="chip on"><span class="dot"></span>On the charger · waiting</span>`;
+      else if (k === 'ev5' && k5 && k5.plugged && k5.at_home === false) chip = `<span class="chip away"><span class="dot"></span>Plugged in away from home</span>`;
+      else if (k === 'ev5' && k5 && k5.at_home === false) chip = `<span class="chip away"><span class="dot"></span>Away from home</span>`;
+      else chip = `<span class="chip"><span class="dot"></span>Not on the charger</span>`;
+
+      if (k === 'ev5' && k5 && k5.soc != null) {
+        soc = k5.soc; limit = k5.limit_ac || null;
+        const bits = [];
+        if (limit) bits.push(`Charging to <b>${limit}%</b>`);
+        if (k5.range_km) bits.push(`<b>${Math.round(k5.range_km)} km</b> range`);
+        lines.push(bits.join(' · '));
+      } else if (k === 'ioniq') {
+        lines.push('No battery reading yet. A WiCAN in the car would add it.');
+      } else {
+        lines.push('Waiting for Kia Connect.');
+      }
+      if (isOn && lastPlugin) {
+        est = Math.min(100, 100 * lastPlugin.kwh / car.kwh);
+        lines.push(`<b>${lastPlugin.kwh.toFixed(1)} kWh</b> added since plugged in at ${fmtTime(lastPlugin.since)}` + (soc == null ? ` (about +${Math.round(est)}%)` : ''));
+      }
+      const today = T[`car_${TO_PI[k]}_kwh`] || 0, todaySolar = T[`car_${TO_PI[k]}_solar_kwh`] || 0;
+      lines.push(`Today <b>${today.toFixed(1)} kWh</b>` + (todaySolar >= 0.05 ? `, ${todaySolar.toFixed(1)} from solar` : ''));
+
+      const col = soc == null ? 'var(--surface-3)' : soc < 20 ? 'var(--red)' : soc < 50 ? 'var(--orange)' : 'var(--green)';
+      const big = soc != null ? `<b style="color:${col}">${soc}%</b><span>battery</span>` : `<b style="color:var(--text-dim)">–</b><span>battery unknown</span>`;
+      const bar = soc != null
+        ? `<div class="hbar"><div class="fill" style="width:${soc}%;background:linear-gradient(90deg,rgba(115,191,105,.35),${col})"></div>${limit ? `<div class="lim" style="left:calc(${limit}% - 1px)" title="Charge limit ${limit}%"></div>` : ''}</div>`
+        : `<div class="hbar empty">${est != null ? `<div class="fill" style="width:${est}%;background:rgba(115,191,105,.45)"></div>` : ''}</div>`;
+      let src = '';
+      if (k === 'ev5' && k5 && k5.status_time) src = `Kia Connect, as of ${fmtTime(k5.status_time)}` + (carInfo.last_error ? ' (not answering right now)' : '');
+      if (isOn && carInfo && carInfo.car_how) src = ({kia_connect:'Identified by Kia Connect', elimination:"Identified because the EV5 isn't plugged in", manual:'You marked this car as on the charger'})[carInfo.car_how] + (src ? ' · ' + src : '');
+      const fix = plugged && !isOn ? `<button class="btn" data-oncharger="${k}">This one's on the charger</button>` : '';
+      box.innerHTML = `<div class="car">${carSVG(k)}<div>
+          <div class="car-head"><span class="car-name">${car.name}</span>${chip}</div>
+          <div class="soc">${big}</div>${bar}
+          <div class="car-lines">${lines.map(l => `<span>${l}</span>`).join('')}</div>
+        </div></div>
+        <div class="car-foot"><span>${esc(src)}</span>${fix}</div>`;
+    });
+    document.querySelectorAll('[data-oncharger]').forEach(b => b.addEventListener('click', async () => {
+      const k = b.dataset.oncharger; b.disabled = true; b.textContent = 'Saving…';
+      try {
+        const r = await fetch(EV_API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ car: TO_PI[k] }) });
+        if (r.ok) carInfo = Object.assign({}, carInfo || {}, { car: TO_PI[k], car_how: 'manual' });
+      } catch (e) {}
+      if (lastD) { renderCars(lastD); renderNow(lastD); }
+    }));
+  }
+
+  // ---------- charger gauge (240° arc with a 6 / 16 / 32 A threshold band) ----------
+  const GA = { cx:100, cy:90, r:68, a0:-210, a1:30 };
+  const polar = (a, r) => [GA.cx + r * Math.cos(a * Math.PI / 180), GA.cy + r * Math.sin(a * Math.PI / 180)];
+  const arcD = (a0, a1, r) => { const [x0,y0] = polar(a0, r), [x1,y1] = polar(a1, r); return `M${x0.toFixed(1)},${y0.toFixed(1)} A${r},${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1.toFixed(1)},${y1.toFixed(1)}`; };
+  const ARC_LEN = 2 * Math.PI * GA.r * (GA.a1 - GA.a0) / 360;
+  $('g-track').setAttribute('d', arcD(GA.a0, GA.a1, GA.r));
+  $('g-arc').setAttribute('d', arcD(GA.a0, GA.a1, GA.r));
+  $('g-arc').setAttribute('stroke-dasharray', ARC_LEN.toFixed(1));
+  $('g-arc').setAttribute('stroke-dashoffset', ARC_LEN.toFixed(1));
+  (function(){ const svg = $('gauge'), ns = 'http://www.w3.org/2000/svg', a = v => GA.a0 + (GA.a1 - GA.a0) * v / MAX_A;
+    [[0,6,'rgba(242,73,92,.8)'],[6,16,'rgba(250,222,42,.8)'],[16,32,'rgba(115,191,105,.8)']].forEach(([from,to,col]) => {
+      const p = document.createElementNS(ns,'path'); p.setAttribute('d', arcD(a(from) + (from ? 0.6 : 0), a(to), GA.r + 14));
+      p.setAttribute('fill','none'); p.setAttribute('stroke', col); p.setAttribute('stroke-width','4'); svg.insertBefore(p, $('g-val')); }); })();
+
+  // ---------- render: right now ----------
+  function setBar(id, w, max){ const pct = Math.max(0, Math.min(100, 100 * Math.abs(w || 0) / max)); $(id).style.height = (w ? Math.max(1.5, pct) : 0) + '%'; }
   function renderNow(d){
+    lastD = d;
     const L = d.latest || {}, c = L.charger || {};
     const plugged = c.plug === 'plugged' || c.plug === 'plugged_locked';
     const watts = c.power_w || 0, amps = c.amps || 0;
-    const ring = $('ring');
-    ring.style.strokeDashoffset = 314.16 * (1 - Math.min(1, amps / MAX_A));
-    ring.setAttribute('stroke', L.override ? 'var(--import)' : L.window === 'offpeak' ? 'var(--home)' : 'var(--car)');
+    const arc = $('g-arc');
+    arc.style.strokeDashoffset = (ARC_LEN * (1 - Math.min(1, amps / MAX_A))).toFixed(1);
+    arc.setAttribute('stroke', L.override ? '#f2495c' : L.window === 'offpeak' ? '#5794f2' : amps >= 16 ? '#73bf69' : '#fade2a');
     $('g-val').textContent = amps ? amps.toFixed(0) : '0';
-    const ex = explain(L.reason, c);
+    const ex = explain(L.reason);
+    const carName = plugged && carOnCharger() ? CARS[carOnCharger()].name : null;
     let big, why;
-    const carName = carOnCharger() ? CARS[carOnCharger()].name : null;
-    if (!plugged) { big = 'Nothing plugged in'; why = 'Plug in a car and it will charge on the next spare solar, or from midnight.'; }
+    if (!plugged) { big = 'Nothing plugged in'; why = 'Plug in a car and it will charge on the next spare solar' + (offpeakOn ? ', or from midnight.' : '.'); }
     else if (c.state === 'charging' && watts > 200) {
       big = L.override ? 'Car charging, full rate' : L.window === 'offpeak' ? 'Car charging, off-peak' : 'Car charging on solar';
-      why = null;
-      const pts = [`${kw(watts)} kW into the ${carName || 'car'}`];
-      if (carOnCharger() === 'ev5' && carInfo.ev5 && carInfo.ev5.soc != null) pts.push(`Battery ${carInfo.ev5.soc}%` + (carInfo.ev5.limit_ac ? `, charging to ${carInfo.ev5.limit_ac}%` : ''));
+      why = `${kw(watts)} kW into the ${carName || 'car'}`;
       if (d.plugin && d.plugin.since) {
         const mins = Math.max(0, Math.round((Date.now() - new Date(d.plugin.since).getTime()) / 60000));
-        const dur = mins >= 60 ? `${Math.floor(mins/60)} h ${mins%60} min` : `${mins} min`;
-        pts.push(`Charging for ${dur}, started at ${fmtTime(d.plugin.since)}`);
+        why += ` · plugged in ${mins >= 60 ? `${Math.floor(mins/60)} h ${mins%60} min` : `${mins} min`} ago`;
       }
-      $('state-why').innerHTML = '<ul>' + pts.map(p => `<li>${esc(p)}</li>`).join('') + '</ul>';
     } else if (c.state === 'charging') { big = 'Car charged'; why = 'The car has stopped taking charge, so it is probably full.'; }
-    else if (c.state === 'complete' || c.state === 'full') { big = 'Car charged'; why = 'The car finished charging and is still plugged in.'; }
+    else if (c.state === 'complete' || c.state === 'full') { big = 'Car charged'; why = 'Finished charging and still plugged in.'; }
     else { big = 'Car plugged in, waiting'; why = ex.text + '.'; }
-    if (carName && plugged) big = big.replace(/^Car\b/, carName);
-    $('state-big').textContent = big; if (why !== null) $('state-why').textContent = why;
-    $('now-label').textContent = 'Right now · ' + (L.ts ? fmtTime(L.ts) : '');
-    $('f-power').innerHTML = `${kw(watts)}<small> kW</small>`;
+    if (carName) big = big.replace(/^Car\b/, carName);
+    $('state-big').textContent = big; $('state-why').textContent = why;
+    $('now-label').textContent = 'Charger' + (L.ts ? ' · ' + fmtTime(L.ts) : '');
+    // live power, bar gauges
     const pv = L.pv_live_w != null ? L.pv_live_w : (L.pv_kw != null ? L.pv_kw * 1000 : null);
-    $('f-solar').innerHTML = `${kw(pv)}<small> kW</small>`;
-    // House excluding the car: the controller's own figure by day, else SEMS load minus the car
     const houseW = L.house_w != null ? L.house_w : (L.home_kw != null ? Math.max(0, L.home_kw * 1000 - watts) : null);
-    $('f-house').innerHTML = `${kw(houseW)}<small> kW</small>`;
-    // Excess solar prompt: more than 4 kW going to the grid and the car isn't soaking it up
+    const g = (pv != null && houseW != null) ? houseW + watts - pv : null;     // + import, - export
+    $('b-house-v').textContent = watt(houseW); setBar('b-house', houseW, BAR_MAX_W);
+    $('b-solar-v').textContent = watt(pv); setBar('b-solar', pv, BAR_MAX_W);
+    $('b-car-v').textContent = watt(watts); setBar('b-car', watts, BAR_MAX_W);
+    const exporting = g != null && g < -50;
+    $('b-grid-v').textContent = g == null ? '–' : (exporting ? '-' : '') + watt(Math.abs(g));
+    $('b-grid-v').style.color = exporting ? 'var(--green)' : 'var(--yellow)';
+    $('b-grid').style.color = exporting ? 'var(--green)' : 'var(--yellow)';
+    $('b-grid').style.background = exporting ? 'rgba(115,191,105,.30)' : 'rgba(250,222,42,.30)';
+    setBar('b-grid', g, BAR_MAX_W);
+    $('bars').setAttribute('aria-label', `Right now: house ${watt(houseW)}, grid ${g == null ? 'unknown' : exporting ? 'exporting ' + watt(-g) : 'importing ' + watt(g)}, solar ${watt(pv)}, car ${watt(watts)}`);
+    // ribbon: excess solar prompt, otherwise what the controller is doing
     const spare = (pv != null && houseW != null) ? pv - houseW - watts : 0;
-    const carTaking = c.state === 'charging' && watts > 200;
-    const ex4 = $('excess');
-    if (spare > 4000 && !carTaking) {
-      ex4.hidden = false;
-      ex4.textContent = `Excess solar being generated (${kw(spare)} kW), ` + (plugged ? 'plug in the other car' : 'plug in car');
-    } else ex4.hidden = true;
-    if (pv != null && houseW != null) {
-      const g = pv - houseW - watts;   // + export, - import
-      const dir = Math.abs(g) < 50 ? '' : g > 0 ? ' export' : ' import';
-      $('f-grid').innerHTML = `<span style="color:${g >= 50 ? 'var(--export)' : g <= -50 ? 'var(--import)' : 'inherit'}">${kw(Math.abs(g))}</span><small> kW${dir}</small>`;
-    } else { $('f-grid').innerHTML = '–'; }
-    // window highlight
+    const rib = $('ribbon');
+    if (spare > 4000 && !(c.state === 'charging' && watts > 200)) { rib.className = 'ribbon excess'; rib.textContent = `Excess solar being generated (${kw(spare)} kW), ` + (plugged ? 'plug in the other car' : 'plug in a car'); }
+    else { rib.className = 'ribbon'; rib.textContent = ex.text; }
+    // time to full
+    const k5 = carInfo && carInfo.ev5, onK = plugged ? carOnCharger() : null, ttf = $('ttf');
+    if (onK === 'ev5' && k5 && k5.soc != null && c.state === 'charging' && watts > 200) {
+      const lim = k5.limit_ac || 100, need = Math.max(0, (lim - k5.soc) / 100 * CARS.ev5.kwh), h = need / (watts / 1000 * 0.92);
+      ttf.className = 'big-mid'; ttf.style.color = 'var(--green)';
+      ttf.textContent = need < 0.2 ? 'Nearly there' : h >= 1 ? `${Math.floor(h)} h ${Math.round((h % 1) * 60)} min` : `${Math.round(h * 60)} min`;
+      $('ttf-sub').textContent = `EV5 to ${lim}% at ${kw(watts)} kW, if the rate holds`;
+    } else if (onK === 'ev5' && k5 && k5.soc != null) {
+      const lim = k5.limit_ac || 100, need = Math.max(0, (lim - k5.soc) / 100 * CARS.ev5.kwh);
+      ttf.className = 'big-mid'; ttf.style.color = 'var(--blue-l)';
+      ttf.textContent = need < 0.2 ? 'Full' : `${need.toFixed(1)} kWh to go`;
+      $('ttf-sub').textContent = need < 0.2 ? `EV5 is at its ${lim}% limit` : `EV5 ${k5.soc}% → ${lim}%. About ${(need / 7).toFixed(1)} h at full rate.`;
+    } else if (onK === 'ioniq') {
+      ttf.className = 'big-mid dim'; ttf.style.color = ''; ttf.textContent = 'Unknown';
+      $('ttf-sub').textContent = "Needs the IONIQ 5's battery level";
+    } else {
+      ttf.className = 'big-mid dim'; ttf.style.color = ''; ttf.textContent = plugged ? 'Car not identified' : 'Not charging';
+      $('ttf-sub').textContent = plugged ? 'Mark which car is on the charger above' : '';
+    }
     ['w-offpeak','w-day','w-evening'].forEach(id => $(id).classList.toggle('now', id === 'w-' + L.window));
-    // status pill
     const age = L.ts ? (Date.now() - new Date(L.ts).getTime()) / 1000 : 1e9;
     const pill = $('status-pill');
     if (age > 180) { pill.className = 'pill err'; $('status-text').textContent = `No update for ${Math.round(age/60)} min`; }
-    else if (L.dry_run) { pill.className = 'pill watch'; $('status-text').textContent = 'Watch only, not controlling'; }
+    else if (L.dry_run) { pill.className = 'pill watch'; $('status-text').textContent = 'Watch only'; }
     else { pill.className = 'pill live'; $('status-text').textContent = 'Live'; }
     if (!currentMode || !btns.some(b => b.disabled)) showMode(d.mode || L.mode || 'auto');
+  }
+  function tickClock(){
+    const t = new Date();
+    $('clock').textContent = `${pad(t.getDate())}/${pad(t.getMonth()+1)}/${String(t.getFullYear()).slice(2)} ${pad(t.getHours())}:${pad(t.getMinutes())}`;
+  }
+
+  // ---------- today's stats (always today) ----------
+  function renderToday(t){
+    const imp = t.import_kwh || 0, impOff = Math.min(imp, t.import_offpeak_kwh || 0), exp = t.export_kwh || 0;
+    const cost = (imp - impOff) * RATE.general + impOff * RATE.offpeak - exp * RATE.feedin + RATE.supply;
+    $('s-cost').textContent = '$' + cost.toFixed(2);
+    $('s-cost').style.color = cost > 10 ? 'var(--orange)' : 'var(--green)';
+    $('s-cost-sub').textContent = `${imp.toFixed(1)} kWh from the grid, incl. $${RATE.supply.toFixed(2)} supply`;
+    const use = (t.house_kwh || 0) + (t.car_kwh || 0), fromSolar = (t.house_solar_kwh || 0) + (t.car_solar_kwh || 0);
+    const self = use > 0.1 ? Math.round(100 * fromSolar / use) : null;
+    $('s-self').innerHTML = self == null ? '–' : `${self}<small>%</small>`;
+    $('s-self').style.color = self == null ? '' : self >= 60 ? 'var(--green)' : self >= 30 ? 'var(--yellow)' : 'var(--orange)';
+    const kwhv = v => `${(v || 0).toFixed(2)} <small>kWh</small>`;
+    $('s-grid').innerHTML = kwhv(imp); $('s-house').innerHTML = kwhv(t.house_kwh); $('s-car').innerHTML = kwhv(t.car_kwh); $('s-solar').innerHTML = kwhv(t.solar_kwh);
   }
 
   // ---------- today / week / month / year / all time ----------
@@ -593,7 +626,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     ...['ev5','ioniq5','unknown'].flatMap(c => ['kwh','solar_kwh','offpeak_kwh','grid_day_kwh'].map(k => `car_${c}_${k}`))];
   function periodTotals(){
     if (period === 'today') return liveTotals;
-    const now = new Date(), pad = n => String(n).padStart(2,'0'), iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const now = new Date(), iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
     let from = '0000-00-00';
     if (period === 'week') { const d = new Date(now); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); from = iso(d); }   // since Monday
     if (period === 'month') from = `${now.getFullYear()}-${pad(now.getMonth()+1)}-01`;
@@ -608,20 +641,21 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
   function splitBar(segs, total, note){
     return `<div class="split-bar" role="img" aria-label="${esc(note)}">` +
       segs.map(([n,v,col]) => total > 0 && v > 0 ? `<div style="width:${(100*v/total).toFixed(1)}%;background:${col}" title="${esc(n)}: ${v.toFixed(1)} kWh"></div>` : '').join('') + '</div>' +
-      '<div class="split-leg">' + segs.map(([n,v,col,sub]) => `<div><span class="k"><i style="background:${col}"></i>${n}</span><b>${v.toFixed(1)} kWh <small style="color:var(--text-muted);font-size:12px">${total > 0 ? Math.round(100*v/total) : 0}%</small></b><span class="s">${sub}</span></div>`).join('') + '</div>' +
+      '<div class="split-leg">' + segs.map(([n,v,col,sub]) => `<div><span class="k"><i style="background:${col}"></i>${n}</span><b>${v.toFixed(1)} kWh <small style="color:var(--text-muted);font-size:12px;font-weight:400">${total > 0 ? Math.round(100*v/total) : 0}%</small></b><span class="s">${sub}</span></div>`).join('') + '</div>' +
       `<div class="facts-note">${esc(note)}</div>`;
   }
   function renderTotals(t){
     if (t) liveTotals = t;
     const T = periodTotals(), name = PERIOD_NAME[period];
     document.querySelectorAll('.period button').forEach(b => b.setAttribute('aria-pressed', b.dataset.period === period ? 'true' : 'false'));
+    $('energy-h').textContent = 'Energy ' + name;
     $('car-h').textContent = 'Car charging ' + name;
     $('solar-h').textContent = 'Solar ' + name;
     const solar = T.car_solar_kwh || 0, off = T.car_offpeak_kwh || 0, grid = T.car_grid_day_kwh || 0, carTotal = solar + off + grid;
     $('car-split').innerHTML = splitBar([
-      ['From solar', solar, 'var(--solar)', `$${(solar * (RATE.offpeak - RATE.feedin)).toFixed(2)} saved vs off-peak`],
+      ['From solar', solar, 'var(--yellow)', `$${(solar * (RATE.offpeak - RATE.feedin)).toFixed(2)} saved vs off-peak`],
       ['Grid, off-peak', off, 'var(--import-soft)', `$${(off * RATE.offpeak).toFixed(2)} at 8c`],
-      ['Grid, daytime', grid, 'var(--import)', `$${(grid * RATE.general).toFixed(2)} at 27.6c`]
+      ['Grid, daytime', grid, 'var(--red)', `$${(grid * RATE.general).toFixed(2)} at 27.6c`]
     ], carTotal, `${carTotal.toFixed(1)} kWh into the cars ${name}.`);
     const byCar = [['ev5','EV5'],['ioniq5','IONIQ 5'],['unknown','Not identified']].filter(([c]) => (T[`car_${c}_kwh`] || 0) >= 0.05)
       .map(([c, n]) => { const k = T[`car_${c}_kwh`] || 0, so = T[`car_${c}_solar_kwh`] || 0;
@@ -630,11 +664,10 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     const houseSolar = T.house_solar_kwh || 0, exp = T.export_kwh || 0;
     const solarTotal = Math.max(T.solar_kwh || 0, solar + houseSolar + exp);
     $('split').innerHTML = splitBar([
-      ['Into the car', solar, 'var(--car)', `$${(solar * (RATE.offpeak - RATE.feedin)).toFixed(2)} saved vs off-peak`],
-      ['Used in the house', houseSolar, 'var(--home)', `$${(houseSolar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs grid`],
+      ['Into the car', solar, 'var(--green)', `$${(solar * (RATE.offpeak - RATE.feedin)).toFixed(2)} saved vs off-peak`],
+      ['Used in the house', houseSolar, 'var(--blue)', `$${(houseSolar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs grid`],
       ['Exported to the grid', exp, 'var(--text-dim)', `$${(exp * RATE.feedin).toFixed(2)} earned at 0.5c`]
     ], solarTotal, `${solarTotal.toFixed(1)} kWh generated ${name}` + (period === 'all' && HISTORY.length ? ` (since ${new Date(HISTORY[0].date + 'T12:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short'})})` : '') + '.');
-    $('batt').style.display = period === 'today' ? '' : 'none';
     renderSavings(T, name);
   }
   function renderSavings(T, name){
@@ -642,8 +675,8 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     const g = RATE.general, o = RATE.offpeak, f = RATE.feedin, c = v => (v * 100).toFixed(1).replace(/\.0$/, '') + 'c';
     const groups = [
       ['Solar', 'Solar savings', [
-        ['Solar into the car', T.car_solar_kwh || 0, o - f, `instead of off-peak at ${c(o)}, less the ${c(f)} feed-in given up`, 'var(--car)'],
-        ['Solar used in the house', T.house_solar_kwh || 0, g - f, `instead of the grid at ${c(g)}, less the ${c(f)} feed-in given up`, 'var(--home)'],
+        ['Solar into the car', T.car_solar_kwh || 0, o - f, `instead of off-peak at ${c(o)}, less the ${c(f)} feed-in given up`, 'var(--green)'],
+        ['Solar used in the house', T.house_solar_kwh || 0, g - f, `instead of the grid at ${c(g)}, less the ${c(f)} feed-in given up`, 'var(--blue)'],
         ['Solar exported', T.export_kwh || 0, f, `feed-in credit at ${c(f)}`, 'var(--text-dim)']
       ]],
       ['Off-peak', 'Off-peak savings', [
@@ -673,91 +706,80 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     try { const r = await fetch(EV_API + '?view=history', { signal: AbortSignal.timeout(20000) }); if (r.ok) { HISTORY = (await r.json()).days || []; renderTotals(); } } catch (e) {}
   }
 
-  function renderLog(list){
-    if (!list || !list.length) { $('log').innerHTML = '<div class="empty">No decisions logged yet today.</div>'; return; }
-    // Merge runs of the same kind of decision (e.g. a stream of solar adjustments) into one line
-    const groups = [];
-    list.forEach(x => {
-      const ex = explain(x.reason);
-      const finished = (x.state === 'complete' || x.state === 'full') && !x.target_a;
-      const tag = finished ? {tag:'Finished',cls:'pause'} : ex;
-      const g = groups[groups.length - 1];
-      if (g && g.tag === tag.tag) {
-        g.end = x.ts; g.last = ex.text;
-        if (x.target_a) { g.min = Math.min(g.min ?? x.target_a, x.target_a); g.max = Math.max(g.max ?? x.target_a, x.target_a); }
-        g.n++;
-      } else {
-        groups.push({ start: x.ts, end: x.ts, tag: tag.tag, cls: tag.cls, last: ex.text, min: x.target_a || null, max: x.target_a || null, n: 1 });
-      }
-    });
-    const text = g => g.n > 1 && g.tag === 'Solar' ? 'Following spare solar as it changed' : g.n > 1 && g.tag === 'Cloud' ? 'Easing at the minimum through cloud' : g.last;
-    const amps = g => !g.max ? '–' : g.min === g.max ? g.max + ' A' : `${g.min}–${g.max} A`;
-    const when = g => g.n > 1 && fmtTime(g.start) !== fmtTime(g.end) ? `${fmtTime(g.start)}` : fmtTime(g.start);
-    $('log').innerHTML = groups.slice(-30).reverse().map(g =>
-      `<div class="row"><span class="t">${esc(when(g))}</span><span class="tag ${g.cls}">${esc(g.tag)}</span><span class="r">${esc(text(g))}${g.n > 1 ? ` <span class="note">until ${esc(fmtTime(g.end))}</span>` : ''}</span><span class="a">${amps(g)}</span></div>`
-    ).join('');
-  }
-
-  function renderChart(series){
-    lastSeries = series;
-    const svg = $('chart'); svg.innerHTML = '';
-    const W=1000,H=340,L=44,R=12,T=14,B=34, ns='http://www.w3.org/2000/svg';
+  // ---------- time-series panels ----------
+  let lastSeries = null;
+  function tsFrame(svgId, ymax){
+    const svg = $(svgId); svg.innerHTML = '';
+    const W=520,H=190,L=40,R=8,T=8,B=22, ns='http://www.w3.org/2000/svg';
     const el=(n,a,txt)=>{const e=document.createElementNS(ns,n);for(const k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;svg.appendChild(e);return e;};
-    const pts = (series||[]).map(s => { const [h,m]=s.t.split(':').map(Number); return {h:h+m/60+2.5/60, pv:s.pv/1000, home:s.home/1000, car:s.car/1000}; });
-    const peak = Math.max(4, ...pts.map(p=>Math.max(p.pv,p.home,p.car)));
-    const ymax = Math.ceil(peak/2)*2;
     const x=h=>L+(W-L-R)*h/24, y=v=>T+(H-T-B)*(1-v/ymax);
-    el('rect',{x:x(0),y:T,width:x(6)-x(0),height:H-T-B,fill:'var(--offpeak)'});
-    el('rect',{x:x(21),y:T,width:x(24)-x(21),height:H-T-B,fill:'var(--peak)'});
-    for(let v=0;v<=ymax;v+=2){ el('line',{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:'var(--border)','stroke-width':1});
-      el('text',{x:L-8,y:y(v)+4,'text-anchor':'end','font-size':11,fill:'var(--text-dim)','font-family':'JetBrains Mono, monospace'}, v+(v===ymax?' kW':'')); }
-    for(let h=0;h<=24;h+=3){ el('text',{x:x(h),y:H-12,'text-anchor':h===0?'start':h===24?'end':'middle','font-size':11,fill:'var(--text-dim)','font-family':'JetBrains Mono, monospace'}, h===0||h===24?'12am':h<12?h+'am':h===12?'12pm':(h-12)+'pm'); }
-    const nowH = (()=>{const d=new Date();return d.getHours()+d.getMinutes()/60;})();
-    el('line',{x1:x(nowH),x2:x(nowH),y1:T,y2:H-B,stroke:'var(--text-dim)','stroke-dasharray':'3 4','stroke-width':1});
-    el('text',{x:x(nowH)+4,y:T+12,'font-size':11,fill:'var(--text-muted)','font-family':'Inter, sans-serif'},'now');
-    if (!pts.length) { el('text',{x:W/2,y:H/2,'text-anchor':'middle','font-size':13,fill:'var(--text-muted)','font-family':'Inter, sans-serif'},'No readings yet today'); return; }
-    // break lines across gaps > 15 min
-    const segs=[]; let cur=[];
-    pts.forEach((p,i)=>{ if(i && p.h-pts[i-1].h>0.26){segs.push(cur);cur=[];} cur.push(p); }); segs.push(cur);
-    const area=(key,color,op)=>segs.forEach(sg=>{ if(!sg.length) return;
-      let d=`M${x(sg[0].h).toFixed(1)},${y(0)}`; sg.forEach(p=>d+=` L${x(p.h).toFixed(1)},${y(p[key]).toFixed(1)}`); d+=` L${x(sg[sg.length-1].h).toFixed(1)},${y(0)} Z`;
-      el('path',{d,fill:color,'fill-opacity':op,stroke:'none'});
-      let l=''; sg.forEach((p,i)=>l+=(i?' L':'M')+x(p.h).toFixed(1)+','+y(p[key]).toFixed(1));
-      el('path',{d:l,fill:'none',stroke:color,'stroke-width':2,'stroke-linejoin':'round'}); });
-    area('pv','var(--solar)',0.16); area('car','var(--car)',0.30);
-    // Forecast solar for the rest of today: dotted orange, from now to sunset
+    const step = ymax <= 4 ? 1 : ymax <= 8 ? 2 : 3;
+    for(let v=0;v<=ymax+0.001;v+=step){ el('line',{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:'rgba(204,204,220,.07)','stroke-width':1});
+      el('text',{x:L-6,y:y(v)+4,'text-anchor':'end','font-size':10.5,fill:'rgba(204,204,220,.42)','font-family':'Inter, sans-serif'}, `${v} kW`); }
+    for(let h=0;h<=24;h+=3){ if (h>0 && h<24) el('line',{x1:x(h),x2:x(h),y1:T,y2:H-B,stroke:'rgba(204,204,220,.05)'});
+      if (h<24) el('text',{x:x(h),y:H-6,'text-anchor':h===0?'start':'middle','font-size':10.5,fill:'rgba(204,204,220,.42)','font-family':'Inter, sans-serif'}, `${pad(h)}:00`); }
+    return {svg,el,x,y,W,H,L,R,T,B};
+  }
+  function segsOf(pts){ const segs=[]; let cur=[]; pts.forEach((p,i)=>{ if(i && p.h-pts[i-1].h>0.26){segs.push(cur);cur=[];} cur.push(p); }); segs.push(cur); return segs.filter(s=>s.length); }
+  function areaLine(f, segs, key, color, op){
+    segs.forEach(sg=>{
+      let d=`M${f.x(sg[0].h).toFixed(1)},${f.y(0)}`; sg.forEach(p=>d+=` L${f.x(p.h).toFixed(1)},${f.y(p[key]).toFixed(1)}`); d+=` L${f.x(sg[sg.length-1].h).toFixed(1)},${f.y(0)} Z`;
+      f.el('path',{d,fill:color,'fill-opacity':op,stroke:'none'});
+      let l=''; sg.forEach((p,i)=>l+=(i?' L':'M')+f.x(p.h).toFixed(1)+','+f.y(p[key]).toFixed(1));
+      f.el('path',{d:l,fill:'none',stroke:color,'stroke-width':1.5,'stroke-linejoin':'round'});
+    });
+  }
+  function nowLine(f){ const d=new Date(), h=d.getHours()+d.getMinutes()/60; f.el('line',{x1:f.x(h),x2:f.x(h),y1:f.T,y2:f.H-f.B,stroke:'rgba(204,204,220,.35)','stroke-dasharray':'3 3'}); }
+  const stat = (pts, key) => { const v = pts.map(p=>p[key]); return { mean: v.reduce((a,b)=>a+b,0)/Math.max(1,v.length), max: Math.max(0,...v), last: v.length ? v[v.length-1] : 0 }; };
+  const fw = kW => kW >= 1 ? `${kW.toFixed(2)} kW` : `${Math.round(kW*1000)} W`;
+  function renderCharts(series){
+    lastSeries = series;
+    const pts = (series||[]).map(s => { const [h,m]=s.t.split(':').map(Number); return {h:h+m/60+2.5/60, pv:s.pv/1000, home:Math.max(0,(s.home-s.car))/1000, car:s.car/1000}; });
+    const segs = segsOf(pts);
+    // ----- solar, with the calibrated forecast for the rest of today -----
     const th = todayHours();
-    // Calibrate the forecast against the last 90 minutes of real output (roof angle, shading, haze)
     const fcAt = hh => { const a = th.find(p => p.h - 0.5 <= hh && p.h + 0.5 > hh); return a ? fcKw(a.ghi) : 0; };
+    const nowH = new Date().getHours() + new Date().getMinutes()/60;
     let calib = 1;
     const recent = pts.filter(p => p.h > nowH - 1.5 && p.h <= nowH);
     const fSum = recent.reduce((s,p) => s + fcAt(p.h), 0), aSum = recent.reduce((s,p) => s + p.pv, 0);
     if (recent.length >= 6 && fSum > 1) calib = Math.max(0.3, Math.min(1.3, aSum / fSum));
-    const fh = th.filter(p => p.h - 0.5 > nowH);
-    if (fh.length) {
-      const startV = recent.length ? recent.slice(-3).reduce((s,p) => s + p.pv, 0) / Math.min(3, recent.length) : fcAt(nowH) * calib;
-      const fp = [{h: nowH, v: startV}].concat(fh.map(p => ({h: p.h - 0.5, v: fcKw(p.ghi) * calib})));
-      el('path',{d: fp.map((p,i)=>(i?'L':'M')+x(p.h).toFixed(1)+','+y(p.v).toFixed(1)).join(' '), fill:'none', stroke:'var(--solar)', 'stroke-width':2, 'stroke-dasharray':'4 5', 'stroke-linecap':'round'});
-    }
-    // Total house use: blue where solar covered it, red where it drew from the grid
+    const fh = th.filter(p => p.h - 0.5 > nowH && fcKw(p.ghi) > 0.01);
+    const fp = fh.length ? [{h: nowH, v: recent.length ? recent.slice(-3).reduce((s,p) => s + p.pv, 0) / Math.min(3, recent.length) : fcAt(nowH) * calib}].concat(fh.map(p => ({h: p.h - 0.5, v: fcKw(p.ghi) * calib}))) : [];
+    const sPeak = Math.max(3, ...pts.map(p=>p.pv), ...fp.map(p=>p.v));
+    let f = tsFrame('ts-solar', Math.ceil(sPeak));
+    areaLine(f, segs, 'pv', '#fade2a', 0.28);
+    if (fp.length) f.el('path',{d: fp.map((p,i)=>(i?'L':'M')+f.x(p.h).toFixed(1)+','+f.y(p.v).toFixed(1)).join(' '), fill:'none', stroke:'#fade2a', 'stroke-width':1.5, 'stroke-dasharray':'4 4', opacity:.8});
+    nowLine(f);
+    const sp = stat(pts,'pv'), fcRest = fp.slice(1).reduce((a,p)=>a+p.v,0);
+    $('leg-solar').innerHTML = `<span></span><span class="h">Mean</span><span class="h">Max</span><span class="h">Last</span>
+      <span class="n"><i style="background:var(--yellow)"></i>Solar generation</span><span class="val">${fw(sp.mean)}</span><span class="val">${fw(sp.max)}</span><span class="val">${fw(sp.last)}</span>` +
+      (fp.length > 1 ? `<span class="n"><i class="dash"></i>Forecast, rest of today</span><span class="val" style="grid-column:span 3">≈ ${fcRest.toFixed(1)} kWh more</span>` : '');
+    // ----- house (excluding the car) and car charging -----
+    const hPeak = Math.max(2, ...pts.map(p=>Math.max(p.home,p.car)));
+    f = tsFrame('ts-house', Math.ceil(hPeak));
+    f.el('rect',{x:f.x(0),y:f.T,width:f.x(6)-f.x(0),height:f.H-f.T-f.B,fill:'rgba(87,148,242,.08)'});
+    areaLine(f, segs, 'car', '#73bf69', 0.22);
     segs.forEach(sg => {
-      if (!sg.length) return;
-      let d=`M${x(sg[0].h).toFixed(1)},${y(0)}`; sg.forEach(p=>d+=` L${x(p.h).toFixed(1)},${y(p.home).toFixed(1)}`); d+=` L${x(sg[sg.length-1].h).toFixed(1)},${y(0)} Z`;
-      el('path',{d,fill:'var(--home)','fill-opacity':0.08,stroke:'none'});
-      for (let i=1;i<sg.length;i++){
-        const a=sg[i-1], b=sg[i], fromGrid = (a.home + b.home)/2 > (a.pv + b.pv)/2 + 0.05;
-        el('line',{x1:x(a.h).toFixed(1),y1:y(a.home).toFixed(1),x2:x(b.h).toFixed(1),y2:y(b.home).toFixed(1),stroke: fromGrid ? (b.h <= 6 ? 'var(--import-soft)' : 'var(--import)') : 'var(--home)','stroke-width':2,'stroke-linecap':'round'});
-      }
+      let d=`M${f.x(sg[0].h).toFixed(1)},${f.y(0)}`; sg.forEach(p=>d+=` L${f.x(p.h).toFixed(1)},${f.y(p.home).toFixed(1)}`); d+=` L${f.x(sg[sg.length-1].h).toFixed(1)},${f.y(0)} Z`;
+      f.el('path',{d,fill:'#5794f2','fill-opacity':0.18,stroke:'none'});
+      for (let i=1;i<sg.length;i++){ const a=sg[i-1], b=sg[i], fromGrid = (a.home+a.car+b.home+b.car)/2 > (a.pv+b.pv)/2 + 0.05;
+        f.el('line',{x1:f.x(a.h).toFixed(1),y1:f.y(a.home).toFixed(1),x2:f.x(b.h).toFixed(1),y2:f.y(b.home).toFixed(1),stroke: fromGrid ? (b.h <= 6 ? 'rgba(242,73,92,.55)' : '#f2495c') : '#8ab8ff','stroke-width':1.5,'stroke-linecap':'round'}); }
     });
+    nowLine(f);
+    if (!pts.length) f.el('text',{x:260,y:95,'text-anchor':'middle','font-size':12,fill:'rgba(204,204,220,.65)','font-family':'Inter, sans-serif'},'No readings yet today');
+    const hs = stat(pts,'home'), cs = stat(pts,'car');
+    $('leg-house').innerHTML = `<span></span><span class="h">Mean</span><span class="h">Max</span><span class="h">Last</span>
+      <span class="n"><i style="background:var(--blue-l)"></i>House (red when from the grid)</span><span class="val">${fw(hs.mean)}</span><span class="val">${fw(hs.max)}</span><span class="val">${fw(hs.last)}</span>
+      <span class="n"><i style="background:var(--green)"></i>Car charging</span><span class="val">${fw(cs.mean)}</span><span class="val">${fw(cs.max)}</span><span class="val">${fw(cs.last)}</span>`;
   }
 
-  // ---------- 5-day outlook from Solar Hub's forecast feed ----------
+  // ---------- forecast (today card + 5-day outlook) ----------
   const CLEAR_GHI = 7.8, PANEL_KW = 13.2, PR = 0.65;
   function dayStats(fc){
     const byDay = {}; (fc.hourly||[]).forEach(h => (byDay[h.time.slice(0,10)] ||= []).push(h));
     const daily = {}; (fc.daily||[]).forEach(d => daily[d.date] = d);
-    const today = new Date(); const pad=n=>String(n).padStart(2,'0');
-    const key = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const today = new Date(), key = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
     const out = [];
     for (let i=0;i<=5;i++){ const d=new Date(today); d.setDate(d.getDate()+i); const k=key(d), hs=byDay[k]; if(!hs) continue;
       const day=hs.filter(h=>h.ghi>50), dl=daily[k]||{};
@@ -776,29 +798,27 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     if (d.cloud<70) return ['partly','Partly cloudy'];
     return ['cloud','Cloudy'];
   };
-  const SUN=(cx,cy,r)=>`<g stroke="var(--solar)" stroke-width="2.4" stroke-linecap="round">${[0,45,90,135,180,225,270,315].map(a=>{const t=a*Math.PI/180;return `<line x1="${(cx+Math.cos(t)*(r+4)).toFixed(1)}" y1="${(cy+Math.sin(t)*(r+4)).toFixed(1)}" x2="${(cx+Math.cos(t)*(r+8)).toFixed(1)}" y2="${(cy+Math.sin(t)*(r+8)).toFixed(1)}"/>`}).join('')}</g><circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--solar)"/>`;
-  const CLOUD=(dx,dy)=>`<path transform="translate(${dx} ${dy})" d="M14 40h26a10 10 0 0 0 0-20 13 13 0 0 0-25-3A10 10 0 0 0 14 40z" fill="var(--surface-3)" stroke="var(--text-muted)" stroke-width="1.6" stroke-linejoin="round"/>`;
-  const DROPS=n=>[18,28,38].slice(0,n).map((x,i)=>`<line x1="${x}" y1="${48+(i%2)*2}" x2="${x-3}" y2="${55+(i%2)*2}" stroke="var(--home)" stroke-width="2.4" stroke-linecap="round"/>`).join('');
-  const icon=k=>`<svg viewBox="0 0 56 62" aria-hidden="true">${({sun:SUN(28,28,11),partly:SUN(22,20,8)+CLOUD(4,10),cloud:CLOUD(2,4),showers:SUN(22,18,7)+CLOUD(4,6)+DROPS(2),drizzle:CLOUD(2,4)+DROPS(3),rain:CLOUD(2,2)+DROPS(3),storm:CLOUD(2,2)+'<path d="M30 42l-6 9h6l-4 9 10-12h-6l4-6z" fill="var(--solar)"/>'+DROPS(1)})[k]}</svg>`;
-  const scoreColor=s=>s>=8?'var(--ok)':s>=5?'var(--solar)':'var(--import)';
-  const spark=hrs=>{const w=150,h=26,step=w/(hrs.length-1);let d=`M0,${h}`;hrs.forEach((v,i)=>d+=` L${(i*step).toFixed(1)},${(h-2-(h-4)*v/1000).toFixed(1)}`);d+=` L${w},${h} Z`;return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" fill="var(--solar)" fill-opacity=".25" stroke="var(--solar)" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;};
-  let FORECAST = null, lastSeries = null;
-  // Forecast solar output (kW) for an hour of the day, from Open-Meteo GHI
+  const SUN=(cx,cy,r)=>`<g stroke="#fade2a" stroke-width="2.4" stroke-linecap="round">${[0,45,90,135,180,225,270,315].map(a=>{const t=a*Math.PI/180;return `<line x1="${(cx+Math.cos(t)*(r+4)).toFixed(1)}" y1="${(cy+Math.sin(t)*(r+4)).toFixed(1)}" x2="${(cx+Math.cos(t)*(r+8)).toFixed(1)}" y2="${(cy+Math.sin(t)*(r+8)).toFixed(1)}"/>`}).join('')}</g><circle cx="${cx}" cy="${cy}" r="${r}" fill="#fade2a"/>`;
+  const CLOUD=(dx,dy)=>`<path transform="translate(${dx} ${dy})" d="M14 40h26a10 10 0 0 0 0-20 13 13 0 0 0-25-3A10 10 0 0 0 14 40z" fill="#2c3036" stroke="rgba(204,204,220,.65)" stroke-width="1.6" stroke-linejoin="round"/>`;
+  const DROPS=n=>[18,28,38].slice(0,n).map((x,i)=>`<line x1="${x}" y1="${48+(i%2)*2}" x2="${x-3}" y2="${55+(i%2)*2}" stroke="#5794f2" stroke-width="2.4" stroke-linecap="round"/>`).join('');
+  const icon=k=>`<svg viewBox="0 0 56 62" aria-hidden="true">${({sun:SUN(28,28,11),partly:SUN(22,20,8)+CLOUD(4,10),cloud:CLOUD(2,4),showers:SUN(22,18,7)+CLOUD(4,6)+DROPS(2),drizzle:CLOUD(2,4)+DROPS(3),rain:CLOUD(2,2)+DROPS(3),storm:CLOUD(2,2)+'<path d="M30 42l-6 9h6l-4 9 10-12h-6l4-6z" fill="#fade2a"/>'+DROPS(1)})[k]}</svg>`;
+  const scoreColor=s=>s>=8?'var(--green)':s>=5?'var(--yellow)':'var(--red)';
+  const spark=hrs=>{const w=150,h=26,step=w/(hrs.length-1);let d=`M0,${h}`;hrs.forEach((v,i)=>d+=` L${(i*step).toFixed(1)},${(h-2-(h-4)*v/1000).toFixed(1)}`);d+=` L${w},${h} Z`;return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" fill="#fade2a" fill-opacity=".25" stroke="#fade2a" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;};
+  let FORECAST = null;
   const fcKw = ghi => Math.min(9.6, ghi / 1000 * PANEL_KW * 0.75);
   function todayHours(){
     if (!FORECAST) return [];
-    const pad=n=>String(n).padStart(2,'0'), t=new Date(), k=`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;
+    const t=new Date(), k=`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;
     return (FORECAST.hourly||[]).filter(h=>h.time.startsWith(k)).map(h=>({h:+h.time.slice(11,13), ghi:h.ghi}));
   }
   function renderTodayWx(d){
-    const box = $('today-wx'); if (!d) { box.innerHTML = ''; return; }
+    const box = $('today-wx'); if (!d) { box.innerHTML = '<div class="empty">Forecast unavailable.</div>'; return; }
     const col = scoreColor(d.s), nowH = new Date().getHours() + new Date().getMinutes()/60;
     const hrs = d.hours, w = 150, h = 34, step = w/(hrs.length-1);
     let path = `M0,${h}`; hrs.forEach((v,i)=>path+=` L${(i*step).toFixed(1)},${(h-2-(h-4)*v/1000).toFixed(1)}`); path += ` L${w},${h} Z`;
     const nx = Math.max(0, Math.min(w, (nowH - 6) / 14 * w));
-    box.innerHTML = `<div class="day-card"><div class="day-top"><div><div class="day-name">Today</div><div class="day-date">${d.tmax}° · ${d.cloud}% cloud</div></div><div class="score" aria-label="Solar score ${d.s} out of 10"><span class="n" style="color:${col}">${d.s}</span><span class="of">/10</span></div></div><div class="wx">${icon(d.k[0])}<b>${d.k[1]}</b></div><svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${path}" fill="var(--solar)" fill-opacity=".25" stroke="var(--solar)" stroke-width="1.5" vector-effect="non-scaling-stroke"/><line class="now-tick" x1="${nx.toFixed(1)}" x2="${nx.toFixed(1)}" y1="0" y2="${h}" vector-effect="non-scaling-stroke"/></svg><div class="day-meta"><span>≈ ${d.kwh} kWh forecast</span><span>6 am – 8 pm</span></div></div>`;
+    box.innerHTML = `<div class="day-card"><div class="day-top"><div class="wx">${icon(d.k[0])}<div><div class="day-name">${d.k[1]}</div><div class="day-date">${d.tmax}° · ${d.cloud}% cloud</div></div></div><div class="score" aria-label="Solar score ${d.s} out of 10"><span class="n" style="color:${col}">${d.s}</span><span class="of">/10</span></div></div><svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${path}" fill="#fade2a" fill-opacity=".25" stroke="#fade2a" stroke-width="1.5" vector-effect="non-scaling-stroke"/><line class="now-tick" x1="${nx.toFixed(1)}" x2="${nx.toFixed(1)}" y1="0" y2="${h}" vector-effect="non-scaling-stroke"/></svg><div class="day-meta"><span>≈ ${d.kwh} kWh forecast</span><span>6 am – 8 pm</span></div></div>`;
   }
-
   async function loadOutlook(){
     try {
       const r = await fetch('/.netlify/functions/forecast', { signal: AbortSignal.timeout(20000) });
@@ -806,7 +826,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
       const all = dayStats(fc).map(d=>({...d,s:scoreOf(d),k:kind(d),kwh:Math.round(d.ghi*PANEL_KW*PR)}));
       renderTodayWx(all[0]);
       const days = all.slice(1);
-      if (lastSeries) renderChart(lastSeries);
+      if (lastSeries) renderCharts(lastSeries);
       if (!days.length) throw new Error('no days');
       const best = Math.max(...days.map(d=>d.s));
       $('outlook').innerHTML = days.map(d=>{ const dt=new Date(d.date+'T12:00:00'), col=scoreColor(d.s);
@@ -822,14 +842,18 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
       const r = await fetch(EV_API, { signal: AbortSignal.timeout(15000) });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json(); failures = 0; $('banner').hidden = true;
-      carInfo = d.car || null;
-      renderNow(d); renderTotals(d.totals || {}); renderBattery(d.plugin); renderChart(d.series); if (!offpeakBusy && typeof d.offpeak === 'boolean') showOffpeak(d.offpeak);
+      carInfo = d.car || null; lastPlugin = d.plugin || null;
+      if (!offpeakBusy && typeof d.offpeak === 'boolean') showOffpeak(d.offpeak);
+      renderTotals(d.totals || {}); renderToday(d.totals || {});
+      renderNow(d); renderCars(d); renderCharts(d.series);
     } catch (e) {
       failures++;
       if (failures >= 2) { $('banner').hidden = false; $('banner').textContent = "Can't reach the Pi at eaglecam. The controller keeps running on its own; this page just can't see it. Check the Pi is on and connected to WiFi."; }
       $('status-pill').className = 'pill err'; $('status-text').textContent = 'Offline';
+      if (!lastD) [['card-ev5','ev5','EV5'],['card-ioniq','ioniq','IONIQ 5']].forEach(([id,k,n]) => { if (!$(id).innerHTML) $(id).innerHTML = `<div class="car">${carSVG(k)}<div><div class="car-name">${n}</div><div class="car-lines">Waiting for the Pi.</div></div></div>`; });
     }
   }
+  tickClock(); setInterval(tickClock, 15000);
   load(); loadOutlook(); loadHistory();
   setInterval(() => { if (document.visibilityState === 'visible') loadHistory(); }, 10 * 60000);
   setInterval(() => { if (document.visibilityState === 'visible') load(); }, REFRESH_MS);

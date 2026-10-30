@@ -434,6 +434,9 @@ def ev_state():
             prev_t = t
         plugin = {"since": all_rows[start_i]["ts"], "kwh": round(kwh, 2),
                   "exact_start": start_i > 0}   # False = plugged in before the log window began
+    day = _ev_day_summary(rows)          # whole-house figures for today (cost, self-sufficiency)
+    for k in ("house_kwh", "import_kwh", "import_offpeak_kwh"):
+        totals[k] = day[k]
     try:
         with open(EV_CAR) as f:
             car = json.load(f)
@@ -496,7 +499,7 @@ def _ev_day_summary(rows: list[dict]) -> dict:
     t_prev = None
     out = {"car_solar_kwh": 0.0, "car_offpeak_kwh": 0.0, "car_grid_day_kwh": 0.0,
            "solar_kwh": 0.0, "house_kwh": 0.0, "export_kwh": 0.0, "import_kwh": 0.0,
-           "house_solar_kwh": 0.0, **_car_keys()}
+           "house_solar_kwh": 0.0, "import_offpeak_kwh": 0.0, **_car_keys()}
     tags = _ev_car_tags()
     for r in rows:
         try:
@@ -531,6 +534,8 @@ def _ev_day_summary(rows: list[dict]) -> dict:
             out["house_solar_kwh"] += min(house, pv) / 1000 * h
             net = pv - house - car
             out["export_kwh" if net > 0 else "import_kwh"] += abs(net) / 1000 * h
+            if net < 0 and r.get("window") == "offpeak":
+                out["import_offpeak_kwh"] += -net / 1000 * h
         t_prev = t
     return {k: round(v, 2) for k, v in out.items()}
 
