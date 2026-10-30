@@ -132,9 +132,7 @@ button{font:inherit;color:inherit}
 .legend span{display:flex;height:8px;border-radius:2px;overflow:hidden}
 .legend span i{display:block;width:7px;height:8px}
 .leaflet-tile-pane canvas.leaflet-tile{image-rendering:pixelated}
-/* Esri's Ocean tiles have a light 1px border on some edges (a compression artefact), which shows as
-   gridlines across the map: draw each tile a pixel larger all round and clip that border off */
-.basemap img.leaflet-tile{width:258px!important;height:258px!important;margin:-1px 0 0 -1px;clip-path:inset(1px)}
+
 .rain-state{flex:none;font-size:12px;color:var(--text-muted);white-space:nowrap}
 
 /* ---------- energy flow ---------- */
@@ -828,7 +826,18 @@ body.dimmed .dim{opacity:.62}
     L.tileLayer(esri('World_Ocean_Reference'), { maxZoom: 13, zIndex: 20, className: 'basemap' }).addTo(map);
     L.marker(HOME, { icon: L.divIcon({ className: '', html: '<div class="home-pin"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }), keyboard: false, title: 'Home' }).addTo(map);
     map.attributionControl.addAttribution('Radar <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>');
-    new ResizeObserver(() => map.invalidateSize()).observe($('map'));
+    // The grid puts the map at fractional pixel positions; on retina screens that makes the browser resample
+    // every tile and draws hairline seams along tile edges. Nudge the map onto whole pixels whenever it moves.
+    const snap = () => {
+      const m = $('map'), r = m.parentElement.getBoundingClientRect();
+      m.style.left = (Math.round(r.left) - r.left).toFixed(3) + 'px';
+      m.style.top = (Math.round(r.top) - r.top).toFixed(3) + 'px';
+      map.invalidateSize();
+    };
+    new ResizeObserver(snap).observe($('map').parentElement);
+    window.addEventListener('resize', snap);
+    $('screen').addEventListener('transitionend', snap);   // after each burn-in nudge
+    snap();
   }
   async function loadRadar() {
     if (!map) return;
