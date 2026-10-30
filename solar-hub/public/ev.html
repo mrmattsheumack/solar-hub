@@ -127,14 +127,17 @@ svg.ts{display:block;width:100%;height:auto}
 
 /* ---------- pies, savings ---------- */
 .pie-box{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.pie-box svg{flex:0 0 96px;width:96px;height:96px}
+.pie-box svg{flex:0 0 136px;width:136px;height:136px}
 .pie-leg{flex:1 1 110px;display:flex;flex-direction:column;gap:6px;min-width:0}
 .pie-leg div{display:grid;grid-template-columns:10px minmax(0,1fr);column-gap:7px;align-items:center;line-height:1.2}
 .pie-leg i{width:9px;height:9px;border-radius:1px;grid-row:1/3}
 .pie-leg .k{font-size:11.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pie-leg b{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pie-leg .tot{display:block;padding-bottom:4px;border-bottom:1px solid var(--border);margin-bottom:2px}
+.pie-leg .tot .k{display:block}
+.pie-leg .tot b{font-size:15px}
 .pie-leg b small{font-size:11px;color:var(--text-muted);font-weight:400}
-.mini-stats{display:flex;gap:14px;font-size:12px;color:var(--text-muted);font-weight:400}
+.mini-stats{display:flex;gap:4px 12px;flex-wrap:wrap;font-size:12px;color:var(--text-muted);font-weight:400}
 .mini-stats b{font-size:15px;font-weight:600;margin-left:4px;font-variant-numeric:tabular-nums}
 .save-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 @media (max-width:760px){.save-grid{grid-template-columns:1fr}}
@@ -229,8 +232,8 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     </div>
   </div>
   <div class="dash">
-    <section class="panel span-3">
-      <div class="p-title"><span id="car-h">Car charging</span>
+    <section class="panel span-4">
+      <div class="p-title"><span id="car-h" title="Efficiency: share of the car charging that came from solar. Grid, off-peak or on-peak, counts against it.">Car charging</span>
         <div class="seg sm" role="tablist" aria-label="Which car">
           <button role="tab" data-carview="total" aria-pressed="true">Total</button>
           <button role="tab" data-carview="ioniq5" aria-pressed="false">IONIQ 5</button>
@@ -238,14 +241,14 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
         </div></div>
       <div id="car-pie"></div>
     </section>
-    <section class="panel span-3">
-      <div class="p-title"><span id="solar-h">Solar</span></div>
+    <section class="panel span-4">
+      <div class="p-title"><span id="solar-h" title="Efficiency: share of the solar used at home, in the house or the cars. Exporting to the grid counts against it.">Solar</span></div>
       <div id="solar-pie"></div>
     </section>
-    <section class="panel span-6">
+    <section class="panel span-4">
       <div class="p-title"><span>Energy flow <span class="note">live</span></span>
         <span class="mini-stats"><span>Cost today <b id="m-cost">–</b></span><span>Self sufficiency <b id="m-self">–</b></span></span></div>
-      <svg class="flow" id="flow" viewBox="0 0 600 170" role="img" aria-label="Where power is going right now"></svg>
+      <svg class="flow" id="flow" viewBox="0 0 440 180" role="img" aria-label="Where power is going right now"></svg>
       <div class="ribbon" id="ribbon">Reading the charger and solar…</div>
     </section>
   </div>
@@ -535,12 +538,12 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const houseW = L.house_w != null ? L.house_w : (L.home_kw != null ? Math.max(0, L.home_kw * 1000 - watts) : null);
     const g = (pv != null && houseW != null) ? houseW + watts - pv : null;     // + import, - export
     const exporting = g != null && g < -50;
-    const hub = [300, 85], R = 24;
+    const hub = [220, 90], R = 22;
     const nodes = {
-      solar: { p:[160, 38],  w: pv,     col:'#fade2a', name:'Solar', side:'left' },
-      grid:  { p:[160, 132], w: g == null ? null : Math.abs(g), col: exporting ? '#73bf69' : '#ff9830', name: exporting ? 'Grid, exporting' : 'Grid', side:'left' },
-      house: { p:[440, 38],  w: houseW, col:'#8ab8ff', name:'House', side:'right' },
-      car:   { p:[440, 132], w: watts,  col:'#73bf69', name:'Car',   side:'right' }
+      solar: { p:[115, 40],  w: pv,     col:'#fade2a', name:'Solar', side:'left' },
+      grid:  { p:[115, 140], w: g == null ? null : Math.abs(g), col: exporting ? '#73bf69' : '#ff9830', name: exporting ? 'Grid, exporting' : 'Grid', side:'left' },
+      house: { p:[325, 40],  w: houseW, col:'#8ab8ff', name:'House', side:'right' },
+      car:   { p:[325, 140], w: watts,  col:'#73bf69', name:'Car',   side:'right' }
     };
     const toHub = { solar: true, house: false, car: false, grid: g != null && g > 0 };
     const active = { solar: (pv || 0) > 30, house: (houseW || 0) > 30, car: watts > 30, grid: g != null && Math.abs(g) > 50 };
@@ -550,14 +553,20 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
       const x0 = x + ux*(R+4), y0 = y + uy*(R+4), x1 = hub[0] - ux*13, y1 = hub[1] - uy*13;
       const dd = `M${x0.toFixed(1)},${y0.toFixed(1)} L${x1.toFixed(1)},${y1.toFixed(1)}`;
       s += `<path class="flow-line" d="${dd}"/>`;
-      if (active[k]) s += `<path class="flow-dash${toHub[k] ? '' : ' rev'}" d="${dd}" stroke="${n.col}" style="animation-duration:${Math.max(0.35, 1.8 - (n.w || 0) / 1000 * 0.15).toFixed(2)}s"/>`;
+      if (active[k]) {
+        s += `<path class="flow-dash${toHub[k] ? '' : ' rev'}" d="${dd}" stroke="${n.col}" style="animation-duration:${Math.max(0.35, 1.8 - (n.w || 0) / 1000 * 0.15).toFixed(2)}s"/>`;
+        // arrowhead at the middle of the line, pointing the way power is moving
+        const dir = toHub[k] ? 1 : -1, ax = ux * dir, ay = uy * dir, mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+        const tip = [mx + ax * 8, my + ay * 8], bl = [mx - ax * 6 - ay * 7, my - ay * 6 + ax * 7], br = [mx - ax * 6 + ay * 7, my - ay * 6 - ax * 7];
+        s += `<polygon points="${[tip, bl, br].map(p => p.map(v => v.toFixed(1)).join(',')).join(' ')}" fill="${n.col}"/>`;
+      }
     });
     s += `<circle cx="${hub[0]}" cy="${hub[1]}" r="10" fill="#22252b" stroke="rgba(204,204,220,.3)" stroke-width="1.5"/><circle cx="${hub[0]}" cy="${hub[1]}" r="4" fill="rgba(204,204,220,.55)"/>`;
     Object.entries(nodes).forEach(([k, n]) => {
       const [x, y] = n.p, v = n.w == null ? '–' : watt(n.w), sub = esc(n.name);
-      s += `<circle cx="${x}" cy="${y}" r="${R}" fill="#1d2025" stroke="${n.col}" stroke-width="2" stroke-opacity="${active[k] ? 1 : .35}"/><g transform="translate(${x} ${y}) scale(.78)">${ICON[k]}</g>`;
-      const tx = n.side === 'left' ? x - R - 10 : x + R + 10, anc = n.side === 'left' ? 'end' : 'start';
-      s += `<text x="${tx}" y="${y - 1}" text-anchor="${anc}" fill="${n.col}" font-size="19" font-weight="600" font-family="Inter, sans-serif">${v}</text><text x="${tx}" y="${y + 15}" text-anchor="${anc}" fill="rgba(204,204,220,.65)" font-size="12" font-family="Inter, sans-serif">${sub}</text>`;
+      s += `<circle cx="${x}" cy="${y}" r="${R}" fill="#1d2025" stroke="${n.col}" stroke-width="2" stroke-opacity="${active[k] ? 1 : .35}"/><g transform="translate(${x} ${y}) scale(.72)">${ICON[k]}</g>`;
+      const tx = n.side === 'left' ? x - R - 8 : x + R + 8, anc = n.side === 'left' ? 'end' : 'start';
+      s += `<text x="${tx}" y="${y}" text-anchor="${anc}" fill="${n.col}" font-size="18" font-weight="600" font-family="Inter, sans-serif">${v}</text><text x="${tx}" y="${y + 15}" text-anchor="${anc}" fill="rgba(204,204,220,.65)" font-size="11.5" font-family="Inter, sans-serif">${sub}</text>`;
     });
     // edge stats: cost and self-sufficiency today
     const imp = T.import_kwh || 0, impOff = Math.min(imp, T.import_offpeak_kwh || 0), exp = T.export_kwh || 0;
@@ -615,17 +624,18 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     return out;
   }
   // Donut chart with a legend beside it
-  function pie(segs, total, centre, note){
+  const effColor = e => e == null ? '#d8d9da' : e >= 70 ? '#73bf69' : e >= 40 ? '#fade2a' : e >= 20 ? '#ff9830' : '#f2495c';
+  function pie(segs, total, eff, effLabel, totalLabel, note){
     const r = 54, C = 2 * Math.PI * r;
     let off = 0, arcs = '';
     if (total > 0) segs.forEach(([n, v, col]) => { if (v <= 0) return; const len = C * v / total;
       arcs += `<circle cx="75" cy="75" r="${r}" fill="none" stroke="${col}" stroke-width="22" stroke-dasharray="${len.toFixed(2)} ${(C - len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 75 75)"><title>${esc(n)}: ${v.toFixed(1)} kWh</title></circle>`; off += len; });
     else arcs = `<circle cx="75" cy="75" r="${r}" fill="none" stroke="#2c3036" stroke-width="22"/>`;
     const svg = `<svg viewBox="0 0 150 150" role="img" aria-label="${esc(note)}">${arcs}
-      <text x="75" y="74" text-anchor="middle" fill="#d8d9da" font-family="Inter, sans-serif" font-size="22" font-weight="600">${total.toFixed(1)}</text>
-      <text x="75" y="92" text-anchor="middle" fill="rgba(204,204,220,.65)" font-family="Inter, sans-serif" font-size="11">${centre}</text></svg>`;
+      <text x="75" y="80" text-anchor="middle" fill="${effColor(eff)}" font-family="Inter, sans-serif" font-size="30" font-weight="700">${eff == null ? '–' : eff + '%'}</text>
+      <text x="75" y="97" text-anchor="middle" fill="rgba(204,204,220,.65)" font-family="Inter, sans-serif" font-size="11">${effLabel}</text></svg>`;
     const leg = segs.map(([n, v, col]) => `<div><i style="background:${col}"></i><span class="k">${n}</span><b>${v.toFixed(1)} kWh <small>${total > 0 ? Math.round(100 * v / total) : 0}%</small></b></div>`).join('');
-    return `<div class="pie-box">${svg}<div class="pie-leg">${leg}</div></div>`;
+    return `<div class="pie-box">${svg}<div class="pie-leg"><div class="tot"><span class="k">${totalLabel}</span><b>${total.toFixed(1)} kWh</b></div>${leg}</div></div>`;
   }
   function renderTotals(t){
     if (t) liveTotals = t;
@@ -641,7 +651,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
       ['Solar', solar, '#fade2a', `$${(solar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs on-peak`],
       ['Off-peak grid', off, '#e89cbd', `$${(off * RATE.offpeak).toFixed(2)} at 8c`],
       ['On-peak grid', grid, '#f2495c', `$${(grid * RATE.general).toFixed(2)} at 27.6c`]
-    ], carTotal, carView === 'total' ? 'kWh, both cars' : (carView === 'ev5' ? 'kWh, EV5' : 'kWh, IONIQ 5'), `${carTotal.toFixed(1)} kWh into ${who} ${name}.`);
+    ], carTotal, carTotal > 0.05 ? Math.round(100 * solar / carTotal) : null, 'efficiency', carView === 'total' ? 'Into both cars' : 'Into the ' + (carView === 'ev5' ? 'EV5' : 'IONIQ 5'), `${carTotal.toFixed(1)} kWh into ${who} ${name}, ${carTotal > 0.05 ? Math.round(100 * solar / carTotal) : 0}% from solar.`);
 
     const houseSolar = T.house_solar_kwh || 0, exp = T.export_kwh || 0, carSolarAll = T.car_solar_kwh || 0;
     const solarTotal = Math.max(T.solar_kwh || 0, carSolarAll + houseSolar + exp);
@@ -649,7 +659,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
       ['Cars', carSolarAll, '#73bf69', `$${(carSolarAll * (RATE.general - RATE.feedin)).toFixed(2)} saved vs on-peak`],
       ['House', houseSolar, '#5794f2', `$${(houseSolar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs grid`],
       ['Exported', exp, 'rgba(204,204,220,.42)', `$${(exp * RATE.feedin).toFixed(2)} earned at 0.5c`]
-    ], solarTotal, 'kWh generated', `${solarTotal.toFixed(1)} kWh generated ${name}` + (period === 'all' && HISTORY.length ? ` (since ${new Date(HISTORY[0].date + 'T12:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short'})})` : '') + '.');
+    ], solarTotal, solarTotal > 0.05 ? Math.round(100 * (carSolarAll + houseSolar) / solarTotal) : null, 'efficiency', 'Generated', `${solarTotal.toFixed(1)} kWh generated ${name}` + (period === 'all' && HISTORY.length ? ` (since ${new Date(HISTORY[0].date + 'T12:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short'})})` : '') + '.');
     renderSavings(T, name);
   }
   function renderSavings(T, name){
