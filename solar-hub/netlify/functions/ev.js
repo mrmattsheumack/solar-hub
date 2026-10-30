@@ -3,7 +3,8 @@
 // directly (Chrome blocks public pages calling a Tailscale/private address, and
 // this keeps the bridge token out of the page). Netlify calls the Pi's Funnel URL.
 //   GET  /.netlify/functions/ev            -> bridge GET  /api/ev/state
-//   POST /.netlify/functions/ev {mode}     -> bridge POST /api/ev/mode
+//   GET  /.netlify/functions/ev?view=history -> bridge GET /api/ev/history (one row per day)
+//   POST /.netlify/functions/ev {mode?, offpeak?} -> bridge POST /api/ev/mode
 // Needs Netlify env var BRIDGE_TOKEN (same value as BEARER_TOKEN in the Pi's .env), set 2026-10-30.
 const BRIDGE_URL = process.env.BRIDGE_URL || "https://eaglecam.taile03fa1.ts.net";
 
@@ -19,17 +20,30 @@ exports.handler = async (event) => {
     if (event.httpMethod === "POST") {
       let body = {};
       try { body = JSON.parse(event.body || "{}"); } catch (e) {}
-      if (!["auto", "full", "off"].includes(body.mode)) {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: "mode must be auto, full or off" }) };
+      const out = {};
+      if (body.mode !== undefined) {
+        if (!["auto", "full", "off"].includes(body.mode)) {
+          return { statusCode: 400, headers, body: JSON.stringify({ error: "mode must be auto, full or off" }) };
+        }
+        out.mode = body.mode;
       }
+      if (body.offpeak !== undefined) {
+        if (typeof body.offpeak !== "boolean") {
+          return { statusCode: 400, headers, body: JSON.stringify({ error: "offpeak must be true or false" }) };
+        }
+        out.offpeak = body.offpeak;
+      }
+      if (!Object.keys(out).length) return { statusCode: 400, headers, body: JSON.stringify({ error: "send mode and/or offpeak" }) };
       res = await fetch(BRIDGE_URL + "/api/ev/mode", {
         method: "POST",
         headers: { ...auth, "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: body.mode }),
+        body: JSON.stringify(out),
         signal: AbortSignal.timeout(10000),
       });
     } else if (event.httpMethod === "GET") {
-      res = await fetch(BRIDGE_URL + "/api/ev/state", { headers: auth, signal: AbortSignal.timeout(12000) });
+      const view = (event.queryStringParameters || {}).view;
+      const path = view === "history" ? "/api/ev/history" : "/api/ev/state";
+      res = await fetch(BRIDGE_URL + path, { headers: auth, signal: AbortSignal.timeout(15000) });
     } else {
       return { statusCode: 405, headers, body: JSON.stringify({ error: "GET or POST only" }) };
     }

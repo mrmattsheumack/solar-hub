@@ -303,6 +303,14 @@ def _ev_mode() -> str:
         return "auto"
 
 
+def _ev_offpeak() -> bool:
+    try:
+        with open(EV_MODE) as f:
+            return bool(json.load(f).get("offpeak", True))
+    except (FileNotFoundError, ValueError):
+        return True
+
+
 @app.get("/api/ev/state")
 def ev_state():
     _require_bearer()
@@ -361,9 +369,36 @@ def ev_state():
             decisions.append({"ts": r["ts"], "window": r.get("window"), "target_a": r.get("target_a"),
                               "state": c.get("state"), "override": r.get("override"), "reason": r.get("reason")})
             last = sig
+    # Energy into the car since it was last plugged in (spans pauses and new sessions)
+    plugin = None
+    all_rows = _ev_tail_rows()
+    start_i = None
+    for i, r in enumerate(all_rows):
+        c = r.get("charger") or {}
+        if not c.get("plug"):
+            continue                      # no status yet (e.g. just after a restart): not an unplug
+        plugged = c.get("plug") in ("plugged", "plugged_locked")
+        if not plugged:
+            start_i = None
+        elif start_i is None:
+            start_i = i
+    if start_i is not None:
+        kwh, prev_t = 0.0, None
+        for r in all_rows[start_i:]:
+            try:
+                t = time.mktime(time.strptime(r["ts"][:19], "%Y-%m-%dT%H:%M:%S"))
+            except (KeyError, ValueError):
+                continue
+            if prev_t is not None and 0 < t - prev_t < 300:
+                kwh += float((r.get("charger") or {}).get("power_w") or 0) / 1000 * (t - prev_t) / 3600
+            prev_t = t
+        plugin = {"since": all_rows[start_i]["ts"], "kwh": round(kwh, 2),
+                  "exact_start": start_i > 0}   # False = plugged in before the log window began
     return jsonify({
         "latest": latest,
+        "plugin": plugin,
         "mode": _ev_mode(),
+        "offpeak": _ev_offpeak(),
         "series": series,
         "decisions": decisions[-600:],
         "totals": {k: round(v, 2) for k, v in totals.items()},
@@ -373,17 +408,114 @@ def ev_state():
 
 @app.post("/api/ev/mode")
 def ev_set_mode():
+    """Body: {"mode": "auto"|"full"|"off"} and/or {"offpeak": true|false}. Merges into ev_mode.json."""
     _require_bearer()
     body = request.get_json(silent=True) or {}
-    mode = body.get("mode")
-    if mode not in ("auto", "full", "off"):
-        return jsonify({"error": "mode must be auto, full or off"}), 400
+    try:
+        with open(EV_MODE) as f:
+            cur = json.load(f)
+    except (FileNotFoundError, ValueError):
+        cur = {"mode": "auto", "offpeak": True}
+    if "mode" in body:
+        if body["mode"] not in ("auto", "full", "off"):
+            return jsonify({"error": "mode must be auto, full or off"}), 400
+        cur["mode"] = body["mode"]
+    if "offpeak" in body:
+        if not isinstance(body["offpeak"], bool):
+            return jsonify({"error": "offpeak must be true or false"}), 400
+        cur["offpeak"] = body["offpeak"]
+    if "mode" not in body and "offpeak" not in body:
+        return jsonify({"error": "send mode and/or offpeak"}), 400
+    cur.setdefault("offpeak", True)
+    cur["set_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z"); cur["set_by"] = "solar-hub"
     tmp = EV_MODE + ".tmp"
     with open(tmp, "w") as f:
-        json.dump({"mode": mode, "set_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "set_by": "solar-hub"}, f)
+        json.dump(cur, f)
     os.replace(tmp, EV_MODE)
-    log.info("EV mode set to %s", mode)
-    return jsonify({"mode": mode})
+    log.info("EV settings: mode=%s offpeak=%s", cur.get("mode"), cur.get("offpeak"))
+    return jsonify({"mode": cur.get("mode", "auto"), "offpeak": cur["offpeak"]})
+
+
+
+# ---------------------------------------------------------------------------
+# EV all-time history (added 2026-10-30)
+#   GET /api/ev/history -- bearer; one row per day from ev_solar.log:
+#     car kWh split solar / off-peak grid / daytime grid, plus solar and house kWh.
+#   Finished days are cached in ev_daily_cache.json so the log is only read once.
+# ---------------------------------------------------------------------------
+EV_DAILY_CACHE = os.path.join(EV_DIR, "ev_daily_cache.json")
+
+
+def _ev_day_summary(rows: list[dict]) -> dict:
+    t_prev = None
+    out = {"car_solar_kwh": 0.0, "car_offpeak_kwh": 0.0, "car_grid_day_kwh": 0.0,
+           "solar_kwh": 0.0, "house_kwh": 0.0, "export_kwh": 0.0, "import_kwh": 0.0}
+    for r in rows:
+        try:
+            t = time.mktime(time.strptime(r["ts"][:19], "%Y-%m-%dT%H:%M:%S"))
+        except (KeyError, ValueError):
+            continue
+        if t_prev is not None and 0 < t - t_prev < 300:
+            h = (t - t_prev) / 3600
+            c = r.get("charger") or {}
+            car = float(c.get("power_w") or 0)
+            pv = r.get("pv_live_w")
+            if pv is None and r.get("pv_kw") is not None:
+                pv = r["pv_kw"] * 1000
+            pv = float(pv or 0) if r.get("window") == "day" else 0.0
+            house = r.get("house_w")
+            if house is None:
+                house = max(0.0, float(r.get("home_kw") or 0) * 1000 - car)
+            house = float(house)
+            from_solar = min(car, max(0.0, pv - house)) if r.get("window") == "day" else 0.0
+            if r.get("window") == "offpeak":
+                out["car_offpeak_kwh"] += car / 1000 * h
+            else:
+                out["car_solar_kwh"] += from_solar / 1000 * h
+                out["car_grid_day_kwh"] += (car - from_solar) / 1000 * h
+            out["solar_kwh"] += pv / 1000 * h
+            out["house_kwh"] += house / 1000 * h
+            net = pv - house - car
+            out["export_kwh" if net > 0 else "import_kwh"] += abs(net) / 1000 * h
+        t_prev = t
+    return {k: round(v, 2) for k, v in out.items()}
+
+
+@app.get("/api/ev/history")
+def ev_history():
+    _require_bearer()
+    today = time.strftime("%Y-%m-%d")
+    try:
+        with open(EV_DAILY_CACHE) as f:
+            cache = json.load(f)
+    except (FileNotFoundError, ValueError):
+        cache = {}
+    by_day: dict[str, list] = {}
+    try:
+        with open(EV_LOG) as f:
+            for line in f:
+                d = line[8:18]          # line starts {"ts": "YYYY-MM-DD
+                if d in cache and d != today:
+                    continue
+                try:
+                    r = json.loads(line)
+                except ValueError:
+                    continue
+                by_day.setdefault(r["ts"][:10], []).append(r)
+    except FileNotFoundError:
+        pass
+    changed = False
+    for d, rows in by_day.items():
+        cache[d] = _ev_day_summary(rows)
+        if d != today:
+            changed = True
+    if changed:
+        tmp = EV_DAILY_CACHE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump({k: v for k, v in cache.items() if k != today}, f)
+        os.replace(tmp, EV_DAILY_CACHE)
+    days = [{"date": d, **cache[d]} for d in sorted(cache)]
+    return jsonify({"days": days, "server_time": time.strftime("%Y-%m-%dT%H:%M:%S%z")})
 
 
 

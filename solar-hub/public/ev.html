@@ -11,6 +11,7 @@
 /* Solar Hub EV Charging. Live view of the Pi controller (ev_solar.py) via the bridge.
    Tokens copied from Solar Hub index.html (dark-first). */
 :root{
+  --import-soft:rgba(255,84,112,.45);
   --bg:#0b0f1a; --surface:#121828; --surface-2:#1a2137; --surface-3:#242c46;
   --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
   --text:#ecedf5; --text-muted:#8890a8; --text-dim:#5a6178;
@@ -59,6 +60,28 @@ a{color:inherit}
 .seg-sm button{font-size:12px;padding:6px 10px;border-radius:8px}
 .mode-msg{text-align:right;margin-top:-12px}
 .facts-2{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+.pie-legend{display:flex;flex-direction:column;gap:6px;font-size:13px;min-width:0}
+.pie-legend div{display:flex;align-items:center;gap:8px}
+.pie-legend i{width:10px;height:10px;border-radius:3px;flex:0 0 auto}
+.pie-legend b{font-family:var(--mono);font-weight:500;margin-left:auto;padding-left:12px;font-variant-numeric:tabular-nums}
+.batt{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.batt-top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.car-pick button{padding:5px 10px}
+.batt-row{display:flex;align-items:center;gap:12px}
+.batt-svg{width:84px;height:31px;flex:0 0 auto}
+.batt-text{display:flex;flex-direction:column;min-width:0;font-size:12px;color:var(--text-muted)}
+.batt-text b{font-family:var(--mono);font-size:17px;font-weight:500;color:var(--text)}
+.toggle{display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:12px;font-weight:600;color:var(--text-muted);background:var(--surface-2);border:1px solid var(--border-strong);border-radius:999px;padding:5px 12px 5px 6px;cursor:pointer;white-space:nowrap}
+.toggle .sw{width:28px;height:16px;border-radius:999px;background:var(--surface-3);position:relative;transition:background .2s}
+.toggle .sw::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--text-muted);transition:transform .2s,background .2s}
+.toggle[aria-pressed="true"]{color:var(--text)}
+.toggle[aria-pressed="true"] .sw{background:color-mix(in srgb,var(--home) 45%,transparent)}
+.toggle[aria-pressed="true"] .sw::after{transform:translateX(12px);background:var(--home)}
+.toggle:focus-visible{outline:2px solid var(--export);outline-offset:2px}
+.toggle[disabled]{opacity:.5;cursor:wait}
+@media (prefers-reduced-motion:reduce){.toggle .sw,.toggle .sw::after{transition:none}}
+.strip .op.skipped{background:var(--surface-2);color:var(--text-muted);text-decoration:line-through}
+.link-stack{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
 .fact .sub{font-size:11px;color:var(--text-dim);margin-top:2px;line-height:1.3}
 .fact .label{line-height:1.3}
 .link-btn{font-size:13px;font-weight:600;color:var(--export);text-decoration:none;padding:4px 10px;border-radius:8px;border:1px solid var(--border-strong)}
@@ -185,6 +208,9 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
         <button id="m-full" aria-pressed="false" data-mode="full" title="Charge at 32 A now, whatever the sun is doing">Full speed</button>
         <button id="m-off" aria-pressed="false" data-mode="off" title="Never start a charge (the charger button still works)">Off</button>
       </div>
+      <button class="toggle" id="offpeak-btn" aria-pressed="true" title="Charge at full rate 12–6 am at the 8c rate. Turn off ahead of sunny days to charge on solar instead.">
+        <span class="sw" aria-hidden="true"></span><span>Off-peak 12–6 am</span>
+      </button>
       <span class="pill muted" id="status-pill"><span class="dot"></span><span id="status-text">Connecting…</span></span>
     </div>
   </header>
@@ -209,27 +235,35 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
         </div>
       </div>
       <div class="facts">
-        <div class="fact"><div class="label">Total current solar generation</div><div class="v" id="f-solar">–</div></div>
-        <div class="fact"><div class="label">Current car consumption</div><div class="v" id="f-power">–</div></div>
-        <div class="fact"><div class="label">Current house consumption</div><div class="v" id="f-house">–</div></div>
+        <div class="fact"><div class="label">Total solar gen</div><div class="v" id="f-solar">–</div></div>
+        <div class="fact"><div class="label">Car consumption</div><div class="v" id="f-power">–</div></div>
+        <div class="fact"><div class="label">House consumption</div><div class="v" id="f-house">–</div></div>
         <div class="fact"><div class="label">Grid export / import</div><div class="v" id="f-grid">–</div></div>
       </div>
       <div class="facts-note">Solar = car + house + grid. House excludes the car.</div>
     </div>
 
     <div class="panel">
-      <div class="label">Today so far</div>
+      <div class="label">Daily</div>
       <div class="state">
-        <svg class="gauge" viewBox="0 0 120 120" aria-hidden="true">
-          <circle cx="60" cy="60" r="50" fill="none" stroke="var(--surface-3)" stroke-width="10"/>
-          <circle class="ring" id="ring-solar" cx="60" cy="60" r="50" fill="none" stroke="var(--solar)" stroke-width="10" stroke-linecap="round"
-                  stroke-dasharray="314.16" stroke-dashoffset="314.16" transform="rotate(-90 60 60)"/>
-          <text id="g-solar" x="60" y="58" text-anchor="middle" fill="var(--text)" font-family="JetBrains Mono, monospace" font-size="24" font-weight="500">–</text>
-          <text x="60" y="78" text-anchor="middle" fill="var(--text-muted)" font-family="Inter, sans-serif" font-size="11">% solar</text>
-        </svg>
-        <div class="state-text">
-          <div class="state-big" id="today-big">–</div>
-          <div class="state-why" id="today-why">Adding up today's charging.</div>
+        <svg class="gauge" id="pie" viewBox="0 0 120 120" role="img" aria-label="Where today's car charging came from"></svg>
+        <div class="pie-legend" id="pie-legend"></div>
+      </div>
+      <div class="batt" id="batt" hidden>
+        <div class="batt-top">
+          <div class="seg seg-sm car-pick" role="group" aria-label="Which car is plugged in">
+            <button id="car-ioniq" aria-pressed="false" data-car="ioniq">IONIQ 5</button>
+            <button id="car-ev5" aria-pressed="false" data-car="ev5">EV5</button>
+          </div>
+          <span class="note" id="batt-since"></span>
+        </div>
+        <div class="batt-row">
+          <svg viewBox="0 0 120 44" class="batt-svg" aria-hidden="true">
+            <rect x="2" y="4" width="104" height="36" rx="7" fill="none" stroke="var(--text-muted)" stroke-width="2.5"/>
+            <rect x="108" y="15" width="7" height="14" rx="2" fill="var(--text-muted)"/>
+            <rect id="batt-fill" x="7" y="9" width="0" height="26" rx="4" fill="var(--car)"/>
+          </svg>
+          <div class="batt-text"><b id="batt-pct">–</b><span id="batt-detail"></span></div>
         </div>
       </div>
       <div class="facts facts-2" id="totals"></div>
@@ -239,12 +273,12 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
   <section class="panel">
     <div class="panel-head">
       <h2>Today</h2>
-      <a class="link-btn" href="history.html">History ›</a>
+      <div class="link-stack"><a class="link-btn" href="decisions.html">Decisions ›</a><a class="link-btn" href="history.html">History ›</a></div>
     </div>
     <div class="chart-box"><svg class="chart" id="chart" viewBox="0 0 1000 340" role="img" aria-label="Today: solar generation, house use and car charging by hour"></svg></div>
     <div class="legend">
       <span><i style="background:var(--solar)"></i>Solar generation</span>
-      <span><i style="background:var(--home)"></i>Total house use</span><span><i style="background:var(--import)"></i>Total house use, from the grid</span>
+      <span><i style="background:var(--home)"></i>Total house use</span><span><i style="background:var(--import)"></i>From the grid, 27.6c</span><span><i style="background:var(--import-soft)"></i>From the grid, off-peak 8c</span>
       <span><i style="background:var(--car)"></i>Car charging</span>
       <span><i style="background:var(--offpeak);border:1px solid var(--home)"></i>Off-peak window</span>
     </div>
@@ -276,12 +310,19 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     </div>
   </section>
 
-  <p class="foot" id="foot">Live data from the controller on the Pi, refreshed every 30 seconds. Solar is read straight from the inverter; house use comes from GoodWe's cloud and runs a few minutes behind. Rates: AGL Night Saver EV, 26.5c peak, 8c off-peak, 1.5c feed-in.</p>
+  <p class="foot" id="foot">Live data from the controller on the Pi, refreshed every 30 seconds. Solar is read straight from the inverter; house use comes from GoodWe's cloud and runs a few minutes behind. Rates from the AGL bill (Night Saver EV): 27.6c general, 8c off-peak 12–6 am, 0.5c feed-in.</p>
 </div>
 
 <script>
 (function(){
   const EV_API = '/.netlify/functions/ev';   // Netlify proxies to the Pi; no key in the page
+  // AGL Night Saver EV, from the bill for 16 Sep to 15 Oct 2026 (incl. GST)
+  const RATE = { general: 0.27621, offpeak: 0.08, feedin: 0.005 };
+  // Usable battery sizes (kWh). 2023 IONIQ 5 Long Range and EV5 Long Range; change here if yours differ.
+  const CARS = { ioniq: { name:'IONIQ 5', kwh:72.6 }, ev5: { name:'EV5', kwh:88 } };
+  let carKey = 'ioniq';
+  try { const k = localStorage.getItem('ev-car'); if (CARS[k]) carKey = k; } catch (e) {}
+  let lastPlugin = null;
   const REFRESH_MS = 30000, V_NOM = 240, MAX_A = 32;
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -297,6 +338,8 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
       const src = who === 'Clock' ? "the charger's own schedule" : who ? `the charger (${who})` : 'the button or app';
       return { tag:'Override', cls:'over', text:`Full charge started by ${src}. Hands off.` };
     }
+    if (/skipped the charger's own midnight schedule/.test(reason)) return { tag:'Skipped', cls:'pause', text:"Off-peak turned off, stopped the charger's midnight schedule" };
+    if (/off-peak turned off/.test(reason)) return { tag:'Waiting', cls:'pause', text:'Off-peak turned off, waiting for solar' };
     if (/off-peak window/.test(reason)) return { tag:'Off-peak', cls:'full', text:'Off-peak window, full rate' };
     if (/mode full/.test(reason)) return { tag:'Full', cls:'full', text:'Full speed mode' };
     if (/mode off/.test(reason)) return { tag:'Off', cls:'pause', text:'Charging turned off' };
@@ -334,6 +377,45 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     } catch (e) { $('mode-msg').textContent = "Couldn't save the mode. Check the Pi is online and try again."; }
     finally { btns.forEach(x => x.disabled = false); }
   }));
+
+  // ---------- battery estimate: energy since plugged in vs battery size ----------
+  function renderBattery(plugin){
+    lastPlugin = plugin;
+    const box = $('batt');
+    if (!plugin) { box.hidden = true; return; }
+    box.hidden = false;
+    document.querySelectorAll('.car-pick button').forEach(b => b.setAttribute('aria-pressed', b.dataset.car === carKey ? 'true' : 'false'));
+    const car = CARS[carKey], pct = Math.min(100, 100 * plugin.kwh / car.kwh);
+    $('batt-fill').setAttribute('width', (96 * pct / 100).toFixed(1));
+    $('batt-pct').textContent = '+' + Math.round(pct) + '%';
+    $('batt-detail').textContent = `${plugin.kwh.toFixed(1)} of ${car.kwh} kWh added`;
+    $('batt-since').textContent = (plugin.exact_start ? 'Since plugged in ' : 'Since at least ') + fmtTime(plugin.since);
+  }
+  document.querySelectorAll('.car-pick button').forEach(b => b.addEventListener('click', () => {
+    carKey = b.dataset.car; try { localStorage.setItem('ev-car', carKey); } catch (e) {}
+    renderBattery(lastPlugin);
+  }));
+
+  // ---------- off-peak on/off ----------
+  let offpeakOn = true, offpeakBusy = false;
+  function showOffpeak(on){
+    offpeakOn = on;
+    $('offpeak-btn').setAttribute('aria-pressed', on ? 'true' : 'false');
+    const op = $('w-offpeak');
+    op.classList.toggle('skipped', !on);
+    op.innerHTML = on ? '12 am – 6 am<span>Full rate, 8c off-peak</span>' : '12 am – 6 am<span>Off, charging on solar instead</span>';
+  }
+  $('offpeak-btn').addEventListener('click', async () => {
+    const want = !offpeakOn; offpeakBusy = true; $('offpeak-btn').disabled = true; $('mode-msg').textContent = 'Saving…';
+    try {
+      const r = await fetch(EV_API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({offpeak: want}), signal: AbortSignal.timeout(10000) });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      showOffpeak(want);
+      $('mode-msg').textContent = want ? 'Off-peak charging on: full rate 12–6 am.' : 'Off-peak charging off: the car will only charge on solar (or when you press the charger button).';
+      setTimeout(() => { $('mode-msg').textContent = ''; }, 8000);
+    } catch (e) { $('mode-msg').textContent = "Couldn't save. Check the Pi is online and try again."; }
+    finally { offpeakBusy = false; $('offpeak-btn').disabled = false; }
+  });
 
   // ---------- render ----------
   function renderNow(d){
@@ -379,17 +461,20 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
 
   function renderTotals(t){
     const solar = t.car_solar_kwh || 0, off = t.car_offpeak_kwh || 0, grid = t.car_grid_day_kwh || 0;
-    const total = solar + off + grid, saving = solar * (0.08 - 0.015);
+    const total = solar + off + grid, saving = solar * (RATE.offpeak - RATE.feedin);
     const pct = total > 0 ? Math.round(100 * solar / total) : 0;
-    $('ring-solar').style.strokeDashoffset = 314.16 * (1 - pct / 100);
-    $('g-solar').textContent = total > 0 ? pct : '–';
-    $('today-big').textContent = total > 0 ? `${total.toFixed(1)} kWh into the car` : 'No charging yet today';
-    $('today-why').textContent = solar > 0 ? `${solar.toFixed(1)} kWh of it from spare solar, saving $${saving.toFixed(2)}.` : 'Nothing from solar yet today.';
+    const parts = [ ['Solar', solar, 'var(--solar)'], ['Grid, off-peak', off, 'var(--import-soft)'], ['Grid, daytime', grid, 'var(--import)'] ];
+    let pie = '<circle cx="60" cy="60" r="50" fill="none" stroke="var(--surface-3)" stroke-width="18"/>', acc = 0;
+    if (total > 0) parts.forEach(([_, v, col]) => { if (v <= 0) return; const len = 314.16 * v / total;
+      pie += `<circle cx="60" cy="60" r="50" fill="none" stroke="${col}" stroke-width="18" stroke-dasharray="${len.toFixed(2)} ${(314.16 - len).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 60 60)"/>`; acc += len; });
+    pie += `<text x="60" y="58" text-anchor="middle" fill="var(--text)" font-family="JetBrains Mono, monospace" font-size="22" font-weight="500">${total > 0 ? pct + '%' : '–'}</text><text x="60" y="76" text-anchor="middle" fill="var(--text-muted)" font-family="Inter, sans-serif" font-size="11">solar</text>`;
+    $('pie').innerHTML = pie;
+    $('pie-legend').innerHTML = parts.map(([n, v, col]) => `<div><i style="background:${col}"></i>${n}<b>${v.toFixed(1)} kWh</b></div>`).join('') + `<div class="note">Where today's ${total.toFixed(1)} kWh into the car came from</div>`;
     const rows = [
       ['Solar into car', solar.toFixed(1), 'kWh', 'From spare solar'],
       ['Off-peak charge', off.toFixed(1), 'kWh', '12 – 6 am at 8c'],
-      ['Grid used by day', grid.toFixed(1), 'kWh', 'Riding out clouds, or a manual charge'],
-      ['Saved vs off-peak', '$' + saving.toFixed(2), '', 'Solar instead of 8c grid, less 1.5c feed-in']
+      ['Grid used by day', grid.toFixed(1), 'kWh', `$${(grid * RATE.general).toFixed(2)} at 27.6c, riding out clouds`],
+      ['Saved vs off-peak', '$' + saving.toFixed(2), '', 'Solar instead of 8c off-peak, less 0.5c feed-in']
     ];
     $('totals').innerHTML = rows.map(r => `<div class="fact"><div class="label">${r[0]}</div><div class="v">${r[1]}${r[2] ? `<small> ${r[2]}</small>` : ''}</div><div class="sub">${r[3]}</div></div>`).join('');
   }
@@ -452,7 +537,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
       el('path',{d,fill:'var(--home)','fill-opacity':0.08,stroke:'none'});
       for (let i=1;i<sg.length;i++){
         const a=sg[i-1], b=sg[i], fromGrid = (a.home + b.home)/2 > (a.pv + b.pv)/2 + 0.05;
-        el('line',{x1:x(a.h).toFixed(1),y1:y(a.home).toFixed(1),x2:x(b.h).toFixed(1),y2:y(b.home).toFixed(1),stroke: fromGrid ? 'var(--import)' : 'var(--home)','stroke-width':2,'stroke-linecap':'round'});
+        el('line',{x1:x(a.h).toFixed(1),y1:y(a.home).toFixed(1),x2:x(b.h).toFixed(1),y2:y(b.home).toFixed(1),stroke: fromGrid ? (b.h <= 6 ? 'var(--import-soft)' : 'var(--import)') : 'var(--home)','stroke-width':2,'stroke-linecap':'round'});
       }
     });
   }
@@ -507,7 +592,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
       const r = await fetch(EV_API, { signal: AbortSignal.timeout(15000) });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json(); failures = 0; $('banner').hidden = true;
-      renderNow(d); renderTotals(d.totals || {}); renderChart(d.series);
+      renderNow(d); renderTotals(d.totals || {}); renderBattery(d.plugin); renderChart(d.series); if (!offpeakBusy && typeof d.offpeak === 'boolean') showOffpeak(d.offpeak);
     } catch (e) {
       failures++;
       if (failures >= 2) { $('banner').hidden = false; $('banner').textContent = "Can't reach the Pi at eaglecam. The controller keeps running on its own; this page just can't see it. Check the Pi is on and connected to WiFi."; }

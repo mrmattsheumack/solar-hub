@@ -11,6 +11,7 @@
 /* Solar Hub EV Charging. Live view of the Pi controller (ev_solar.py) via the bridge.
    Tokens copied from Solar Hub index.html (dark-first). */
 :root{
+  --import-soft:rgba(255,84,112,.45);
   --bg:#0b0f1a; --surface:#121828; --surface-2:#1a2137; --surface-3:#242c46;
   --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
   --text:#ecedf5; --text-muted:#8890a8; --text-dim:#5a6178;
@@ -59,6 +60,11 @@ a{color:inherit}
 .seg-sm button{font-size:12px;padding:6px 10px;border-radius:8px}
 .mode-msg{text-align:right;margin-top:-12px}
 .facts-2{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+.pie-legend{display:flex;flex-direction:column;gap:6px;font-size:13px;min-width:0}
+.pie-legend div{display:flex;align-items:center;gap:8px}
+.pie-legend i{width:10px;height:10px;border-radius:3px;flex:0 0 auto}
+.pie-legend b{font-family:var(--mono);font-weight:500;margin-left:auto;padding-left:12px;font-variant-numeric:tabular-nums}
+.link-stack{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
 .fact .sub{font-size:11px;color:var(--text-dim);margin-top:2px;line-height:1.3}
 .fact .label{line-height:1.3}
 .link-btn{font-size:13px;font-weight:600;color:var(--export);text-decoration:none;padding:4px 10px;border-radius:8px;border:1px solid var(--border-strong)}
@@ -176,263 +182,107 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
       <a class="back" href="ev.html" aria-label="Back to EV Charging">‹</a>
       <div>
         <h1>Charging history</h1>
-        <div class="where">What the controller decided today, newest first</div>
+        <div class="where">Every day since the controller started</div>
       </div>
     </div>
-    <span class="pill muted" id="status-pill"><span class="dot"></span><span id="status-text">Connecting…</span></span>
+    <span class="pill muted" id="status-pill"><span class="dot"></span><span id="status-text">Loading…</span></span>
   </header>
 
   <div class="banner" id="banner" hidden></div>
 
+  <section class="totals" id="totals"></section>
+
   <section class="panel">
     <div class="panel-head">
-      <h2>Today's decisions</h2>
-      <span class="note">Runs of the same decision are merged, with the range of current used</span>
+      <h2>Car charging by day</h2>
+      <span class="note">Where each day's charge came from</span>
     </div>
-    <div class="log" id="log"><div class="empty">Loading…</div></div>
+    <div class="chart-box"><svg class="chart" id="chart" viewBox="0 0 1000 340" role="img" aria-label="Car charging per day, split by solar, off-peak grid and daytime grid"></svg></div>
+    <div class="legend">
+      <span><i style="background:var(--solar)"></i>Solar into car</span>
+      <span><i style="background:var(--import-soft)"></i>From the grid, off-peak 8c</span>
+      <span><i style="background:var(--import)"></i>From the grid, 27.6c</span>
+      <span><i style="background:var(--home);height:3px;vertical-align:3px"></i>Solar generated (kWh)</span>
+    </div>
   </section>
 
-  <p class="foot">From the controller log on the Pi, refreshed every 30 seconds.</p>
-</div>
+  <section class="panel">
+    <div class="panel-head"><h2>Day by day</h2><span class="note">kWh</span></div>
+    <div class="chart-box"><table class="days" id="days"></table></div>
+  </section>
 
+  <p class="foot">Worked out from the controller log on the Pi. Rates from the AGL bill (Night Saver EV): 27.6c general, 8c off-peak 12–6 am, 0.5c feed-in. 29 Oct house figures are low: GoodWe's feed was returning zeros until about 7 pm that day.</p>
+</div>
+<style>
+.totals{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media (max-width:760px){.totals{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tot{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;min-width:0}
+.tot .v{font-family:var(--mono);font-size:24px;font-weight:500;margin-top:4px}
+.tot .v small{font-size:13px;color:var(--text-muted)}
+.tot .sub{font-size:12px;color:var(--text-dim);margin-top:2px}
+table.days{width:100%;border-collapse:collapse;font-size:13px;min-width:560px}
+table.days th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600;text-align:right;padding:6px 8px;border-bottom:1px solid var(--border)}
+table.days th:first-child,table.days td:first-child{text-align:left}
+table.days td{padding:8px;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;border-bottom:1px solid var(--border)}
+</style>
 <script>
 (function(){
-  const EV_API = '/.netlify/functions/ev';   // Netlify proxies to the Pi; no key in the page
-  const REFRESH_MS = 30000, V_NOM = 240, MAX_A = 32;
+  const RATE = { general: 0.27621, offpeak: 0.08, feedin: 0.005 };
   const $ = id => document.getElementById(id);
-  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const kw = w => (w == null ? '–' : (w / 1000).toFixed(1));
-  const fmtTime = iso => { const d = new Date(iso); return d.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit'}).replace(' ', ' ').toLowerCase(); };
-
-  // ---------- reason text: controller log -> plain English ----------
-  function explain(r, st){
-    const reason = r || '';
-    let m;
-    if (/MANUAL OVERRIDE/.test(reason)) {
-      const who = (reason.match(/started by '([^']*)'/) || [])[1];
-      const src = who === 'Clock' ? "the charger's own schedule" : who ? `the charger (${who})` : 'the button or app';
-      return { tag:'Override', cls:'over', text:`Full charge started by ${src}. Hands off.` };
-    }
-    if (/off-peak window/.test(reason)) return { tag:'Off-peak', cls:'full', text:'Off-peak window, full rate' };
-    if (/mode full/.test(reason)) return { tag:'Full', cls:'full', text:'Full speed mode' };
-    if (/mode off/.test(reason)) return { tag:'Off', cls:'pause', text:'Charging turned off' };
-    if (/evening peak/.test(reason)) return { tag:'Evening', cls:'pause', text:'Evening peak rate, waiting for midnight' };
-    if (/fail-safe/.test(reason)) return { tag:'Paused', cls:'pause', text:'No solar reading, paused to be safe' };
-    if ((m = reason.match(/spare (-?\d+) W, holding (\d+)\/(\d+)s/))) return { tag:'Waiting', cls:'solar', text:`${kw(+m[1])} kW spare, checking it holds (${m[2]} of ${m[3]} s)` };
-    if ((m = reason.match(/spare (-?\d+) W low, riding at min/))) return { tag:'Cloud', cls:'solar', text:`Spare solar dropped to ${kw(Math.max(0,+m[1]))} kW, easing at the minimum` };
-    if ((m = reason.match(/spare (-?\d+) W -> (\d+) A/))) return { tag:'Solar', cls:'solar', text:`Following ${kw(+m[1])} kW of spare solar` };
-    if ((m = reason.match(/spare (-?\d+) W below/))) return { tag:'Pause', cls:'pause', text: +m[1] > 0 ? `Only ${kw(+m[1])} kW spare, needs 1.4 kW` : 'No spare solar, house is using it all' };
-    if (/charger unreachable/.test(reason)) return { tag:'Error', cls:'over', text:"Can't reach the charger" };
-    return { tag:'Info', cls:'pause', text: reason.split('|')[0].trim() || '–' };
-  }
-  const stateWords = { charging:'On', ready:'Ready', complete:'Full', full:'Full', not_connected:'Unplugged', reserved:'Booked' };
-
-  // ---------- mode control ----------
-  const desc = {
-    auto: 'Full rate midnight to 6 am. During the day the car takes only spare solar. Off in the evening.',
-    full: 'Charge at 32 A now, whatever the sun is doing. Switch back to Auto when you are done.',
-    off:  'Never start a charge. The button on the charger still works.'
-  };
-  let currentMode = null;
-  const btns = [...document.querySelectorAll('.seg button')];
-  function showMode(m){
-    currentMode = m;
-    btns.forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === m ? 'true' : 'false'));
-  }
-  btns.forEach(b => b.addEventListener('click', async () => {
-    const m = b.dataset.mode; if (m === currentMode) return;
-    btns.forEach(x => x.disabled = true); $('mode-msg').textContent = 'Saving…';
-    try {
-      const r = await fetch(EV_API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({mode:m}), signal: AbortSignal.timeout(10000) });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      showMode(m); $('mode-msg').textContent = 'Saved: ' + ({auto:'Auto',full:'Full speed',off:'Off'})[m] + '. The controller picks it up within 30 seconds.'; setTimeout(()=>{ $('mode-msg').textContent=''; }, 8000);
-      setTimeout(load, 3000);
-    } catch (e) { $('mode-msg').textContent = "Couldn't save the mode. Check the Pi is online and try again."; }
-    finally { btns.forEach(x => x.disabled = false); }
-  }));
-
-  // ---------- render ----------
-  function renderNow(d){
-    const L = d.latest || {}, c = L.charger || {};
-    const plugged = c.plug === 'plugged' || c.plug === 'plugged_locked';
-    const watts = c.power_w || 0, amps = c.amps || 0;
-    const ring = $('ring');
-    ring.style.strokeDashoffset = 314.16 * (1 - Math.min(1, amps / MAX_A));
-    ring.setAttribute('stroke', L.override ? 'var(--import)' : L.window === 'offpeak' ? 'var(--home)' : 'var(--car)');
-    $('g-val').textContent = amps ? amps.toFixed(0) : '0';
-    const ex = explain(L.reason, c);
-    let big, why;
-    if (!plugged) { big = 'Nothing plugged in'; why = 'Plug in a car and it will charge on the next spare solar, or from midnight.'; }
-    else if (c.state === 'charging' && watts > 200) {
-      big = L.override ? 'Car charging, full rate' : L.window === 'offpeak' ? 'Car charging, off-peak' : 'Car charging on solar';
-      why = `${kw(watts)} kW into the car. ${ex.text}.`;
-    } else if (c.state === 'charging') { big = 'Car is not drawing'; why = 'A charge is open but the car is taking nothing. It is probably full.'; }
-    else if (c.state === 'complete' || c.state === 'full') { big = 'Car is full'; why = ex.text + '.'; }
-    else { big = 'Car plugged in, waiting'; why = ex.text + '.'; }
-    $('state-big').textContent = big; $('state-why').textContent = why;
-    $('now-label').textContent = 'Right now · ' + (L.ts ? fmtTime(L.ts) : '');
-    $('f-power').innerHTML = `${kw(watts)}<small> kW</small>`;
-    const pv = L.pv_live_w != null ? L.pv_live_w : (L.pv_kw != null ? L.pv_kw * 1000 : null);
-    $('f-solar').innerHTML = `${kw(pv)}<small> kW</small>`;
-    // House excluding the car: the controller's own figure by day, else SEMS load minus the car
-    const houseW = L.house_w != null ? L.house_w : (L.home_kw != null ? Math.max(0, L.home_kw * 1000 - watts) : null);
-    $('f-house').innerHTML = `${kw(houseW)}<small> kW</small>`;
-    if (pv != null && houseW != null) {
-      const g = pv - houseW - watts;   // + export, - import
-      const dir = Math.abs(g) < 50 ? '' : g > 0 ? ' export' : ' import';
-      $('f-grid').innerHTML = `<span style="color:${g >= 50 ? 'var(--export)' : g <= -50 ? 'var(--import)' : 'inherit'}">${kw(Math.abs(g))}</span><small> kW${dir}</small>`;
-    } else { $('f-grid').innerHTML = '–'; }
-    // window highlight
-    ['w-offpeak','w-day','w-evening'].forEach(id => $(id).classList.toggle('now', id === 'w-' + L.window));
-    // status pill
-    const age = L.ts ? (Date.now() - new Date(L.ts).getTime()) / 1000 : 1e9;
-    const pill = $('status-pill');
-    if (age > 180) { pill.className = 'pill err'; $('status-text').textContent = `No update for ${Math.round(age/60)} min`; }
-    else if (L.dry_run) { pill.className = 'pill watch'; $('status-text').textContent = 'Watch only, not controlling'; }
-    else { pill.className = 'pill live'; $('status-text').textContent = 'Live · controlling the charger'; }
-    if (!currentMode || !btns.some(b => b.disabled)) showMode(d.mode || L.mode || 'auto');
-  }
-
-  function renderTotals(t){
-    const solar = t.car_solar_kwh || 0, off = t.car_offpeak_kwh || 0, grid = t.car_grid_day_kwh || 0;
-    const total = solar + off + grid, saving = solar * (0.08 - 0.015);
-    const pct = total > 0 ? Math.round(100 * solar / total) : 0;
-    $('ring-solar').style.strokeDashoffset = 314.16 * (1 - pct / 100);
-    $('g-solar').textContent = total > 0 ? pct : '–';
-    $('today-big').textContent = total > 0 ? `${total.toFixed(1)} kWh into the car` : 'No charging yet today';
-    $('today-why').textContent = solar > 0 ? `${solar.toFixed(1)} kWh of it from spare solar, saving $${saving.toFixed(2)}.` : 'Nothing from solar yet today.';
+  const dayLabel = d => new Date(d + 'T12:00:00').toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' });
+  function render(days){
+    let solar=0, off=0, grid=0;
+    days.forEach(d => { solar += d.car_solar_kwh; off += d.car_offpeak_kwh; grid += d.car_grid_day_kwh; });
+    const saved = solar * (RATE.offpeak - RATE.feedin), total = solar + off + grid;
+    const cost = off * RATE.offpeak + grid * RATE.general;
     const rows = [
-      ['Solar into car', solar.toFixed(1), 'kWh', 'From spare solar'],
-      ['Off-peak charge', off.toFixed(1), 'kWh', '12 – 6 am at 8c'],
-      ['Grid used by day', grid.toFixed(1), 'kWh', 'Riding out clouds, or a manual charge'],
-      ['Saved vs off-peak', '$' + saving.toFixed(2), '', 'Solar instead of 8c grid, less 1.5c feed-in']
+      ['Solar into car', solar.toFixed(1), 'kWh', `${total ? Math.round(100*solar/total) : 0}% of all charging`],
+      ['Off-peak charge', off.toFixed(1), 'kWh', `$${(off*RATE.offpeak).toFixed(2)} at 8c`],
+      ['Grid used by day', grid.toFixed(1), 'kWh', `$${(grid*RATE.general).toFixed(2)} at 27.6c`],
+      ['Saved by solar', '$' + saved.toFixed(2), '', `Car charging cost $${cost.toFixed(2)} in total`]
     ];
-    $('totals').innerHTML = rows.map(r => `<div class="fact"><div class="label">${r[0]}</div><div class="v">${r[1]}${r[2] ? `<small> ${r[2]}</small>` : ''}</div><div class="sub">${r[3]}</div></div>`).join('');
-  }
+    $('totals').innerHTML = rows.map(r => `<div class="tot"><div class="label">${r[0]}</div><div class="v">${r[1]}${r[2]?`<small> ${r[2]}</small>`:''}</div><div class="sub">${r[3]}</div></div>`).join('');
 
-  function renderLog(list){
-    if (!list || !list.length) { $('log').innerHTML = '<div class="empty">No decisions logged yet today.</div>'; return; }
-    // Merge runs of the same kind of decision (e.g. a stream of solar adjustments) into one line
-    const groups = [];
-    list.forEach(x => {
-      const ex = explain(x.reason);
-      const finished = (x.state === 'complete' || x.state === 'full') && !x.target_a;
-      const tag = finished ? {tag:'Finished',cls:'pause'} : ex;
-      const g = groups[groups.length - 1];
-      if (g && g.tag === tag.tag) {
-        g.end = x.ts; g.last = ex.text;
-        if (x.target_a) { g.min = Math.min(g.min ?? x.target_a, x.target_a); g.max = Math.max(g.max ?? x.target_a, x.target_a); }
-        g.n++;
-      } else {
-        groups.push({ start: x.ts, end: x.ts, tag: tag.tag, cls: tag.cls, last: ex.text, min: x.target_a || null, max: x.target_a || null, n: 1 });
-      }
-    });
-    const text = g => g.n > 1 && g.tag === 'Solar' ? 'Following spare solar as it changed' : g.n > 1 && g.tag === 'Cloud' ? 'Easing at the minimum through cloud' : g.last;
-    const amps = g => !g.max ? '–' : g.min === g.max ? g.max + ' A' : `${g.min}–${g.max} A`;
-    const when = g => g.n > 1 && fmtTime(g.start) !== fmtTime(g.end) ? `${fmtTime(g.start)}` : fmtTime(g.start);
-    $('log').innerHTML = groups.slice(-30).reverse().map(g =>
-      `<div class="row"><span class="t">${esc(when(g))}</span><span class="tag ${g.cls}">${esc(g.tag)}</span><span class="r">${esc(text(g))}${g.n > 1 ? ` <span class="note">until ${esc(fmtTime(g.end))}</span>` : ''}</span><span class="a">${amps(g)}</span></div>`
-    ).join('');
-  }
-
-  function renderChart(series){
+    // stacked bars per day + solar generated line
     const svg = $('chart'); svg.innerHTML = '';
-    const W=1000,H=340,L=44,R=12,T=14,B=34, ns='http://www.w3.org/2000/svg';
+    const W=1000,H=340,L=44,R=12,T=14,B=40, ns='http://www.w3.org/2000/svg';
     const el=(n,a,txt)=>{const e=document.createElementNS(ns,n);for(const k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;svg.appendChild(e);return e;};
-    const pts = (series||[]).map(s => { const [h,m]=s.t.split(':').map(Number); return {h:h+m/60+2.5/60, pv:s.pv/1000, home:s.home/1000, car:s.car/1000}; });
-    const peak = Math.max(4, ...pts.map(p=>Math.max(p.pv,p.home,p.car)));
-    const ymax = Math.ceil(peak/2)*2;
-    const x=h=>L+(W-L-R)*h/24, y=v=>T+(H-T-B)*(1-v/ymax);
-    el('rect',{x:x(0),y:T,width:x(6)-x(0),height:H-T-B,fill:'var(--offpeak)'});
-    el('rect',{x:x(21),y:T,width:x(24)-x(21),height:H-T-B,fill:'var(--peak)'});
-    for(let v=0;v<=ymax;v+=2){ el('line',{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:'var(--border)','stroke-width':1});
-      el('text',{x:L-8,y:y(v)+4,'text-anchor':'end','font-size':11,fill:'var(--text-dim)','font-family':'JetBrains Mono, monospace'}, v+(v===ymax?' kW':'')); }
-    for(let h=0;h<=24;h+=3){ el('text',{x:x(h),y:H-12,'text-anchor':h===0?'start':h===24?'end':'middle','font-size':11,fill:'var(--text-dim)','font-family':'JetBrains Mono, monospace'}, h===0||h===24?'12am':h<12?h+'am':h===12?'12pm':(h-12)+'pm'); }
-    const nowH = (()=>{const d=new Date();return d.getHours()+d.getMinutes()/60;})();
-    el('line',{x1:x(nowH),x2:x(nowH),y1:T,y2:H-B,stroke:'var(--text-dim)','stroke-dasharray':'3 4','stroke-width':1});
-    el('text',{x:x(nowH)+4,y:T+12,'font-size':11,fill:'var(--text-muted)','font-family':'Inter, sans-serif'},'now');
-    if (!pts.length) { el('text',{x:W/2,y:H/2,'text-anchor':'middle','font-size':13,fill:'var(--text-muted)','font-family':'Inter, sans-serif'},'No readings yet today'); return; }
-    // break lines across gaps > 15 min
-    const segs=[]; let cur=[];
-    pts.forEach((p,i)=>{ if(i && p.h-pts[i-1].h>0.26){segs.push(cur);cur=[];} cur.push(p); }); segs.push(cur);
-    const area=(key,color,op)=>segs.forEach(sg=>{ if(!sg.length) return;
-      let d=`M${x(sg[0].h).toFixed(1)},${y(0)}`; sg.forEach(p=>d+=` L${x(p.h).toFixed(1)},${y(p[key]).toFixed(1)}`); d+=` L${x(sg[sg.length-1].h).toFixed(1)},${y(0)} Z`;
-      el('path',{d,fill:color,'fill-opacity':op,stroke:'none'});
-      let l=''; sg.forEach((p,i)=>l+=(i?' L':'M')+x(p.h).toFixed(1)+','+y(p[key]).toFixed(1));
-      el('path',{d:l,fill:'none',stroke:color,'stroke-width':2,'stroke-linejoin':'round'}); });
-    area('pv','var(--solar)',0.16); area('car','var(--car)',0.30);
-    // Total house use: blue where solar covered it, red where it drew from the grid
-    segs.forEach(sg => {
-      if (!sg.length) return;
-      let d=`M${x(sg[0].h).toFixed(1)},${y(0)}`; sg.forEach(p=>d+=` L${x(p.h).toFixed(1)},${y(p.home).toFixed(1)}`); d+=` L${x(sg[sg.length-1].h).toFixed(1)},${y(0)} Z`;
-      el('path',{d,fill:'var(--home)','fill-opacity':0.08,stroke:'none'});
-      for (let i=1;i<sg.length;i++){
-        const a=sg[i-1], b=sg[i], fromGrid = (a.home + b.home)/2 > (a.pv + b.pv)/2 + 0.05;
-        el('line',{x1:x(a.h).toFixed(1),y1:y(a.home).toFixed(1),x2:x(b.h).toFixed(1),y2:y(b.home).toFixed(1),stroke: fromGrid ? 'var(--import)' : 'var(--home)','stroke-width':2,'stroke-linecap':'round'});
-      }
+    if (!days.length) { el('text',{x:W/2,y:H/2,'text-anchor':'middle',fill:'var(--text-muted)','font-size':13},'No days recorded yet'); return; }
+    const peak = Math.max(10, ...days.map(d => Math.max(d.car_solar_kwh + d.car_offpeak_kwh + d.car_grid_day_kwh, d.solar_kwh)));
+    const ymax = Math.ceil(peak/10)*10, step = ymax <= 40 ? 10 : 20;
+    const y = v => T + (H-T-B) * (1 - v/ymax);
+    const n = days.length, slot = (W-L-R)/n, bw = Math.min(56, slot*0.6);
+    for (let v=0; v<=ymax; v+=step){ el('line',{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:'var(--border)','stroke-width':1});
+      el('text',{x:L-8,y:y(v)+4,'text-anchor':'end','font-size':11,fill:'var(--text-dim)','font-family':'JetBrains Mono, monospace'}, v+(v===ymax?' kWh':'')); }
+    const pts=[];
+    days.forEach((d,i) => {
+      const cx = L + slot*i + slot/2, x0 = cx - bw/2; let base = 0;
+      [['car_solar_kwh','var(--solar)'],['car_offpeak_kwh','var(--import-soft)'],['car_grid_day_kwh','var(--import)']].forEach(([k,col]) => {
+        const v = d[k]; if (v <= 0) return;
+        el('rect',{x:x0.toFixed(1),y:y(base+v).toFixed(1),width:bw.toFixed(1),height:(y(base)-y(base+v)).toFixed(1),fill:col,rx:3}); base += v; });
+      if (base > 0) el('text',{x:cx,y:y(base)-6,'text-anchor':'middle','font-size':11,fill:'var(--text-muted)','font-family':'JetBrains Mono, monospace'}, base.toFixed(1));
+      if (n <= 31 || i % Math.ceil(n/31) === 0) el('text',{x:cx,y:H-14,'text-anchor':'middle','font-size':11,fill:'var(--text-dim)','font-family':'Inter, sans-serif'}, dayLabel(d.date).replace(/^\w+ /,''));
+      pts.push([cx, y(d.solar_kwh)]);
     });
-  }
+    if (pts.length > 1) el('path',{d:pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' '),fill:'none',stroke:'var(--home)','stroke-width':2,'stroke-dasharray':'5 4'});
+    pts.forEach(p => el('circle',{cx:p[0].toFixed(1),cy:p[1].toFixed(1),r:3,fill:'var(--home)'}));
 
-  // ---------- 5-day outlook from Solar Hub's forecast feed ----------
-  const CLEAR_GHI = 7.8, PANEL_KW = 13.2, PR = 0.65;
-  function dayStats(fc){
-    const byDay = {}; (fc.hourly||[]).forEach(h => (byDay[h.time.slice(0,10)] ||= []).push(h));
-    const daily = {}; (fc.daily||[]).forEach(d => daily[d.date] = d);
-    const today = new Date(); const pad=n=>String(n).padStart(2,'0');
-    const key = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-    const out = [];
-    for (let i=1;i<=5;i++){ const d=new Date(today); d.setDate(d.getDate()+i); const k=key(d), hs=byDay[k]; if(!hs) continue;
-      const day=hs.filter(h=>h.ghi>50), dl=daily[k]||{};
-      out.push({ date:k, ghi:hs.reduce((a,h)=>a+h.ghi,0)/1000, cloud:Math.round(day.reduce((a,h)=>a+h.cloudCover,0)/Math.max(1,day.length)),
-        rainProb:Math.max(0,...day.map(h=>h.precipProbability||0)), rain:dl.precipitationSum||0, code:dl.weatherCode||0,
-        tmax:Math.round(Math.max(...hs.map(h=>h.temperature))), hours:hs.slice(6,21).map(h=>h.ghi) }); }
-    return out;
+    $('days').innerHTML = '<tr><th>Day</th><th>Solar into car</th><th>Off-peak</th><th>Grid by day</th><th>Car total</th><th>Solar generated</th><th>Saved</th></tr>' +
+      days.slice().reverse().map(d => { const t = d.car_solar_kwh + d.car_offpeak_kwh + d.car_grid_day_kwh;
+        return `<tr><td>${dayLabel(d.date)}</td><td>${d.car_solar_kwh.toFixed(1)}</td><td>${d.car_offpeak_kwh.toFixed(1)}</td><td>${d.car_grid_day_kwh.toFixed(1)}</td><td>${t.toFixed(1)}</td><td>${d.solar_kwh.toFixed(1)}</td><td>$${(d.car_solar_kwh*(RATE.offpeak-RATE.feedin)).toFixed(2)}</td></tr>`; }).join('');
   }
-  const scoreOf = d => { let s = 10*Math.min(1,d.ghi/CLEAR_GHI)*(1-0.3*d.cloud/100); if (d.code>=95) s-=1; return Math.max(1,Math.min(10,Math.round(s))); };
-  const kind = d => {
-    if (d.code>=95) return ['storm','Thunderstorms'];
-    if (d.rain>=3 || (d.code>=61 && d.code<95)) return ['rain','Rain'];
-    if (d.rain>0 || (d.code>=51 && d.code<=57)) return d.cloud<60 ? ['showers','Sun and showers'] : ['drizzle','Cloudy, drizzle'];
-    if (d.code===45 || d.code===48) return ['partly','Fog, then sun'];
-    if (d.cloud<30) return ['sun','Sunny'];
-    if (d.cloud<70) return ['partly','Partly cloudy'];
-    return ['cloud','Cloudy'];
-  };
-  const SUN=(cx,cy,r)=>`<g stroke="var(--solar)" stroke-width="2.4" stroke-linecap="round">${[0,45,90,135,180,225,270,315].map(a=>{const t=a*Math.PI/180;return `<line x1="${(cx+Math.cos(t)*(r+4)).toFixed(1)}" y1="${(cy+Math.sin(t)*(r+4)).toFixed(1)}" x2="${(cx+Math.cos(t)*(r+8)).toFixed(1)}" y2="${(cy+Math.sin(t)*(r+8)).toFixed(1)}"/>`}).join('')}</g><circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--solar)"/>`;
-  const CLOUD=(dx,dy)=>`<path transform="translate(${dx} ${dy})" d="M14 40h26a10 10 0 0 0 0-20 13 13 0 0 0-25-3A10 10 0 0 0 14 40z" fill="var(--surface-3)" stroke="var(--text-muted)" stroke-width="1.6" stroke-linejoin="round"/>`;
-  const DROPS=n=>[18,28,38].slice(0,n).map((x,i)=>`<line x1="${x}" y1="${48+(i%2)*2}" x2="${x-3}" y2="${55+(i%2)*2}" stroke="var(--home)" stroke-width="2.4" stroke-linecap="round"/>`).join('');
-  const icon=k=>`<svg viewBox="0 0 56 62" aria-hidden="true">${({sun:SUN(28,28,11),partly:SUN(22,20,8)+CLOUD(4,10),cloud:CLOUD(2,4),showers:SUN(22,18,7)+CLOUD(4,6)+DROPS(2),drizzle:CLOUD(2,4)+DROPS(3),rain:CLOUD(2,2)+DROPS(3),storm:CLOUD(2,2)+'<path d="M30 42l-6 9h6l-4 9 10-12h-6l4-6z" fill="var(--solar)"/>'+DROPS(1)})[k]}</svg>`;
-  const scoreColor=s=>s>=8?'var(--ok)':s>=5?'var(--solar)':'var(--import)';
-  const spark=hrs=>{const w=150,h=26,step=w/(hrs.length-1);let d=`M0,${h}`;hrs.forEach((v,i)=>d+=` L${(i*step).toFixed(1)},${(h-2-(h-4)*v/1000).toFixed(1)}`);d+=` L${w},${h} Z`;return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" fill="var(--solar)" fill-opacity=".25" stroke="var(--solar)" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;};
-  async function loadOutlook(){
-    try {
-      const r = await fetch('/.netlify/functions/forecast', { signal: AbortSignal.timeout(20000) });
-      const fc = await r.json(); const days = dayStats(fc).map(d=>({...d,s:scoreOf(d),k:kind(d),kwh:Math.round(d.ghi*PANEL_KW*PR)}));
-      if (!days.length) throw new Error('no days');
-      const best = Math.max(...days.map(d=>d.s));
-      $('outlook').innerHTML = days.map(d=>{ const dt=new Date(d.date+'T12:00:00'), col=scoreColor(d.s);
-        return `<div class="day-card${d.s===best?' best':''}"><div class="day-top"><div><div class="day-name">${dt.toLocaleDateString('en-AU',{weekday:'short'})}</div><div class="day-date">${dt.toLocaleDateString('en-AU',{day:'numeric',month:'short'})} · ${d.tmax}°${d.s===best?' · <span class="best-tag">Best</span>':''}</div></div><div class="score" aria-label="Solar score ${d.s} out of 10"><span class="n" style="color:${col}">${d.s}</span><span class="of">/10</span></div></div><div class="wx">${icon(d.k[0])}<b>${d.k[1]}</b></div>${spark(d.hours)}<div class="day-meta"><span>≈ ${d.kwh} kWh solar</span><span>${d.cloud}% cloud</span></div></div>`; }).join('');
-      $('outlook-note').textContent = 'Next 5 days · Open-Meteo forecast for Dromana, updated ' + fmtTime(fc.timestamp || new Date().toISOString());
-    } catch (e) { $('outlook').innerHTML = '<div class="empty">Forecast unavailable right now.</div>'; }
-  }
-
-  // ---------- load loop ----------
-  let failures = 0;
   async function load(){
     try {
-      const r = await fetch(EV_API, { signal: AbortSignal.timeout(15000) });
+      const r = await fetch('/.netlify/functions/ev?view=history', { signal: AbortSignal.timeout(20000) });
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      const d = await r.json(); failures = 0; $('banner').hidden = true;
-      renderLog(d.decisions); const L=d.latest||{}; const age=L.ts?(Date.now()-new Date(L.ts).getTime())/1000:1e9; $('status-pill').className = age>180?'pill err':'pill live'; $('status-text').textContent = age>180?'No recent update':'Live';
+      const d = await r.json(); render(d.days || []);
+      $('status-pill').className = 'pill live'; $('status-text').textContent = `${(d.days||[]).length} days`; $('banner').hidden = true;
     } catch (e) {
-      failures++;
-      if (failures >= 2) { $('banner').hidden = false; $('banner').textContent = "Can't reach the Pi at eaglecam. The controller keeps running on its own; this page just can't see it. Check the Pi is on and connected to WiFi."; }
+      $('banner').hidden = false; $('banner').textContent = "Can't reach the Pi right now, so history can't load. Try again in a minute.";
       $('status-pill').className = 'pill err'; $('status-text').textContent = 'Offline';
     }
   }
-  load();
-  setInterval(() => { if (document.visibilityState === 'visible') load(); }, REFRESH_MS);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') load(); });
+  load(); setInterval(() => { if (document.visibilityState === 'visible') load(); }, 5*60000);
 })();
 </script>
 </body>

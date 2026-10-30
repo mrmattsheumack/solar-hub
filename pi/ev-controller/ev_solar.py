@@ -58,6 +58,14 @@ def read_password() -> str:
     raise SystemExit("No EVSE_PASSWORD in ~/solar-hub-pi/.evse")
 
 
+def read_offpeak() -> bool:
+    """Off-peak (12-6 am) charging on/off. Default on."""
+    try:
+        return bool(json.load(open(MODE_PATH)).get("offpeak", True))
+    except Exception:
+        return True
+
+
 def read_mode() -> str:
     try:
         m = json.load(open(MODE_PATH)).get("mode", "auto")
@@ -229,6 +237,7 @@ class Controller:
     async def step(self):
         now = datetime.now(TZ)
         mode = read_mode()
+        offpeak_on = read_offpeak()
         win = self.window(now)
         self.solar.poll(CFG["sems_every_s"])
         if win == "day":
@@ -250,6 +259,11 @@ class Controller:
         sess = self.charger.evse.get_latest_charging_status()
         owner = getattr(sess, "user_id", None) if sess else None
         self.session_owner = owner
+        skip_schedule = (not offpeak_on and owner == "Clock" and mode != "full")
+        if charging and skip_schedule:
+            self.override = False
+            await self.act("stop the charger's own off-peak schedule (off-peak turned off)", self.charger.stop)
+            return self.record(now, mode, win, st, 0, "off-peak turned off: skipped the charger's own midnight schedule")
         if charging and owner and owner != self.charger.evse.user_id:
             self.override = True
         elif not charging or not plugged:
@@ -265,6 +279,8 @@ class Controller:
 
         if mode == "off":
             desired, reason = 0, "mode off"
+        elif win == "offpeak" and mode != "full" and not offpeak_on:
+            desired, reason = 0, "off-peak turned off, waiting for solar"
         elif mode == "full" or win == "offpeak":
             desired, reason = CFG["max_amps"], "mode full" if mode == "full" else "off-peak window"
         elif win == "evening":
@@ -332,6 +348,7 @@ class Controller:
         d = self.solar.data or {}
         row = {
             "ts": now.isoformat(timespec="seconds"), "dry_run": DRY_RUN, "mode": mode, "window": win,
+            "offpeak": read_offpeak(),
             "pv_kw": round(d["pvPower"] / 1000, 3) if d.get("pvPower") is not None else None,
             "pv_live_w": self.inverter.pv_w if hasattr(self, "inverter") else None, "pv_source": self.pv_source, "house_source": self.house_source,
             "house_w": self.last_house_w if win == "day" else None, "home_kw": round(d["homePower"] / 1000, 3) if d.get("homePower") is not None else None,
