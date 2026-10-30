@@ -1,4 +1,4 @@
-/* Solar Hub site menu. One <script src="nav.js"></script> per page draws the left-hand menu,
+/* Home Dashboard site menu. One <script src="nav.js"></script> per page draws the left-hand menu,
    highlights the current section and pushes the page over to make room. Self-contained styles,
    so it works on pages with different design tokens (ev.html, climate.html).
    Slim icon rail on tablets, full names on wide screens, a menu button on phones. */
@@ -62,8 +62,8 @@
 
   const nav = document.createElement('nav');
   nav.className = 'sh-rail';
-  nav.setAttribute('aria-label', 'Solar Hub pages');
-  nav.innerHTML = `<a class="sh-brand" href="./" aria-label="Solar Hub dashboard"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></g></svg><b>Solar Hub</b></a>` +
+  nav.setAttribute('aria-label', 'Home Dashboard pages');
+  nav.innerHTML = `<a class="sh-brand" href="./" aria-label="Home Dashboard"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></g></svg><b>Home Dashboard</b></a>` +
     PAGES.map(p => `<a class="sh-item${p.id === here ? ' on' : ''}" href="${p.href}"${p.id === here ? ' aria-current="page"' : ''} title="${p.label}"><svg viewBox="0 0 24 24" aria-hidden="true">${p.icon}</svg><span class="short">${p.short}</span><span class="full">${p.label}</span></a>`).join('');
   const burger = document.createElement('button');
   burger.className = 'sh-burger';

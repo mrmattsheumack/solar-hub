@@ -1,7 +1,7 @@
 {
-  "name": "Solar Hub",
-  "short_name": "Solar Hub",
-  "description": "Solar monitoring dashboard for Mornington Peninsula",
+  "name": "Home Dashboard",
+  "short_name": "Home",
+  "description": "Home dashboard for solar, EV charging, weather and climate in Dromana",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0e1a",

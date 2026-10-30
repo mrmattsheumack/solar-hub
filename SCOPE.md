@@ -268,4 +268,10 @@ New data:
   public feed behind their "Check air and water quality" map
   (epa.vic.gov.au/api/environment/water/sites). Good / Fair / Poor, mostly rain driven.
 
+## Name (2026-10-31)
+
+Shown to people as **Home Dashboard** everywhere (page titles, menu, EV breadcrumbs, the app name
+when added to a home screen: "Home Dashboard", short name "Home"). The repo, the Netlify site
+(solarhubdromana.netlify.app), the Pi folders and code identifiers keep the solar-hub name.
+
 End of file.

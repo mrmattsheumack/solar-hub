@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Solar Hub — AGL Data Upload</title>
+  <title>AGL Data Upload · Home Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
   <style>
     :root { --sun:#f5a623; --export:#00e5a0; --import:#ff4d6d; --bg:#0a0e1a; --bg2:#0f1525; --bg3:#151c30; --border:rgba(255,255,255,0.07); --text:#e8eaf0; --muted:#5a6478; }
@@ -39,7 +39,7 @@
 <body>
 <div class="card">
   <h1>☀️ AGL Data Upload</h1>
-  <div class="sub">Solar Hub — Historical Usage Importer</div>
+  <div class="sub">Home Dashboard · Historical usage importer</div>
 
   <div class="step">
     <div class="step-title">Step 1 — Create the Supabase table (first time only)</div>
@@ -81,7 +81,7 @@ CREATE POLICY "public delete" ON solar_agl_usage FOR DELETE USING (true);</div>
     <div class="log" id="log"></div>
   </div>
 
-  <a href="/">← Back to Solar Hub</a>
+  <a href="energy.html">← Back to Energy</a>
 </div>
 
 <script>
@@ -239,7 +239,7 @@ async function startUpload() {
 
   setProgress(100, 'Complete!');
   log(`✓ Done — ${inserted.toLocaleString()} rows uploaded to solar_agl_usage`, 'ok');
-  log(`→ Return to Solar Hub to see your history`, 'info');
+  log(`→ Open Energy in Home Dashboard to see your history`, 'info');
   btn.disabled = false;
 }
 </script>
