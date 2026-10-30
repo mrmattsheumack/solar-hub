@@ -142,7 +142,7 @@
     s += `<line x1="${x(nh)}" x2="${x(nh)}" y1="${T}" y2="${T + ph}" stroke="var(--text-muted)" stroke-dasharray="2 3"/><text x="${x(nh) + 4}" y="${T + ph - 4}" font-size="10" fill="var(--text-muted)">now</text>`;
     wrap.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Today's solar, house and car against the solar forecast">${s}</svg>`;
     const gen = H.S.sems?.dailyGeneration, dfc = H.fcDays().find(d => d.date === H.mel().key);
-    const left = fc.filter(f => f.h + 1 > nh).reduce((a, f) => a + (f.h < nh ? f.kw * (f.h + 1 - nh) : f.kw), 0);
+    const left = H.solarLeftToday();
     const peak = pts.reduce((a, p) => p.pv > a.pv ? p : a, { pv: 0, h: 0 });
     $('day-stats').innerHTML = [has(gen) ? `<span>So far <b>${f1(gen)}</b> kWh</span>` : '', dfc ? `<span>Forecast <b>${dfc.kwh}</b> kWh · ${H.solarScore(dfc)}/10</span>` : '',
       nh < 20 && left >= 0.5 ? `<span>Still to come <b>≈${Math.round(left)}</b> kWh</span>` : '', peak.pv > 0.2 ? `<span>Peak <b>${peak.pv.toFixed(1)}</b> kW</span>` : ''].join('');

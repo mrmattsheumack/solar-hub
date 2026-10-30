@@ -133,6 +133,13 @@ window.Hub = (() => {
   }
   const solarScore = d => Math.max(1, Math.min(10, Math.round(10 * Math.min(1, d.ghi / 7.8) * (1 - 0.3 * d.cloud / 100) - (d.code >= 95 ? 1 : 0))));
   const scoreColor = s => s >= 8 ? 'var(--ok)' : s >= 5 ? 'var(--solar)' : 'var(--import)';
+  // Solar still to come today (kWh), scaled so the hours add up to the same daily total that the
+  // forecast rows and the EV page show (their daily estimate uses a slightly different factor)
+  function solarLeftToday() {
+    const hrs = todayHourly(), d = fcDays().find(x => x.date === mel().key); if (!hrs.length || !d) return 0;
+    const all = hrs.reduce((a, h) => a + fcKw(h.ghi), 0) || 1, k = d.kwh / all, nh = mel().hf;
+    return hrs.reduce((a, h) => { const hh = fcHour(h.time); return a + (hh + 1 <= nh ? 0 : fcKw(h.ghi) * k * (hh < nh ? hh + 1 - nh : 1)); }, 0);
+  }
   function todayHourly() { const k = mel().key; return (S.fc?.hourly || []).filter(h => h.time.startsWith(k)); }
   function nextHours(n) {
     const now = mel(), k = now.key, all = S.fc?.hourly || [];
@@ -579,7 +586,7 @@ window.Hub = (() => {
     const cn = carNote(); if (cn) out.push(cn);
     if (w && has(w.rainRate) && w.rainRate > 0) add('rain', `Raining now, ${f1(w.rainRate)} mm/h`);
     else { const wet = hrs.slice(1, 7).find(h => h.precipProbability >= 50); if (wet) add('rain', `Rain likely around ${ampm(fcHour(wet.time))} (${wet.precipProbability}%)`); }
-    const fcLeft = todayHourly().filter(h => fcHour(h.time) >= now.h).reduce((a, h) => a + fcKw(h.ghi), 0);
+    const fcLeft = solarLeftToday();
     const plugged = plugState(e.c);
     if (now.h >= 7 && now.h < 16 && S.ev && !plugged && fcLeft >= 8 && !ex) add('sun', `About ${Math.round(fcLeft)} kWh of sun left today. Plug a car in to use it.`);
     if (now.h >= 17) {
@@ -844,5 +851,5 @@ window.Hub = (() => {
     icon, hourKind, dayKind, dayIcon, KIND_TXT, fcDays, solarScore, scoreColor, todayHourly, nextHours, isNight,
     cardinal, uvLabel, windArrow, WIND_ALERT, UV_ALERT, maxGust12, next12Range,
     energyNow, allocate, todayTotals, excessSolar, donut, legend, warnNotes, CARS, plugState, carOnCharger, chargeSource, hm,
-    climateSummary, ZONES, todayOutlook, ADVICE_CLS };
+    climateSummary, ZONES, todayOutlook, ADVICE_CLS, solarLeftToday };
 })();
