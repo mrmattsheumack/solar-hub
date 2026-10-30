@@ -80,12 +80,15 @@ exports.handler = async (event) => {
     const info  = plant.info || {};
     const stats = {};
 
-    // Live power flows (W). pf.grid is unsigned; gridStatus -1 = importing, 1 = exporting.
+    // Live power flows (W). pf.grid is unsigned and pf.gridStatus is not a reliable
+    // direction flag (seen -1 while exporting). No battery here, so the direction
+    // follows from the balance: pv > load means exporting, pv < load means importing.
     const pvW   = parseW(pf.pv);
     const homeW = parseW(pf.load);
     const gridW = parseW(pf.grid);
-    const importPower = pf.gridStatus === -1 ? gridW : 0;
-    const exportPower = pf.gridStatus === 1 ? gridW : 0;
+    const exporting = pvW > homeW;
+    const importPower = exporting ? 0 : gridW;
+    const exportPower = exporting ? gridW : 0;
     const gridPower   = exportPower - importPower;   // + export, - import (same sign as old pmeter)
     const homePower   = homeW;
     const pvPowerFinal = pvW > 0 ? pvW : Math.max(0, homeW + exportPower - importPower);
