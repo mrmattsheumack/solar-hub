@@ -143,6 +143,10 @@ a.note:hover{border-color:var(--border-strong)}
 
 .rain-state{flex:none;font-size:12px;color:var(--text-muted);white-space:nowrap}
 .radar-img{image-rendering:pixelated}
+.town{display:flex;align-items:center;gap:4px;white-space:nowrap;font:600 11px/1 var(--sans);color:#3b4250;transform:translate(-3px,-50%);
+  text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 2px #fff}
+.town i{width:5px;height:5px;border-radius:50%;background:#3b4250;box-shadow:0 0 0 1.5px #fff;flex:none}
+.town.big{font-size:13px;font-weight:700;color:#222833}
 /* Esri's Ocean tiles carry a faint light row on some edges; draw each a pixel larger and clip it off */
 .basemap img.leaflet-tile{width:258px!important;height:258px!important;margin:-1px 0 0 -1px;clip-path:inset(1px)}
 
@@ -224,7 +228,8 @@ a.note:hover{border-color:var(--border-strong)}
 @media (max-width:1400px){ .net span:last-child{display:none} }
 
 /* ---------- forecast ---------- */
-.fc{grid-area:fc}
+.fc{grid-area:fc;container-type:inline-size}
+@container (max-width:400px){ .day{grid-template-columns:4.2ch 26px minmax(0,1fr) 7.5ch 4.6ch;gap:8px} .day .k{display:none} }
 .hours{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;flex:none}
 .hr{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;border-radius:10px;font-size:12px;color:var(--text-muted)}
 .hr.now{background:var(--surface-2)}
@@ -868,9 +873,12 @@ body.dimmed .dim{opacity:.62}
     // (CARTO stopped serving keyless tiles in 2026; they come back watermarked.)
     const esri = n => `https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/${n}/MapServer/tile/{z}/{y}/{x}`;
     L.tileLayer(esri('World_Ocean_Base'), { maxZoom: 13, className: 'basemap', attribution: 'Tiles © Esri, GEBCO, NOAA, Garmin, HERE' }).addTo(map);
-    // place names drawn above the radar so towns stay readable through rain
-    // (kept in the normal tile stack with a higher zIndex; a separate pane showed hairline seams when scaled)
-    L.tileLayer(esri('World_Ocean_Reference'), { maxZoom: 13, zIndex: 20, className: 'basemap' }).addTo(map);
+    // Town names drawn as our own labels above the radar, like the Bureau's maps. (Esri's labels layer
+    // left a faint seam along its tile edges.)
+    [['Melbourne', -37.8136, 144.9631, 1], ['Geelong', -38.1499, 144.3617, 1], ['Frankston', -38.144, 145.123, 0], ['Dandenong', -37.987, 145.215, 0],
+     ['Mornington', -38.218, 145.038, 0], ['Werribee', -37.9, 144.66, 0], ['Sorrento', -38.339, 144.741, 0], ['Cowes', -38.452, 145.238, 0],
+     ['Lilydale', -37.757, 145.348, 0], ['Sunbury', -37.577, 144.725, 0], ['Torquay', -38.331, 144.326, 0], ['Pakenham', -38.07, 145.487, 0]]
+      .forEach(([n, lat, lon, big]) => L.marker([lat, lon], { icon: L.divIcon({ className: 'town' + (big ? ' big' : ''), html: `<i></i><span>${n}</span>`, iconSize: null }), keyboard: false, interactive: false, zIndexOffset: -100 }).addTo(map));
     L.marker(HOME, { icon: L.divIcon({ className: '', html: '<div class="home-pin"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }), keyboard: false, title: 'Home' }).addTo(map);
     map.attributionControl.addAttribution('Radar <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>');
     // The grid puts the map at fractional pixel positions; on retina screens that makes the browser resample
