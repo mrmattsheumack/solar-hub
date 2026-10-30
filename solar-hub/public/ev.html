@@ -98,6 +98,11 @@ a{color:inherit}
 .split-leg i{width:10px;height:10px;border-radius:3px}
 .split-leg b{font-family:var(--mono);font-weight:500;font-size:16px}
 .split-leg span.s{font-size:11px;color:var(--text-dim)}
+.sub-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.seg.period{grid-template-columns:repeat(5,auto);text-transform:none;letter-spacing:0;font-weight:600}
+.seg.period button{padding:6px 10px;white-space:nowrap}
+@media (max-width:560px){.seg.period button{padding:6px 7px;font-size:11.5px}}
+#batt{margin-top:14px;padding-top:0;border-top:0}
 .link-stack{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
 .fact .sub{font-size:11px;color:var(--text-dim);margin-top:2px;line-height:1.3}
 .fact .label{line-height:1.3}
@@ -259,7 +264,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
       <div class="today-wx" id="today-wx" aria-label="Today's solar forecast"></div>
     </div>
 
-    <div class="sub-h">Current</div>
+    <div class="sub-h">Live current</div>
     <div class="facts">
       <div class="fact"><div class="label">Solar gen</div><div class="v" id="f-solar">–</div></div>
       <div class="fact"><div class="label">Car consumption</div><div class="v" id="f-power">–</div></div>
@@ -268,13 +273,16 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     </div>
     <div class="facts-note">Solar = car + house + grid. House excludes the car.</div>
 
-    <div class="sub-h">Car charging today</div>
-    <div class="today-grid">
-      <div class="state today-pie">
-        <svg class="gauge" id="pie" viewBox="0 0 120 120" role="img" aria-label="Where today's car charging came from"></svg>
-        <div class="pie-legend" id="pie-legend"></div>
+    <div class="sub-h sub-row"><span id="car-h">Car charging today</span>
+      <div class="seg seg-sm period" role="tablist" aria-label="Period">
+        <button role="tab" data-period="today" aria-pressed="true">Today</button>
+        <button role="tab" data-period="week" aria-pressed="false">Week</button>
+        <button role="tab" data-period="month" aria-pressed="false">Month</button>
+        <button role="tab" data-period="year" aria-pressed="false">Year</button>
+        <button role="tab" data-period="all" aria-pressed="false">All time</button>
       </div>
-      <div class="today-right">
+    </div>
+    <div class="split" id="car-split"></div>
       <div class="batt" id="batt" hidden>
         <div class="batt-top">
           <div class="seg seg-sm car-pick" role="group" aria-label="Which car is plugged in">
@@ -291,9 +299,16 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
           <div class="batt-text"><b id="batt-pct">–</b><span id="batt-detail"></span></div>
         </div>
       </div>
+
+    <div class="sub-h sub-row"><span id="solar-h">Solar today</span>
+      <div class="seg seg-sm period" role="tablist" aria-label="Period">
+        <button role="tab" data-period="today" aria-pressed="true">Today</button>
+        <button role="tab" data-period="week" aria-pressed="false">Week</button>
+        <button role="tab" data-period="month" aria-pressed="false">Month</button>
+        <button role="tab" data-period="year" aria-pressed="false">Year</button>
+        <button role="tab" data-period="all" aria-pressed="false">All time</button>
       </div>
     </div>
-    <div class="sub-h">Solar today</div>
     <div class="split" id="split"></div>
   </section>
 
@@ -496,32 +511,60 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     const pill = $('status-pill');
     if (age > 180) { pill.className = 'pill err'; $('status-text').textContent = `No update for ${Math.round(age/60)} min`; }
     else if (L.dry_run) { pill.className = 'pill watch'; $('status-text').textContent = 'Watch only, not controlling'; }
-    else { pill.className = 'pill live'; $('status-text').textContent = 'Live · controlling the charger'; }
+    else { pill.className = 'pill live'; $('status-text').textContent = 'Live'; }
     if (!currentMode || !btns.some(b => b.disabled)) showMode(d.mode || L.mode || 'auto');
   }
 
+  // ---------- today / week / month / year / all time ----------
+  let period = 'today', liveTotals = {}, HISTORY = [];
+  try { const p0 = localStorage.getItem('ev-period'); if (p0) period = p0; } catch (e) {}
+  const PERIOD_NAME = { today:'today', week:'this week', month:'this month', year:'this year', all:'all time' };
+  const KEYS = ['car_solar_kwh','car_offpeak_kwh','car_grid_day_kwh','house_solar_kwh','export_kwh','solar_kwh'];
+  function periodTotals(){
+    if (period === 'today') return liveTotals;
+    const now = new Date(), pad = n => String(n).padStart(2,'0'), iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    let from = '0000-00-00';
+    if (period === 'week') { const d = new Date(now); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); from = iso(d); }   // since Monday
+    if (period === 'month') from = `${now.getFullYear()}-${pad(now.getMonth()+1)}-01`;
+    if (period === 'year') from = `${now.getFullYear()}-01-01`;
+    const today = iso(now), out = Object.fromEntries(KEYS.map(k => [k, 0]));
+    HISTORY.filter(d => d.date >= from && d.date < today).forEach(d => KEYS.forEach(k => out[k] += d[k] || 0));
+    KEYS.forEach(k => out[k] += liveTotals[k] || 0);      // today comes from the live figures
+    return out;
+  }
+  function splitBar(segs, total, note){
+    return `<div class="split-bar" role="img" aria-label="${esc(note)}">` +
+      segs.map(([n,v,col]) => total > 0 && v > 0 ? `<div style="width:${(100*v/total).toFixed(1)}%;background:${col}" title="${esc(n)}: ${v.toFixed(1)} kWh"></div>` : '').join('') + '</div>' +
+      '<div class="split-leg">' + segs.map(([n,v,col,sub]) => `<div><span class="k"><i style="background:${col}"></i>${n}</span><b>${v.toFixed(1)} kWh <small style="color:var(--text-muted);font-size:12px">${total > 0 ? Math.round(100*v/total) : 0}%</small></b><span class="s">${sub}</span></div>`).join('') + '</div>' +
+      `<div class="facts-note">${esc(note)}</div>`;
+  }
   function renderTotals(t){
-    const solar = t.car_solar_kwh || 0, off = t.car_offpeak_kwh || 0, grid = t.car_grid_day_kwh || 0;
-    const total = solar + off + grid, saving = solar * (RATE.offpeak - RATE.feedin);
-    const pct = total > 0 ? Math.round(100 * solar / total) : 0;
-    const parts = [ ['Solar', solar, 'var(--solar)'], ['Grid, off-peak', off, 'var(--import-soft)'], ['Grid, daytime', grid, 'var(--import)'] ];
-    let pie = '<circle cx="60" cy="60" r="50" fill="none" stroke="var(--surface-3)" stroke-width="18"/>', acc = 0;
-    if (total > 0) parts.forEach(([_, v, col]) => { if (v <= 0) return; const len = 314.16 * v / total;
-      pie += `<circle cx="60" cy="60" r="50" fill="none" stroke="${col}" stroke-width="18" stroke-dasharray="${len.toFixed(2)} ${(314.16 - len).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 60 60)"/>`; acc += len; });
-    pie += `<text x="60" y="58" text-anchor="middle" fill="var(--text)" font-family="JetBrains Mono, monospace" font-size="22" font-weight="500">${total > 0 ? pct + '%' : '–'}</text><text x="60" y="76" text-anchor="middle" fill="var(--text-muted)" font-family="Inter, sans-serif" font-size="11">solar</text>`;
-    $('pie').innerHTML = pie;
-    $('pie-legend').innerHTML = parts.map(([n, v, col]) => `<div><i style="background:${col}"></i>${n}<b>${v.toFixed(1)} kWh</b></div>`).join('') + `<div class="note">Where today's ${total.toFixed(1)} kWh into the car came from</div>`;
-    const houseSolar = t.house_solar_kwh || 0, exp = t.export_kwh || 0;
-    const solarTotal = Math.max(t.solar_kwh || 0, solar + houseSolar + exp) || 0;
-    const segs = [
-      ['Into the car', solar, 'var(--car)', `$${saving.toFixed(2)} saved vs off-peak`],
+    if (t) liveTotals = t;
+    const T = periodTotals(), name = PERIOD_NAME[period];
+    document.querySelectorAll('.period button').forEach(b => b.setAttribute('aria-pressed', b.dataset.period === period ? 'true' : 'false'));
+    $('car-h').textContent = 'Car charging ' + name;
+    $('solar-h').textContent = 'Solar ' + name;
+    const solar = T.car_solar_kwh || 0, off = T.car_offpeak_kwh || 0, grid = T.car_grid_day_kwh || 0, carTotal = solar + off + grid;
+    $('car-split').innerHTML = splitBar([
+      ['From solar', solar, 'var(--solar)', `$${(solar * (RATE.offpeak - RATE.feedin)).toFixed(2)} saved vs off-peak`],
+      ['Grid, off-peak', off, 'var(--import-soft)', `$${(off * RATE.offpeak).toFixed(2)} at 8c`],
+      ['Grid, daytime', grid, 'var(--import)', `$${(grid * RATE.general).toFixed(2)} at 27.6c`]
+    ], carTotal, `${carTotal.toFixed(1)} kWh into the car ${name}.`);
+    const houseSolar = T.house_solar_kwh || 0, exp = T.export_kwh || 0;
+    const solarTotal = Math.max(T.solar_kwh || 0, solar + houseSolar + exp);
+    $('split').innerHTML = splitBar([
+      ['Into the car', solar, 'var(--car)', `$${(solar * (RATE.offpeak - RATE.feedin)).toFixed(2)} saved vs off-peak`],
       ['Used in the house', houseSolar, 'var(--home)', `$${(houseSolar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs grid`],
       ['Exported to the grid', exp, 'var(--text-dim)', `$${(exp * RATE.feedin).toFixed(2)} earned at 0.5c`]
-    ];
-    $('split').innerHTML = `<div class="split-bar" role="img" aria-label="Today's ${solarTotal.toFixed(1)} kWh of solar: car, house and grid">` +
-      segs.map(([n,v,col]) => solarTotal > 0 && v > 0 ? `<div style="width:${(100*v/solarTotal).toFixed(1)}%;background:${col}" title="${n}: ${v.toFixed(1)} kWh"></div>` : '').join('') + '</div>' +
-      '<div class="split-leg">' + segs.map(([n,v,col,sub]) => `<div><span class="k"><i style="background:${col}"></i>${n}</span><b>${v.toFixed(1)} kWh <small style="color:var(--text-muted);font-size:12px">${solarTotal > 0 ? Math.round(100*v/solarTotal) : 0}%</small></b><span class="s">${sub}</span></div>`).join('') + '</div>' +
-      `<div class="facts-note">${solarTotal.toFixed(1)} kWh generated so far today.</div>`;
+    ], solarTotal, `${solarTotal.toFixed(1)} kWh generated ${name}` + (period === 'all' && HISTORY.length ? ` (since ${new Date(HISTORY[0].date + 'T12:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short'})})` : '') + '.');
+    $('batt').style.display = period === 'today' ? '' : 'none';
+  }
+  document.querySelectorAll('.period button').forEach(b => b.addEventListener('click', () => {
+    period = b.dataset.period; try { localStorage.setItem('ev-period', period); } catch (e) {}
+    renderTotals();
+  }));
+  async function loadHistory(){
+    try { const r = await fetch(EV_API + '?view=history', { signal: AbortSignal.timeout(20000) }); if (r.ok) { HISTORY = (await r.json()).days || []; renderTotals(); } } catch (e) {}
   }
 
   function renderLog(list){
@@ -680,7 +723,8 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
       $('status-pill').className = 'pill err'; $('status-text').textContent = 'Offline';
     }
   }
-  load(); loadOutlook();
+  load(); loadOutlook(); loadHistory();
+  setInterval(() => { if (document.visibilityState === 'visible') loadHistory(); }, 10 * 60000);
   setInterval(() => { if (document.visibilityState === 'visible') load(); }, REFRESH_MS);
   setInterval(() => { if (document.visibilityState === 'visible') loadOutlook(); }, 30 * 60000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') load(); });

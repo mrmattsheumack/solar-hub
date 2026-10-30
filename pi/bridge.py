@@ -453,7 +453,8 @@ EV_DAILY_CACHE = os.path.join(EV_DIR, "ev_daily_cache.json")
 def _ev_day_summary(rows: list[dict]) -> dict:
     t_prev = None
     out = {"car_solar_kwh": 0.0, "car_offpeak_kwh": 0.0, "car_grid_day_kwh": 0.0,
-           "solar_kwh": 0.0, "house_kwh": 0.0, "export_kwh": 0.0, "import_kwh": 0.0}
+           "solar_kwh": 0.0, "house_kwh": 0.0, "export_kwh": 0.0, "import_kwh": 0.0,
+           "house_solar_kwh": 0.0}
     for r in rows:
         try:
             t = time.mktime(time.strptime(r["ts"][:19], "%Y-%m-%dT%H:%M:%S"))
@@ -479,6 +480,7 @@ def _ev_day_summary(rows: list[dict]) -> dict:
                 out["car_grid_day_kwh"] += (car - from_solar) / 1000 * h
             out["solar_kwh"] += pv / 1000 * h
             out["house_kwh"] += house / 1000 * h
+            out["house_solar_kwh"] += min(house, pv) / 1000 * h
             net = pv - house - car
             out["export_kwh" if net > 0 else "import_kwh"] += abs(net) / 1000 * h
         t_prev = t
