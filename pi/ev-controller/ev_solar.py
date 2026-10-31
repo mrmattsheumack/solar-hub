@@ -25,10 +25,14 @@ CFG = {
     "sems_every_s": 60,
     "offpeak_start": 0, "offpeak_end": 6,      # hours, local
     "min_amps": 6, "max_amps": 32,
-    "start_hold_s": 180,   # surplus must hold >= min_amps this long before starting
+    "start_hold_s": 90,    # surplus must hold >= min_amps this long before starting (was 180)
+    "restart_hold_s": 40,  # ...shorter if the car was charging in the last restart_window_s (cloud gaps)
+    "restart_window_s": 1200,
+    "strong_amps": 12,     # spare this big starts on the next loop, no hold
+    "start_slack_w": 250,  # allow 6 A when spare is within this of 6 A (tops up <=250 W from grid rather than export ~1.2 kW)
     "stop_hold_s": 300,    # surplus must stay below min_amps this long before pausing
-    "ramp_up_max": 4,      # max amps increase per loop (ramp down is immediate)
-    "headroom_w": 150,     # keep a little export so we don't creep onto the grid
+    "ramp_up_max": 8,      # max amps increase per loop (ramp down is immediate; was 4)
+    "headroom_w": 100,     # keep a little export so we don't creep onto the grid (was 150)
     "sems_stale_s": 600,   # no good solar data for this long -> fail safe (pause in daytime)
     "start_backoff_s": 1800,  # car didn't draw after a start -> wait before retrying
     "sems_lag_s": 360,
@@ -293,17 +297,25 @@ class Controller:
             else:
                 spare_w, amps = self.spare_amps(st)
                 t = time.time()
+                volts = (st or {}).get("volts") or 240
+                if charging and (st or {}).get("power_w", 0) > 200:
+                    self.last_charging_at = t
+                # nearly enough for the 6 A minimum: take it, topping up a little from the grid
+                if amps < CFG["min_amps"] and spare_w + CFG["start_slack_w"] >= CFG["min_amps"] * volts:
+                    amps = CFG["min_amps"]
                 if amps >= CFG["min_amps"]:
                     self.below_since = None
                     self.above_since = self.above_since or t
                     held = t - self.above_since
-                    if charging or held >= CFG["start_hold_s"]:
+                    recent = t - getattr(self, "last_charging_at", 0) <= CFG["restart_window_s"]
+                    need = 0 if amps >= CFG["strong_amps"] else CFG["restart_hold_s"] if recent else CFG["start_hold_s"]
+                    if charging or held >= need:
                         cap = (self.target or CFG["min_amps"]) + CFG["ramp_up_max"] if charging else amps
                         desired = min(amps, cap, CFG["max_amps"])
                         reason = f"spare {spare_w:.0f} W -> {desired} A"
                     else:
                         desired = 0
-                        reason = f"spare {spare_w:.0f} W, holding {int(held)}/{CFG['start_hold_s']}s before start"
+                        reason = f"spare {spare_w:.0f} W, holding {int(held)}/{need}s before start"
                 else:
                     self.above_since = None
                     self.below_since = self.below_since or t
