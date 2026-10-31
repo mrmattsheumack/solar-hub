@@ -230,23 +230,21 @@ window.Hub = (() => {
     if (!box) return;
     if (WX_DETAIL_URL && $('wx-title')) $('wx-title').href = WX_DETAIL_URL;
     if (!w) { if (failed.wx) box.innerHTML = '<div class="empty">Weather station not reachable right now.</div>'; return; }
-    const raining = has(w.rainRate) && w.rainRate > 0, r12 = next12Range();
+    const raining = has(w.rainRate) && w.rainRate > 0;
     const row = (k, v, s = '', alert = false) => `<div class="wrow${alert ? ' alert' : ''}"><span class="k">${k}</span><span class="v">${v}</span>${s ? `<span class="s">${s}</span>` : ''}</div>`;
     const windy = (w.windSpeed || 0) > WIND_ALERT || (w.windGust || 0) > WIND_ALERT;
     const o = todayOutlook();
     box.innerHTML = `
-      ${o ? `<div class="today-wx">${dayIcon(o.k)}<div><b>${esc(o.text)}</b><span>Today ${f0(o.tmax)}° / ${f0(o.tmin)}°${o.pmax >= 20 ? ` · rain ${f0(o.pmax)}%` : ''}${o.rain >= 0.2 ? ` · ${f1(o.rain)} mm` : ''}</span></div></div>` : ''}${beachLine()}
+      <div class="wx-top">${o ? `<div class="today-wx">${dayIcon(o.k)}<div><b>${esc(o.text)}</b><span>Today ${f0(o.tmax)}° / ${f0(o.tmin)}°${o.pmax >= 20 ? ` · rain ${f0(o.pmax)}%` : ''}</span></div></div>` : ''}${beachLine()}</div>
       <div class="temps">
         <div><div class="label">Outside</div><div class="temp">${f1(w.temperature)}<sup>°</sup></div></div>
         <div><div class="label">Inside</div><div class="temp">${f1(w.indoorTemp)}<sup>°</sup></div></div>
       </div>
       <div class="wgrid">
         ${row('Feels like', `${f1(w.feelsLike)}°`)}
-        ${row('Humidity', `${f0(w.humidity)}%`)}
         ${row('Wind', `${windArrow(w.windDirection)}${f0(w.windSpeed)}<small> km/h</small>`, [cardinal(w.windDirection), has(w.windGust) ? `gust ${f0(w.windGust)}` : ''].filter(Boolean).join(' · '), windy)}
-        ${row('Rain today', `<span class="${raining ? 'raining' : ''}">${f1(w.rainDaily ?? 0)}</span><small> mm</small>`, raining ? `<span class="raining">${f1(w.rainRate)} mm/h now</span>` : (has(w.rainWeekly) ? `${f1(w.rainWeekly)} this week` : ''))}
+        ${row('Rain today', `<span class="${raining ? 'raining' : ''}">${f1(w.rainDaily ?? 0)}</span><small> mm</small>`, raining ? `<span class="raining">${f1(w.rainRate)} mm/h now</span>` : '')}
         ${row('UV', has(w.uvi) ? f1(w.uvi) : '--', uvLabel(w.uvi), has(w.uvi) && w.uvi >= UV_ALERT)}
-        ${row('Next 12 h', r12 ? `<span class="hi">${f0(r12.hi)}°</span><small> / </small><span class="lo">${f0(r12.lo)}°</span>` : '--', r12 ? `${r12.hiAt} · ${r12.loAt}` : '')}
       </div>
       <div class="wx-hours">${nextHours(7).slice(1).map(h => `<div><span>${ampm(fcHour(h.time)).replace(' ', '')}</span>${icon(hourKind(h, isNight(h.time)))}<b>${Math.round(h.temperature)}°</b><em>${h.precipProbability >= 20 ? h.precipProbability + '%' : ''}</em></div>`).join('')}</div>`;
     const t = w.stationTime ? new Date(w.stationTime) : (at.wx ? new Date(at.wx) : null);
@@ -369,8 +367,9 @@ window.Hub = (() => {
       arcs += `<circle cx="75" cy="75" r="${r}" fill="none" stroke="${col}" stroke-width="22" stroke-dasharray="${len.toFixed(2)} ${(C - len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 75 75)"/>`; off += len; });
     else arcs = '<circle cx="75" cy="75" r="54" fill="none" stroke="var(--surface-3)" stroke-width="22"/>';
     const svg = `<svg viewBox="0 0 150 150" aria-hidden="true">${arcs}<text x="75" y="84" text-anchor="middle" fill="${effColor(eff)}" font-family="var(--sans)" font-size="34" font-weight="700">${eff == null ? '–' : eff + '%'}</text></svg>`;
-    const leg = segs.map(([n, v, col]) => `<div><i style="background:${col}"></i><span>${n}</span><b>${v.toFixed(1)}</b></div>`).join('');
-    return `<a class="eff" href="${href}" title="${esc(title)} efficiency today">${svg}<div class="eff-leg"><div class="eff-t">${title}<small>${total.toFixed(1)} kWh</small></div>${leg}</div></a>`;
+    const tip = `${title} efficiency today: ` + segs.map(([n, v]) => `${n} ${v.toFixed(1)} kWh`).join(', ');
+    const leg = segs.map(([n, , col]) => `<span><i style="background:${col}"></i>${n}</span>`).join('');
+    return `<a class="eff" href="${href}" title="${esc(tip)}">${svg}<div class="eff-txt"><b>${title}</b><div class="eff-leg">${leg}</div></div></a>`;
   }
   function renderEff() {
     const box = $('eff'); if (!box) return;
@@ -600,6 +599,7 @@ window.Hub = (() => {
     const soc = on === 'ev5' && k5?.soc != null ? ` · ${Math.round(k5.soc)}%` : on === 'ioniq5' && S.ev.plugin ? ` · +${Math.round(100 * S.ev.plugin.kwh / CARS.ioniq5.kwh)}%` : '';
     return { cls: 'car', text: `${name} plugged in${charging ? ` · ${src ? src.text.toLowerCase() : 'charging'} ${kw(c.power_w)} kW` : src ? ` · ${src.text.replace(/^Plugged in, /, '')}` : ''}${soc}` };
   }
+  const HEAVY_RAIN = 8;   // mm in an hour (BoM calls 8+ mm/h heavy)
   function renderNotes() {
     if (!$('notes')) return;
     const out = [], w = S.wx, now = mel(), hrs = nextHours(12), e = energyNow(), warns = warnNotes();
@@ -615,8 +615,11 @@ window.Hub = (() => {
     if (w && has(w.uvi) && w.uvi >= UV_ALERT) add('alert', `UV ${f1(w.uvi)}, ${uvLabel(w.uvi).toLowerCase()}. Sun protection needed`);
     warns.filter(x => x.level === 'advice').forEach(x => out.push(x));
     const cn = carNote(); if (cn) out.push(cn);
-    // Raining now is shown in the weather tile itself, so only the heads-up for later goes here
-    if (!(w && has(w.rainRate) && w.rainRate > 0)) { const wet = hrs.slice(1, 7).find(h => h.precipProbability >= 50); if (wet) add('rain', `Rain likely around ${ampm(fcHour(wet.time))} (${wet.precipProbability}%)`); }
+    // Everyday rain lives in the weather tile. Up here only what's worth acting on: heavy rain or storms
+    const soon = hrs.slice(1, 7), storm = soon.find(h => h.weatherCode >= 95), heavy = soon.find(h => (h.precipitation || 0) >= HEAVY_RAIN);
+    if (w && has(w.rainRate) && w.rainRate >= HEAVY_RAIN) add('alert', `Heavy rain now: ${f1(w.rainRate)} mm/h`);
+    else if (storm) add('alert', `Storms possible around ${ampm(fcHour(storm.time))}`);
+    else if (heavy) add('warn', `Heavy rain likely around ${ampm(fcHour(heavy.time))} (${f1(heavy.precipitation)} mm in the hour)`);
     const fcLeft = solarLeftToday();
     const plugged = plugState(e.c);
     if (now.h >= 7 && now.h < 16 && S.ev && !plugged && fcLeft >= 8 && !ex) add('sun', `About ${Math.round(fcLeft)} kWh of sun left today. Plug a car in to use it.`);

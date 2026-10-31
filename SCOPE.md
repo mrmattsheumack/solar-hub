@@ -278,6 +278,15 @@ Dashboard changes:
 - The "Raining now" note is gone from the dashboard header (the weather tile already says it);
   "Rain likely around..." stays.
 - Every page linked from the dashboard carries the menu (ev.html had lost it in a later edit).
+- Second pass (same day): efficiency donuts moved out of the flow tile into their own compact
+  "Efficiency today" tile (right column, between car charging and climate), percentages only; the
+  kWh breakdown is in the hover tooltip. Energy flow diagram back to full size. Climate tile toned
+  down (small status dot, muted setpoint, zones as plain dotted text). Weather tile trimmed to
+  feels like, wind, rain today and UV (humidity, rain this week, next 12 h high/low and the mm in
+  today's summary removed; rain today already covers it), readings enlarged to fill the column.
+- Header notes no longer repeat everyday weather. Rain only appears there when it's worth acting
+  on: heavy rain now (8+ mm/h), storms within 6 hours, or 8+ mm forecast in an hour. Wind/gust and
+  UV alerts and official warnings stay.
 
 New data:
 - `ecowitt?history=today`: today's 5-minute WS90 readings (Ecowitt v3 device/history).

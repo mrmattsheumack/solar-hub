@@ -330,20 +330,16 @@ body.radar-fs .sh-rail,body.radar-fs .sh-burger{visibility:hidden}
 .radar.fs .leaflet-control-zoom a{width:44px;height:44px;line-height:44px;font-size:22px;background:rgba(13,18,32,.78);color:#fff;border-color:rgba(255,255,255,.12)}
 .radar.fs #map{cursor:grab}
 
-/* ---------- efficiency donuts in the energy flow tile (same colours and maths as the EV page) ---------- */
-.eff-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:none;container-type:inline-size}
-.eff-row:empty{display:none}
-.eff{display:flex;align-items:center;gap:10px;padding:6px 10px 6px 6px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);color:inherit;text-decoration:none;min-width:0}
-.eff:hover{border-color:var(--border-strong)}
-.eff svg{width:clamp(54px,4.6vw,74px);height:auto;flex:none}
-.eff-leg{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;font-size:11.5px;color:var(--text-muted)}
-.eff-leg>div{display:flex;align-items:center;gap:6px;min-width:0}
-.eff-leg i{width:8px;height:8px;border-radius:2px;flex:none}
-.eff-leg span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.eff-leg b{font-family:var(--mono);font-weight:500;color:var(--text)}
-.eff-leg .eff-t{justify-content:space-between;font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px}
-.eff-t small{font-family:var(--mono);font-weight:400;color:var(--text-muted)}
-@container (max-width:400px){ .eff{gap:6px;padding-right:6px} .eff svg{width:46px} .eff-t small{display:none} .eff-leg{font-size:11px} }
+/* ---------- efficiency today tile (same colours and maths as the EV page; kWh in the tooltip) ---------- */
+.eff-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.eff{display:flex;align-items:center;gap:12px;color:inherit;text-decoration:none;min-width:0;border-radius:10px}
+.eff:hover b{color:var(--text)}
+.eff svg{width:clamp(50px,4.4vw,68px);height:auto;flex:none}
+.eff-txt{display:flex;flex-direction:column;gap:4px;min-width:0}
+.eff-txt b{font-size:13px;font-weight:600;color:var(--text-muted)}
+.eff-leg{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:11px;color:var(--text-dim)}
+.eff-leg span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.eff-leg i{width:7px;height:7px;border-radius:2px}
 @media (max-width:420px){ .eff-row{grid-template-columns:1fr} }
 
 /* ---------- weather tile: the next few hours along the bottom ---------- */
@@ -353,13 +349,32 @@ body.radar-fs .sh-rail,body.radar-fs .sh-burger{visibility:hidden}
 .wx-hours b{font-family:var(--mono);font-size:15px;font-weight:500;color:var(--text)}
 .wx-hours em{font-style:normal;font-size:10.5px;color:var(--rain);min-height:1.2em}
 
-/* ---------- climate tile, compact (dashboard) ---------- */
+/* ---------- climate tile, compact and quieter (dashboard) ---------- */
 .climatecard{gap:8px}
-.climatecard .ac-state b{font-size:clamp(18px,1.6vw,24px)}
-.climatecard .ac-set b{font-size:clamp(20px,1.9vw,30px)}
+.climatecard .ac-state{gap:8px;font-size:12.5px}
+.climatecard .ac-state i{width:8px;height:8px;box-shadow:none!important}
+.climatecard .ac-state b{font-size:15px;font-weight:600}
+.climatecard .ac-set b{font-size:clamp(18px,1.6vw,24px);color:var(--text-muted)}
 .climatecard .ac-set .label{display:none}
 .climatecard .ac-temps{font-size:12px;gap:12px}
+.climatecard .ac-temps b{color:var(--text-muted)}
 .climatecard .ac-zones{gap:5px}
 .climatecard .ac-zones .label{font-size:10.5px}
-.climatecard .zchips{gap:4px}
-.climatecard .zchip{font-size:11.5px;padding:3px 8px}
+.climatecard .zchips{gap:4px 10px}
+.climatecard .zchip{font-size:11.5px;padding:0;border:0;background:none;color:var(--text-dim);display:inline-flex;align-items:center;gap:5px}
+.climatecard .zchip::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--surface-3)}
+.climatecard .zchip.open{color:var(--text-muted);background:none;border:0}
+.climatecard .zchip.open::before{background:var(--ok)}
+
+/* weather tile has room to breathe now: bigger readings */
+.wx .wgrid{row-gap:4px}
+.wx .wrow{padding:10px 0}
+.wx #wx-body{justify-content:space-between}
+.wx .wx-hours{margin-top:0}
+.wx .temp{font-size:clamp(40px,4.4vw,76px)}
+.wx .wrow .v{font-size:clamp(17px,1.5vw,23px)}
+.wx .wrow.alert .v{font-size:clamp(20px,1.8vw,28px)}
+.wx .wx-hours svg{width:36px;height:38px}
+.wx .wx-hours b{font-size:17px}
+.wx .wx-hours>div{font-size:12px;gap:4px}
+.wx-top{display:flex;flex-direction:column;gap:10px}
