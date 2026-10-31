@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>EV Charging · Home Dashboard</title>
+<title>EV Charging · Solar Hub</title>
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -114,7 +114,10 @@ svg.flow{display:block;width:100%;height:auto}
 .ribbon.excess{background:rgba(242,73,92,.16);color:#ff8a98;font-weight:600}
 
 /* ---------- time series ---------- */
-svg.ts{display:block;width:100%;height:auto}
+svg.ts{display:block;width:100%;height:auto;cursor:zoom-in}
+.panel.zoomed{position:fixed;inset:0;z-index:50;margin:0;border-radius:0;padding:14px 18px;overflow:auto;background:var(--surface)}
+.panel.zoomed svg.ts{cursor:zoom-out}
+.ts-close{margin-left:auto}
 .ts-leg{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:12px;margin-top:6px;align-items:center;border-top:1px solid var(--border);padding-top:6px;color:var(--text-muted)}
 .ts-leg .h{color:var(--blue-l);font-size:11.5px;text-align:right}
 .ts-leg .n{display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -187,14 +190,13 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
 .foot{font-size:11.5px;color:var(--text-dim);margin:12px 2px 0}
 @media (max-width:700px){.top-right{width:100%;justify-content:flex-start}.mode-msg{text-align:left}}
 </style>
-<script src="nav.js"></script>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
     <div class="crumb">
       <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><g fill="rgba(204,204,220,.65)"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></g></svg>
-      <a href="./">Home Dashboard</a><span class="sep">/</span><span>EV Charging</span>
+      <a href="./">Solar Hub</a><span class="sep">/</span><span>EV Charging</span>
     </div>
     <div class="top-right">
       <div class="seg" role="group" aria-label="Charging mode">
@@ -255,8 +257,8 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
   </div>
   <div class="dash">
     <section class="panel span-12">
-      <div class="p-title"><span>Today</span><span class="wx-line" id="today-wx"></span></div>
-      <svg class="ts" id="ts" viewBox="0 0 1200 220" role="img" aria-label="Today: solar generation and forecast, house use and car charging"></svg>
+      <div class="p-title"><span>Today <span class="note" id="ts-hint">· tap to expand</span></span><span class="wx-line" id="today-wx"></span><button class="btn ts-close" id="ts-close" hidden aria-label="Close full screen chart">✕ Close</button></div>
+      <svg class="ts" id="ts" tabindex="0" viewBox="0 0 1200 220" role="img" aria-label="Today: solar generation and forecast, house use and car charging"></svg>
       <div class="ts-leg" id="ts-leg"></div>
     </section>
   </div>
@@ -709,7 +711,26 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
   }
 
   // ---------- today's chart: solar + forecast, house, car on one set of axes ----------
-  let lastSeries = null;
+  let lastSeries = null, chartZoomH = 0;
+  // Tap the chart to fill the screen (real full screen where the browser allows it), tap again or Close to return
+  const tsPanel = () => $('ts').closest('.panel');
+  function zoomChart(on){
+    const p = tsPanel();
+    p.classList.toggle('zoomed', on);
+    $('ts-close').hidden = !on; $('ts-hint').hidden = on;
+    if (on) {
+      if (p.requestFullscreen && !document.fullscreenElement) p.requestFullscreen().catch(() => {});
+      requestAnimationFrame(() => { const w = $('ts').clientWidth || innerWidth, h = innerHeight - 130; chartZoomH = Math.max(220, Math.round(1200 * h / w)); renderChart(lastSeries); });
+    } else {
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      chartZoomH = 0; renderChart(lastSeries);
+    }
+  }
+  $('ts').addEventListener('click', () => zoomChart(!tsPanel().classList.contains('zoomed')));
+  $('ts').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); zoomChart(!tsPanel().classList.contains('zoomed')); } });
+  $('ts-close').addEventListener('click', e => { e.stopPropagation(); zoomChart(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && tsPanel().classList.contains('zoomed')) zoomChart(false); });
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && tsPanel().classList.contains('zoomed')) zoomChart(false); });
   function renderChart(series){
     lastSeries = series;
     const pts = (series||[]).map(s => { const [h,m]=s.t.split(':').map(Number); return {h:h+m/60+2.5/60, pv:s.pv/1000, home:Math.max(0,(s.home-s.car))/1000, car:s.car/1000}; });
@@ -727,7 +748,8 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const peak = Math.max(3, ...pts.map(p=>Math.max(p.pv, p.home, p.car)), ...fp.map(p=>p.v));
     const ymax = Math.ceil(peak / 2) * 2;
     const svg = $('ts'); svg.innerHTML = '';
-    const W=1200,H=220,L=44,R=8,T=8,B=24, ns='http://www.w3.org/2000/svg';
+    const W=1200, H=chartZoomH || 220, L=44,R=8,T=8,B=24, ns='http://www.w3.org/2000/svg';
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     const el=(n,a,txt)=>{const e=document.createElementNS(ns,n);for(const k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;svg.appendChild(e);return e;};
     const x=h=>L+(W-L-R)*h/24, y=v=>T+(H-T-B)*(1-v/ymax);
     el('rect',{x:x(0),y:T,width:x(6)-x(0),height:H-T-B,fill:'rgba(87,148,242,.07)'});
@@ -746,7 +768,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     area('home','#5794f2',0.10,false);
     // house line: blue when solar covers it, red when it's drawing from the grid (lighter red off-peak)
     segs.forEach(sg => { for (let i=1;i<sg.length;i++){ const a=sg[i-1], b=sg[i], fromGrid = (a.home+a.car+b.home+b.car)/2 > (a.pv+b.pv)/2 + 0.05;
-      el('line',{x1:x(a.h).toFixed(1),y1:y(a.home).toFixed(1),x2:x(b.h).toFixed(1),y2:y(b.home).toFixed(1),stroke: fromGrid ? (b.h <= 6 ? '#e89cbd' : '#f2495c') : '#8ab8ff','stroke-width':1.6,'stroke-linecap':'round'}); } });
+      el('line',{x1:x(a.h).toFixed(1),y1:y(a.home).toFixed(1),x2:x(b.h).toFixed(1),y2:y(b.home).toFixed(1),stroke: fromGrid ? '#f2495c' : '#8ab8ff','stroke-width':1.6,'stroke-linecap':'round'}); } });
     if (fp.length) el('path',{d: fp.map((p,i)=>(i?'L':'M')+x(p.h).toFixed(1)+','+y(p.v).toFixed(1)).join(' '), fill:'none', stroke:'#fade2a', 'stroke-width':1.6, 'stroke-dasharray':'4 4', opacity:.85});
     el('line',{x1:x(nowH),x2:x(nowH),y1:T,y2:H-B,stroke:'rgba(204,204,220,.35)','stroke-dasharray':'3 3'});
     el('text',{x:x(nowH)+4,y:T+12,'font-size':10.5,fill:'rgba(204,204,220,.55)','font-family':'Inter, sans-serif'},'now');
@@ -755,7 +777,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const item = (style, name, cls) => `<span class="n"><i${cls ? ` class="${cls}"` : ''} style="${style}"></i>${name}</span>`;
     $('ts-leg').innerHTML = item('background:#fade2a', 'Solar generation') +
       (fp.length > 1 ? item('', `Solar forecast, ≈ ${fcRest.toFixed(1)} kWh more today`, 'dash') : '') +
-      item('background:#8ab8ff', 'House') + item('background:#f2495c', 'House from the grid') + item('background:#e89cbd', 'House from the grid, off-peak') +
+      item('background:#8ab8ff', 'House') + item('background:#f2495c', 'Power from grid') +
       item('background:#73bf69', 'Car charging') + item('background:rgba(87,148,242,.35)', 'Off-peak window');
   }
 
