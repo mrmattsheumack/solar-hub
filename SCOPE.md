@@ -328,6 +328,10 @@ Decisions agreed with Matt:
 - Work calendar: Matt subscribes to the Family calendar's secret iCal address in Outlook (read-only
   overlay, refreshes slowly). Work meetings are not shown on the dashboard.
 
+Change (2026-11-01): the dashboard's "Next up" box only shows events for today and tomorrow.
+Anything further out is on the Calendar page; with nothing in those two days it reads "Nothing on,
+today and tomorrow are clear". The header reminder notes were already short-range and are unchanged.
+
 ## Security note (2026-10-31)
 
 The site and its functions are currently open to anyone with the URL, and the repo is public.

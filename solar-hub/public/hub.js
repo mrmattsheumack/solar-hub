@@ -659,7 +659,8 @@ window.Hub = (() => {
     if (m < 1) return 'now';
     if (m < 60) return `in ${m} min`;
     const h = Math.floor(m / 60), r = m % 60;
-    return h < 24 ? `in ${h}h${r ? ` ${r}m` : ''}` : `in ${Math.round(m / 1440)} days`;
+    const d = Math.round(m / 1440);
+    return h < 24 ? `in ${h}h${r ? ` ${r}m` : ''}` : `in ${d} day${d === 1 ? '' : 's'}`;
   }
   const dayWord = key => key === mel().key ? 'today' : key === tomorrowKey() ? 'tomorrow'
     : new Date(key + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'long' });
@@ -699,16 +700,17 @@ window.Hub = (() => {
       return;
     }
     el.hidden = false;
-    const { timed, allDayToday } = calUpcoming(), now = Date.now();
-    const next = timed[0];
-    const later = calEvents().filter(e => e.allDay && e.start > mel().key).sort((a, b) => a.start.localeCompare(b.start))[0];
+    // Only today and tomorrow: anything further out lives on the Calendar page
+    const { timed, allDayToday } = calUpcoming(), now = Date.now(), tk = tomorrowKey();
+    const next = timed.find(e => evStart(e).getTime() <= now || evDay(e) <= tk);
+    const later = calEvents().filter(e => e.allDay && e.start > mel().key && e.start <= tk).sort((a, b) => a.start.localeCompare(b.start))[0];
     let main, sub;
     if (next) {
       const st = evStart(next), on = st.getTime() <= now;
       main = esc(next.title);
       sub = on ? `On now · until ${calTime(evEnd(next))}` : `${dayWord(evDay(next)) === 'today' ? '' : cap(dayWord(evDay(next))) + ' '}${calTime(st)} · ${until(st - now)}`;
     } else if (later) { main = esc(later.title); sub = cap(dayWord(later.start)) + ' · all day'; }
-    else { main = 'Nothing coming up'; sub = 'Next two weeks are clear'; }
+    else { main = 'Nothing on'; sub = 'Today and tomorrow are clear'; }
     const extra = allDayToday.length ? `<em>Today: ${allDayToday.map(e => esc(e.title)).join(', ')}</em>` : '';
     el.innerHTML = `<span class="ag-k">Next up</span><b>${main}</b><span>${esc(sub)}</span>${extra}`;
   }
