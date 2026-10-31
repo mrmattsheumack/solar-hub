@@ -235,7 +235,7 @@ window.Hub = (() => {
     const windy = (w.windSpeed || 0) > WIND_ALERT || (w.windGust || 0) > WIND_ALERT;
     const o = todayOutlook();
     box.innerHTML = `
-      ${o ? `<div class="today-wx">${dayIcon(o.k)}<div><b>${esc(o.text)}</b><span>Today ${f0(o.tmax)}° / ${f0(o.tmin)}°${o.pmax >= 20 ? ` · rain ${f0(o.pmax)}%` : ''}${o.rain >= 0.2 ? ` · ${f1(o.rain)} mm` : ''}</span>${beachLine()}</div></div>` : beachLine()}
+      ${o ? `<div class="today-wx">${dayIcon(o.k)}<div><b>${esc(o.text)}</b><span>Today ${f0(o.tmax)}° / ${f0(o.tmin)}°${o.pmax >= 20 ? ` · rain ${f0(o.pmax)}%` : ''}${o.rain >= 0.2 ? ` · ${f1(o.rain)} mm` : ''}</span></div></div>` : ''}${beachLine()}
       <div class="temps">
         <div><div class="label">Outside</div><div class="temp">${f1(w.temperature)}<sup>°</sup></div></div>
         <div><div class="label">Inside</div><div class="temp">${f1(w.indoorTemp)}<sup>°</sup></div></div>
@@ -247,7 +247,8 @@ window.Hub = (() => {
         ${row('Rain today', `<span class="${raining ? 'raining' : ''}">${f1(w.rainDaily ?? 0)}</span><small> mm</small>`, raining ? `<span class="raining">${f1(w.rainRate)} mm/h now</span>` : (has(w.rainWeekly) ? `${f1(w.rainWeekly)} this week` : ''))}
         ${row('UV', has(w.uvi) ? f1(w.uvi) : '--', uvLabel(w.uvi), has(w.uvi) && w.uvi >= UV_ALERT)}
         ${row('Next 12 h', r12 ? `<span class="hi">${f0(r12.hi)}°</span><small> / </small><span class="lo">${f0(r12.lo)}°</span>` : '--', r12 ? `${r12.hiAt} · ${r12.loAt}` : '')}
-      </div>`;
+      </div>
+      <div class="wx-hours">${nextHours(7).slice(1).map(h => `<div><span>${ampm(fcHour(h.time)).replace(' ', '')}</span>${icon(hourKind(h, isNight(h.time)))}<b>${Math.round(h.temperature)}°</b><em>${h.precipProbability >= 20 ? h.precipProbability + '%' : ''}</em></div>`).join('')}</div>`;
     const t = w.stationTime ? new Date(w.stationTime) : (at.wx ? new Date(at.wx) : null);
     $('wx-meta').textContent = t ? `WS90 · ${clock(t)}` : 'Ecowitt WS90';
   }
@@ -356,6 +357,31 @@ window.Hub = (() => {
     const modeTxt = { auto: 'Auto', full: 'Full rate', off: 'Off' }[e.mode] || null;
     const winTxt = { day: 'solar window', offpeak: 'off-peak', evening: 'evening' }[L.window] || '';
     if ($('en-mode')) $('en-mode').textContent = modeTxt ? `${modeTxt}${winTxt ? ' · ' + winTxt : ''} · ` : '';
+  }
+
+  // ---------- efficiency donuts (today), same maths and colours as the EV page ----------
+  // Car: solar counts 100%, off-peak grid 72% (the share of on-peak cost it avoids next to solar:
+  // (27.6c - 8c) / (27.6c - 0.5c)), on-peak grid 0. Solar: share of generation used at home.
+  const effColor = e => e == null ? '#d8d9da' : e >= 85 ? '#73bf69' : e >= 60 ? '#fade2a' : e >= 30 ? '#ff9830' : '#f2495c';
+  function miniPie(title, segs, total, eff, href) {
+    const r = 54, C = 2 * Math.PI * r; let off = 0, arcs = '';
+    if (total > 0) segs.forEach(([n, v, col]) => { if (v <= 0) return; const len = C * v / total;
+      arcs += `<circle cx="75" cy="75" r="${r}" fill="none" stroke="${col}" stroke-width="22" stroke-dasharray="${len.toFixed(2)} ${(C - len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 75 75)"/>`; off += len; });
+    else arcs = '<circle cx="75" cy="75" r="54" fill="none" stroke="var(--surface-3)" stroke-width="22"/>';
+    const svg = `<svg viewBox="0 0 150 150" aria-hidden="true">${arcs}<text x="75" y="84" text-anchor="middle" fill="${effColor(eff)}" font-family="var(--sans)" font-size="34" font-weight="700">${eff == null ? '–' : eff + '%'}</text></svg>`;
+    const leg = segs.map(([n, v, col]) => `<div><i style="background:${col}"></i><span>${n}</span><b>${v.toFixed(1)}</b></div>`).join('');
+    return `<a class="eff" href="${href}" title="${esc(title)} efficiency today">${svg}<div class="eff-leg"><div class="eff-t">${title}<small>${total.toFixed(1)} kWh</small></div>${leg}</div></a>`;
+  }
+  function renderEff() {
+    const box = $('eff'); if (!box) return;
+    const T = S.ev?.totals;
+    if (!T) { if (failed.ev) box.innerHTML = ''; return; }
+    const credit = (RATE.general - RATE.offpeak) / (RATE.general - RATE.feedin);
+    const solar = T.car_solar_kwh || 0, off = T.car_offpeak_kwh || 0, grid = T.car_grid_day_kwh || 0, car = solar + off + grid;
+    const house = T.house_solar_kwh || 0, exp = T.export_kwh || 0, gen = Math.max(T.solar_kwh || 0, solar + house + exp);
+    box.innerHTML =
+      miniPie('Car charging', [['Solar', solar, '#fade2a'], ['Off-peak', off, '#e89cbd'], ['On-peak', grid, '#f2495c']], car, car > 0.05 ? Math.round(100 * (solar + off * credit) / car) : null, 'ev.html') +
+      miniPie('Solar', [['Cars', solar, '#73bf69'], ['House', house, '#5794f2'], ['Exported', exp, 'rgba(204,204,220,.42)']], gen, gen > 0.05 ? Math.round(100 * (solar + house) / gen) : null, 'energy.html');
   }
 
   // ---------- render: today's mix donuts ----------
@@ -589,8 +615,8 @@ window.Hub = (() => {
     if (w && has(w.uvi) && w.uvi >= UV_ALERT) add('alert', `UV ${f1(w.uvi)}, ${uvLabel(w.uvi).toLowerCase()}. Sun protection needed`);
     warns.filter(x => x.level === 'advice').forEach(x => out.push(x));
     const cn = carNote(); if (cn) out.push(cn);
-    if (w && has(w.rainRate) && w.rainRate > 0) add('rain', `Raining now, ${f1(w.rainRate)} mm/h`);
-    else { const wet = hrs.slice(1, 7).find(h => h.precipProbability >= 50); if (wet) add('rain', `Rain likely around ${ampm(fcHour(wet.time))} (${wet.precipProbability}%)`); }
+    // Raining now is shown in the weather tile itself, so only the heads-up for later goes here
+    if (!(w && has(w.rainRate) && w.rainRate > 0)) { const wet = hrs.slice(1, 7).find(h => h.precipProbability >= 50); if (wet) add('rain', `Rain likely around ${ampm(fcHour(wet.time))} (${wet.precipProbability}%)`); }
     const fcLeft = solarLeftToday();
     const plugged = plugState(e.c);
     if (now.h >= 7 && now.h < 16 && S.ev && !plugged && fcLeft >= 8 && !ex) add('sun', `About ${Math.round(fcLeft)} kWh of sun left today. Plug a car in to use it.`);
@@ -986,7 +1012,7 @@ window.Hub = (() => {
   // ---------- loops ----------
   let EXTRA = [];
   const renderAll = () => {
-    for (const fn of [renderClock, renderWx, renderFlow, renderPies, renderCars, renderNet, renderForecast, renderClimate, renderAgenda, renderNotes, ...EXTRA]) {
+    for (const fn of [renderClock, renderWx, renderFlow, renderEff, renderPies, renderCars, renderNet, renderForecast, renderClimate, renderAgenda, renderNotes, ...EXTRA]) {
       try { fn(); } catch (e) { console.warn('render', fn.name, e); }
     }
   };

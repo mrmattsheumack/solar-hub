@@ -16,27 +16,27 @@
 <style>
 /* Dashboard layout: which tile goes where. Tile styles are in hub.css. */
 body{overflow:hidden}
-.wx{grid-area:wx} .radar{grid-area:radar} .flowcard{grid-area:flow} .mix{grid-area:mix} .cars{grid-area:car} .climatecard{grid-area:climate}
+.wx{grid-area:wx} .radar{grid-area:radar} .flowcard{grid-area:flow} .cars{grid-area:car} .climatecard{grid-area:climate}
 /* Whole screen. Shifted a pixel or two every few minutes to spare the panel. */
 .screen{height:100dvh;display:grid;gap:var(--gap);
   padding:calc(var(--gap) + env(safe-area-inset-top,0px)) max(var(--gap),env(safe-area-inset-right,0px)) calc(var(--gap) + env(safe-area-inset-bottom,0px)) max(var(--gap),env(safe-area-inset-left,0px));
   grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) minmax(0,1fr);
-  grid-template-rows:auto auto minmax(0,1.22fr) minmax(0,1fr);
-  grid-template-areas:"head head head" "notes notes notes" "wx radar flow" "climate mix car";
+  grid-template-rows:auto auto minmax(0,1.15fr) minmax(0,1fr);
+  /* Weather gets the whole left side; radar sits under the energy flow; climate is the compact one */
+  grid-template-areas:"head head head" "notes notes notes" "wx flow car" "wx radar climate";
   transition:transform 2s ease}
 
 /* ---------- smaller screens: stack and scroll ---------- */
-@media (max-width:1000px), (max-height:560px) and (max-width:1200px){
+@media (max-width:1000px), (max-height:640px) and (max-width:1200px){
   body{overflow:auto}
   .screen{height:auto;grid-template-columns:1fr 1fr;grid-template-rows:auto;
-    grid-template-areas:"head head" "notes notes" "wx flow" "climate car" "radar radar" "mix mix"}
-  .radar{min-height:420px} .flowcard{min-height:420px} .mix{min-height:300px}
+    grid-template-areas:"head head" "notes notes" "wx flow" "car climate" "radar radar"}
+  .radar{min-height:420px} .flowcard{min-height:460px}
   .head{flex-wrap:wrap}
   .notes{max-height:none} .note{white-space:normal;height:auto;padding:8px 14px}
 }
 @media (max-width:640px){
-  .screen{grid-template-columns:1fr;grid-template-areas:"head" "notes" "wx" "flow" "car" "climate" "radar" "mix"}
-  .pies{grid-template-columns:1fr}
+  .screen{grid-template-columns:1fr;grid-template-areas:"head" "notes" "wx" "flow" "car" "climate" "radar"}
   .head{flex-wrap:wrap} .dots{display:none}
   .head-left{flex-wrap:wrap} .agenda{max-width:100%;flex:1 1 100%}
   .head-right{flex-wrap:wrap;flex:1 1 100%} .net span{display:none} #btn-fs{display:none}
@@ -105,12 +105,7 @@ body{overflow:hidden}
     <div id="flow-body" style="display:flex;flex-direction:column;gap:10px;flex:1;min-height:0">
       <div class="empty">Waiting for solar and charger data…</div>
     </div>
-  </section>
-
-  <!-- ===== today's mix ===== -->
-  <section class="card mix" aria-labelledby="mix-h">
-    <div class="card-head"><h2 id="mix-h"><a class="wx-title" href="energy.html#today">Today's electricity</a></h2><a class="card-link" href="energy.html#today"><span id="mix-meta">since midnight</span> ›</a></div>
-    <div class="pies" id="pies"><div class="empty">Adding up today…</div></div>
+    <div class="eff-row" id="eff" aria-label="Today's efficiency"></div>
   </section>
 
   <!-- ===== car charging ===== -->

@@ -269,6 +269,15 @@ Dashboard changes:
   rain pixel 4x and looked blurry). Full screen: pinch/scroll/double-tap and +/- buttons zoom, drag
   pans, a close button (or Esc) exits; taps inside full screen no longer close it. Radar tiles are
   cached in the page so moving around doesn't re-download them.
+- Layout reshuffle (2026-10-31): weather runs the full height of the left column (nothing cut off;
+  gust, rain this week and 12 h timings are back, plus a next-6-hours strip along the bottom).
+  Middle: energy flow on top, radar underneath. Right: car charging, then a compact climate tile.
+  "Today's electricity" donuts left the dashboard (they live on the Energy page).
+- Energy flow tile has two small efficiency donuts, same colours and maths as the EV page:
+  car charging (solar 100%, off-peak 72%, on-peak 0) and solar (share used at home).
+- The "Raining now" note is gone from the dashboard header (the weather tile already says it);
+  "Rain likely around..." stays.
+- Every page linked from the dashboard carries the menu (ev.html had lost it in a later edit).
 
 New data:
 - `ecowitt?history=today`: today's 5-minute WS90 readings (Ecowitt v3 device/history).
