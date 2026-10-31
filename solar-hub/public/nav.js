@@ -6,6 +6,8 @@
   const PAGES = [
     { id: 'dash', href: './', label: 'Dashboard', short: 'Home', match: ['', 'index.html', 'home.html'],
       icon: '<rect x="3" y="3" width="7.5" height="9" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="5.5" rx="1.5"/><rect x="13.5" y="11.5" width="7.5" height="9.5" rx="1.5"/><rect x="3" y="15" width="7.5" height="6" rx="1.5"/>' },
+    { id: 'calendar', href: 'calendar.html', label: 'Calendar', short: 'Calendar', match: ['calendar.html'],
+      icon: '<rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><path d="M7.5 13.5h2M11 13.5h2M14.5 13.5h2M7.5 17h2M11 17h2"/>' },
     { id: 'weather', href: 'weather.html', label: 'Weather', short: 'Weather', match: ['weather.html'],
       icon: '<circle cx="8.5" cy="8" r="3.2"/><path d="M8.5 1.8v1.4M2.8 8H1.4M4.4 3.9l1 1M12.6 3.9l-1 1"/><path d="M7 20h10.5a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.6 1.2A3 3 0 0 0 7 20z"/>' },
     { id: 'ev', href: 'ev.html', label: 'EV Charging', short: 'EV', match: ['ev.html', 'history.html', 'decisions.html'],

@@ -282,4 +282,37 @@ Shown to people as **Home Dashboard** everywhere (page titles, menu, EV breadcru
 when added to a home screen: "Home Dashboard", short name "Home"). The repo, the Netlify site
 (solarhubdromana.netlify.app), the Pi folders and code identifiers keep the solar-hub name.
 
+## Family calendar (added 2026-10-31)
+
+Goal: the shared family calendar on the dashboard (what's next, reminders) and its own page.
+
+Decisions agreed with Matt:
+- Source is the **Family** Google Calendar from Jas's Google family group (Matt and Jas both
+  edit it on their phones). A separate "stermack" calendar was made first, then dropped in favour of it.
+- The dashboard reads it as a Google service account (`dashboard-calendar@home-dashboard-513301`,
+  Google Cloud project `home-dashboard-513301`, Calendar API on). The Family calendar is shared
+  with that account. Nobody signs in and no Google tokens reach the browser. If the share is
+  removed, or Jas leaves the family group, the calendar stops loading.
+- New `calendar` function (no npm packages; signs the Google JWT with Node crypto, read-only scope).
+  Recurring events come back already expanded by Google (singleEvents=true). Netlify env vars:
+  `FAMILY_CAL_ID`, `GOOGLE_SA_KEY` (the whole JSON key; GOOGLE_SA_EMAIL + GOOGLE_SA_PRIVATE_KEY also
+  work if the 4 KB function env limit bites). Optional `HUB_TOKEN`: when set, callers must send the
+  `x-hub-token` header. The pages send the key stored on the device (localStorage `hubToken`), and
+  the Calendar page asks for it if the function says it's locked.
+- Dashboard: "Next up" card in the header (next event with countdown, today's all-day events),
+  linking to the Calendar page. Calendar reminders in the notes strip, after official warnings and
+  excess solar: starting within 2 hours (bold inside 15 min), on now, today's all-day events, and
+  from 6 pm tomorrow's all-day events and anything before 9:30 am. Max three. Polled every 5 minutes.
+- Calendar page (`calendar.html`, in the menu after Dashboard): Week (default on tablets), Month and
+  List (default on phones) views, forecast icon, max temp and rain chance on each day, Google event
+  colours, tap an event for details with "Edit in Google Calendar". Read-only for now; adding events
+  from the tablet may come later (would need the read/write scope).
+- Work calendar: Matt subscribes to the Family calendar's secret iCal address in Outlook (read-only
+  overlay, refreshes slowly). Work meetings are not shown on the dashboard.
+
+## Security note (2026-10-31)
+
+The site and its functions are currently open to anyone with the URL, and the repo is public.
+Locking the dashboard down is the next piece of work.
+
 End of file.

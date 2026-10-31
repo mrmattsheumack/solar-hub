@@ -38,6 +38,7 @@ body{overflow:hidden}
   .screen{grid-template-columns:1fr;grid-template-areas:"head" "notes" "wx" "flow" "car" "climate" "radar" "mix"}
   .pies{grid-template-columns:1fr}
   .head{flex-wrap:wrap} .dots{display:none}
+  .head-left{flex-wrap:wrap} .agenda{max-width:100%;flex:1 1 100%}
   .head-right{flex-wrap:wrap;flex:1 1 100%} .net span{display:none} #btn-fs{display:none}
 }
 </style>
@@ -50,6 +51,7 @@ body{overflow:hidden}
     <div class="head-left">
       <div class="clock" id="clock">--:--</div>
       <div class="date"><b id="date">Dromana</b><span id="sun">Sunrise and sunset loading</span></div>
+      <a class="agenda" id="agenda" href="calendar.html" aria-label="Family calendar: next up" hidden></a>
     </div>
     <div class="head-right">
       <div class="dots" id="dots" title="Data sources">
@@ -61,6 +63,7 @@ body{overflow:hidden}
         <span class="dot" id="dot-net"><i></i><b>NET</b></span>
         <span class="dot" id="dot-warn"><i></i><b>WARNINGS</b></span>
         <span class="dot" id="dot-climate"><i></i><b>AC</b></span>
+        <span class="dot" id="dot-cal"><i></i><b>CAL</b></span>
       </div>
       <div class="net" id="net" hidden></div>
       <button class="btn icon" id="btn-dim" aria-label="Toggle night dimming" title="Night dimming"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
@@ -128,7 +131,7 @@ body{overflow:hidden}
 <script src="nav.js"></script>
 <script src="hub.js"></script>
 <script>
-  Hub.start({ sources: ['ev', 'sems', 'wx', 'fc', 'net', 'warn', 'climate', 'beach', 'radar'], wall: true });
+  Hub.start({ sources: ['ev', 'sems', 'wx', 'fc', 'net', 'warn', 'climate', 'beach', 'cal', 'radar'], wall: true });
 </script>
 </body>
 </html>

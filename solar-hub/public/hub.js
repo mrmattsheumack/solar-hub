@@ -1,7 +1,7 @@
 /* Solar Hub shared client code (dashboard, Weather and Energy pages).
    Each page puts the tiles it wants in its markup; every renderer here quietly skips tiles that
    aren't on the page. A page starts it with Hub.start({ sources, wall, extra }):
-     sources: which feeds to poll (ev sems wx fc radar net warn climate wxhist evhist)
+     sources: which feeds to poll (ev sems wx fc radar net warn climate wxhist evhist beach cal)
      wall:    true on the always-on dashboard (wake lock, night dim, burn-in shift, 6-hourly reload)
      extra:   page-specific render functions, run after every data refresh */
 window.Hub = (() => {
@@ -24,15 +24,16 @@ window.Hub = (() => {
     wxhist: '/.netlify/functions/ecowitt?history=today',
     beach: '/.netlify/functions/beaches',
     evhist: '/.netlify/functions/ev?view=history',
+    cal: '/.netlify/functions/calendar',
   };
-  const EVERY = { ev: 30e3, wx: 60e3, sems: 120e3, fc: 30 * 60e3, radar: 10 * 60e3, net: 5 * 60e3, warn: 3 * 60e3, climate: 60e3, wxhist: 10 * 60e3, evhist: 15 * 60e3, beach: 30 * 60e3 };
+  const EVERY = { ev: 30e3, wx: 60e3, sems: 120e3, fc: 30 * 60e3, radar: 10 * 60e3, net: 5 * 60e3, warn: 3 * 60e3, climate: 60e3, wxhist: 10 * 60e3, evhist: 15 * 60e3, beach: 30 * 60e3, cal: 5 * 60e3 };
   // How old before a source is shown amber. Pi or cloud hiccups shouldn't look like outages.
-  const STALE = { ev: 3 * 60e3, wx: 10 * 60e3, sems: 10 * 60e3, fc: 3 * 3600e3, radar: 30 * 60e3, net: 20 * 60e3, warn: 15 * 60e3, climate: 5 * 60e3, wxhist: 40 * 60e3, evhist: 60 * 60e3, beach: 6 * 3600e3 };
+  const STALE = { ev: 3 * 60e3, wx: 10 * 60e3, sems: 10 * 60e3, fc: 3 * 3600e3, radar: 30 * 60e3, net: 20 * 60e3, warn: 15 * 60e3, climate: 5 * 60e3, wxhist: 40 * 60e3, evhist: 60 * 60e3, beach: 6 * 3600e3, cal: 30 * 60e3 };
   const params = new URLSearchParams(location.search);
   if (params.get('theme') === 'light') document.documentElement.dataset.theme = 'light';
 
   const $ = id => document.getElementById(id);
-  const S = { ev: null, sems: null, wx: null, fc: null, radar: null, net: null, warn: null, climate: null, wxhist: null, evhist: null, beach: null };   // latest payloads
+  const S = { ev: null, sems: null, wx: null, fc: null, radar: null, net: null, warn: null, climate: null, wxhist: null, evhist: null, beach: null, cal: null };   // latest payloads
   const at = {}, failed = {};                                             // last success time, failure flags
 
   // ---------- time helpers (always Melbourne, whatever the device thinks) ----------
@@ -57,9 +58,12 @@ window.Hub = (() => {
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   // ---------- fetch with status tracking ----------
+  // Dashboard key for locked functions (calendar). Stored once per device; sent only to this site.
+  const hubKey = () => { try { return localStorage.getItem('hubToken') || ''; } catch (e) { return ''; } };
   async function pull(name, url, timeout = 20000) {
     try {
-      const r = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(timeout) });
+      const own = url.startsWith('/'), key = own ? hubKey() : '';
+      const r = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(timeout), headers: key ? { 'x-hub-token': key } : {} });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || j.error) throw new Error(j.error || 'HTTP ' + r.status);
       S[name] = j; at[name] = Date.now(); failed[name] = false;
@@ -549,7 +553,7 @@ window.Hub = (() => {
 
   // ---------- heads-up notes: the joined-up bit ----------
   // Header notes, most important first:
-  //   official warnings (emergency / watch) > excess solar > wind > UV > advice warnings > car > rain >
+  //   official warnings (emergency / watch) > excess solar > calendar reminders > wind > UV > advice warnings > car > rain >
   //   solar outlook > nearby incidents (planned burns etc.) > Pi offline
   function warnNotes() {
     const list = S.warn?.items || [];
@@ -577,6 +581,7 @@ window.Hub = (() => {
     warns.filter(x => x.level === 'emergency' || x.level === 'watch').forEach(x => out.push(x));
     const ex = excessSolar();
     if (ex) add('sun strong', `Excess solar - Suggest Car Charging (${ex.kw.toFixed(1)} kW spare)`);
+    calNotes().forEach(x => out.push(x));
     // Wind: what the station sees now, or the strongest forecast gust in the next 12 hours
     const gust = maxGust12(), windNow = Math.max(w?.windSpeed || 0, w?.windGust || 0);
     if (windNow > WIND_ALERT) add('alert', `Strong wind now: ${Math.round(w.windSpeed || 0)} km/h, gusting ${Math.round(w.windGust || 0)}`);
@@ -602,9 +607,83 @@ window.Hub = (() => {
     warns.filter(x => x.level === 'info').forEach(x => out.push(x));
     if ((S.ev && at.ev && Date.now() - at.ev > STALE.ev) || (!S.ev && failed.ev)) add('warn', "Can't reach the Pi. The charger controller keeps running on its own.");
     $('notes').innerHTML = out.slice(0, 5).map(n => n.href
-      ? `<a class="note ${n.cls}" href="${esc(n.href)}" target="_blank" rel="noopener" title="${esc(n.tip || '')}"><i></i>${esc(n.text)}</a>`
+      ? `<a class="note ${n.cls}" href="${esc(n.href)}"${n.local ? '' : ' target="_blank" rel="noopener"'} title="${esc(n.tip || '')}"><i></i>${esc(n.text)}</a>`
       : `<span class="note ${n.cls}"><i></i>${esc(n.text)}</span>`).join('');
   }
+
+  // ---------- family calendar (Google, via the calendar function) ----------
+  // Timed events carry an offset (2026-11-03T15:30:00+11:00); all-day events are a date, with an
+  // exclusive end date. Everything is shown in Melbourne time.
+  const calTime = d => d.toLocaleTimeString('en-AU', { timeZone: TZ, hour: 'numeric', minute: '2-digit', hour12: true }).replace(':00', '').replace(/\s?([ap])\.?m\.?/i, ' $1m');
+  const evStart = e => e.allDay ? new Date(e.start + 'T00:00:00') : new Date(e.start);
+  const evEnd = e => e.allDay ? new Date(e.end + 'T00:00:00') : new Date(e.end);
+  const evDay = e => e.allDay ? e.start : mel(new Date(e.start)).key;
+  // Days an event touches (all-day events can span several)
+  function evDays(e) {
+    if (!e.allDay) return [evDay(e)];
+    const out = []; let d = e.start;
+    while (d < e.end && out.length < 60) { out.push(d); const [y, m, dd] = d.split('-').map(Number); d = new Date(Date.UTC(y, m - 1, dd + 1)).toISOString().slice(0, 10); }
+    return out.length ? out : [e.start];
+  }
+  function until(ms) {
+    const m = Math.max(0, Math.round(ms / 60e3));
+    if (m < 1) return 'now';
+    if (m < 60) return `in ${m} min`;
+    const h = Math.floor(m / 60), r = m % 60;
+    return h < 24 ? `in ${h}h${r ? ` ${r}m` : ''}` : `in ${Math.round(m / 1440)} days`;
+  }
+  const dayWord = key => key === mel().key ? 'today' : key === tomorrowKey() ? 'tomorrow'
+    : new Date(key + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'long' });
+  const calEvents = () => S.cal?.events || [];
+  // Next timed event that hasn't finished, plus today's all-day events
+  function calUpcoming() {
+    const now = Date.now(), today = mel().key;
+    const timed = calEvents().filter(e => !e.allDay && evEnd(e).getTime() > now).sort((a, b) => evStart(a) - evStart(b));
+    const allDayToday = calEvents().filter(e => e.allDay && evDays(e).includes(today));
+    return { timed, allDayToday };
+  }
+  // Reminders for the notes strip: starting within 2 hours (bold inside 15 min), on now,
+  // today's all-day events, and from 6 pm anything tomorrow that's all day or before 9:30 am.
+  function calNotes() {
+    if (!S.cal) return [];
+    const now = Date.now(), m = mel(), out = [];
+    const { timed, allDayToday } = calUpcoming();
+    for (const e of timed) {
+      const st = evStart(e).getTime();
+      if (st <= now) out.push({ cls: 'cal', text: `On now: ${e.title} until ${calTime(evEnd(e))}`, href: 'calendar.html', local: true });
+      else if (st - now <= 2 * 3600e3) out.push({ cls: st - now <= 15 * 60e3 ? 'cal strong-cal' : 'cal', text: `${e.title} ${until(st - now)} (${calTime(evStart(e))})`, href: 'calendar.html', local: true });
+    }
+    allDayToday.forEach(e => out.push({ cls: 'cal', text: `Today: ${e.title}`, href: 'calendar.html', local: true }));
+    if (m.h >= 18) {
+      const tk = tomorrowKey();
+      calEvents().filter(e => e.allDay ? e.start === tk : evDay(e) === tk && mel(evStart(e)).hf < 9.5)
+        .forEach(e => out.push({ cls: 'cal', text: `Tomorrow${e.allDay ? '' : ' ' + calTime(evStart(e))}: ${e.title}`, href: 'calendar.html', local: true }));
+    }
+    return out.slice(0, 3);
+  }
+  // Header "Next up" on the dashboard
+  function renderAgenda() {
+    const el = $('agenda'); if (!el) return;
+    if (!S.cal) {
+      el.hidden = !failed.cal;
+      if (failed.cal) el.innerHTML = `<b>Calendar</b><span>Can't load right now</span>`;
+      return;
+    }
+    el.hidden = false;
+    const { timed, allDayToday } = calUpcoming(), now = Date.now();
+    const next = timed[0];
+    const later = calEvents().filter(e => e.allDay && e.start > mel().key).sort((a, b) => a.start.localeCompare(b.start))[0];
+    let main, sub;
+    if (next) {
+      const st = evStart(next), on = st.getTime() <= now;
+      main = esc(next.title);
+      sub = on ? `On now · until ${calTime(evEnd(next))}` : `${dayWord(evDay(next)) === 'today' ? '' : cap(dayWord(evDay(next))) + ' '}${calTime(st)} · ${until(st - now)}`;
+    } else if (later) { main = esc(later.title); sub = cap(dayWord(later.start)) + ' · all day'; }
+    else { main = 'Nothing coming up'; sub = 'Next two weeks are clear'; }
+    const extra = allDayToday.length ? `<em>Today: ${allDayToday.map(e => esc(e.title)).join(', ')}</em>` : '';
+    el.innerHTML = `<span class="ag-k">Next up</span><b>${main}</b><span>${esc(sub)}</span>${extra}`;
+  }
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
   // ---------- radar (RainViewer, past 2 h, max native zoom 7 on the free tier) ----------
   let map, frames = [], layers = [], idx = 0, playing = true, timer = null;
@@ -907,7 +986,7 @@ window.Hub = (() => {
   // ---------- loops ----------
   let EXTRA = [];
   const renderAll = () => {
-    for (const fn of [renderClock, renderWx, renderFlow, renderPies, renderCars, renderNet, renderForecast, renderClimate, renderNotes, ...EXTRA]) {
+    for (const fn of [renderClock, renderWx, renderFlow, renderPies, renderCars, renderNet, renderForecast, renderClimate, renderAgenda, renderNotes, ...EXTRA]) {
       try { fn(); } catch (e) { console.warn('render', fn.name, e); }
     }
   };
@@ -922,7 +1001,7 @@ window.Hub = (() => {
     sources.filter(n => n !== 'radar').forEach(n => { refresh(n); schedule(n); });
     if (sources.includes('radar')) { initMap(); loadRadar().then(() => setPlaying(true)); schedule('radar'); }
     setInterval(() => { renderClock(); renderDots(); applyDim(); }, 10e3);
-    setInterval(renderNotes, 60e3);
+    setInterval(() => { renderNotes(); renderAgenda(); }, 60e3);
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) { lock = null; return; }
       if (WALL) wake();
@@ -939,5 +1018,6 @@ window.Hub = (() => {
     icon, hourKind, dayKind, dayIcon, KIND_TXT, fcDays, solarScore, scoreColor, todayHourly, nextHours, isNight,
     cardinal, uvLabel, windArrow, WIND_ALERT, UV_ALERT, maxGust12, next12Range,
     energyNow, allocate, todayTotals, excessSolar, donut, legend, warnNotes, CARS, plugState, carOnCharger, chargeSource, hm,
-    climateSummary, ZONES, todayOutlook, ADVICE_CLS, solarLeftToday };
+    climateSummary, ZONES, todayOutlook, ADVICE_CLS, solarLeftToday,
+    calEvents, calTime, evStart, evEnd, evDay, evDays, until, dayWord, hubKey, refresh };
 })();
