@@ -16,12 +16,12 @@
 .screen{display:grid;gap:var(--gap);max-width:1700px;margin:0 auto;
   padding:calc(var(--gap) + env(safe-area-inset-top,0px)) var(--gap) calc(var(--gap) + 24px + env(safe-area-inset-bottom,0px));
   grid-template-columns:repeat(3,minmax(0,1fr));
-  grid-template-areas:"head head head" "sum sum sum" "gen use who" "chart chart flow" "save save save" "table table links"}
+  grid-template-areas:"head head head" "flow chart chart" "gen use who" "save save save" "table table links" "bill bill bill"}
 .head{flex-wrap:wrap}
 .head h1{margin:0;font-size:clamp(22px,2vw,30px);font-weight:700;letter-spacing:-.02em}
 .head .sub{color:var(--text-muted);font-size:13px}
-.sumcard{grid-area:sum} .gencard{grid-area:gen} .usecard{grid-area:use} .whocard{grid-area:who}
-.chartcard{grid-area:chart} .flowcard{grid-area:flow;min-height:400px} .savecard{grid-area:save} .tablecard{grid-area:table} .links{grid-area:links}
+.billcard{grid-area:bill} .gencard{grid-area:gen} .usecard{grid-area:use} .whocard{grid-area:who}
+.chartcard{grid-area:chart} .flowcard{grid-area:flow;min-height:380px} .savecard{grid-area:save} .tablecard{grid-area:table} .links{grid-area:links}
 
 /* period picker: Day / Month / Year and ‹ date › */
 .picker{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -35,14 +35,14 @@
 .stepper span{min-width:13ch;text-align:center;font-weight:600;font-size:14px}
 
 /* summary strip */
-.sumgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0}
+.sumgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0}
 .stat{padding:4px 16px;border-left:1px dashed var(--border-strong);min-width:0}
 .stat:first-child{border-left:0;padding-left:4px}
 .stat .v{font-family:var(--mono);font-size:clamp(20px,2vw,30px);font-weight:500;letter-spacing:-.02em;white-space:nowrap}
 .stat .v small{font-size:.5em;color:var(--text-muted);margin-left:4px;letter-spacing:0}
 .stat .k{font-size:12.5px;color:var(--text-muted);margin-top:2px}
 .stat .s{font-size:11.5px;color:var(--text-dim)}
-.sumnote{font-size:12px;color:var(--text-dim)}
+.sumnote{font-size:12px;color:var(--text-dim);line-height:1.5}
 
 /* SEMS-style ring cards: a tinted panel each side, ring and total in the middle */
 .ring{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:stretch;gap:10px;flex:1}
@@ -101,15 +101,13 @@
 .linkgrid b{font-size:14px;font-weight:600} .linkgrid span{display:block;font-size:12px;color:var(--text-muted)}
 
 @media (max-width:1200px){
-  .screen{grid-template-columns:1fr 1fr;grid-template-areas:"head head" "sum sum" "gen use" "who flow" "chart chart" "save save" "table table" "links links"}
-  .sumgrid{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:14px}
-  .stat:nth-child(4){border-left:0;padding-left:4px}
+  .screen{grid-template-columns:1fr 1fr;grid-template-areas:"head head" "flow flow" "chart chart" "gen use" "who who" "save save" "table table" "links links" "bill bill"}
   .save-grid{grid-template-columns:1fr 1fr}
 }
 @media (max-width:760px){
-  .screen{grid-template-columns:1fr;grid-template-areas:"head" "sum" "gen" "use" "who" "chart" "flow" "save" "table" "links"}
+  .screen{grid-template-columns:1fr;grid-template-areas:"head" "flow" "chart" "gen" "use" "who" "save" "table" "links" "bill"}
   .sumgrid{grid-template-columns:1fr 1fr}
-  .stat:nth-child(odd){border-left:0;padding-left:4px} .stat:nth-child(4){border-left:1px dashed var(--border-strong);padding-left:16px}
+  .stat:nth-child(odd){border-left:0;padding-left:4px}
   .save-grid{grid-template-columns:1fr}
   .chart{height:240px}
   .head-right{flex:1 1 100%;min-width:0;width:100%} .head-right .dots{display:none}
@@ -135,11 +133,6 @@
       </div>
     </div>
   </header>
-
-  <section class="card sumcard" aria-label="Totals">
-    <div class="sumgrid" id="sum"><div class="empty">Adding up…</div></div>
-    <div class="sumnote" id="sumnote"></div>
-  </section>
 
   <section class="card gencard" aria-labelledby="gen-h">
     <div class="card-head"><h2 id="gen-h">Solar generation</h2></div>
@@ -186,6 +179,12 @@
       <a href="climate.html#live"><div><b>Classic live power</b><span>The original Live Power view</span></div>›</a>
     </div>
   </section>
+
+  <section class="card billcard" aria-labelledby="bill-h">
+    <div class="card-head"><h2 id="bill-h">Grid bill estimate</h2><span class="meta">AGL Night Saver EV</span></div>
+    <div class="sumgrid" id="bill"><div class="empty">Adding up…</div></div>
+    <div class="sumnote" id="billnote"></div>
+  </section>
 </div>
 
 <script src="hub.js"></script>
@@ -230,38 +229,75 @@
   $('prev').addEventListener('click', () => shift(-1));
   $('next').addEventListener('click', () => shift(1));
 
-  // ---------- daily rows: the Pi's per-day history, with today from the live totals ----------
-  function rows() {
+  // ---------- data: SEMS+ for the meter figures, the Pi for the cars ----------
+  // SEMS+ (semsplus function) gives generation, export, import and consumption for any day, month
+  // or year, measured by the GoodWe meter, back to when the system went in. The Pi's log adds what
+  // SEMS can't see: how much went into each car and when (solar, off-peak, on-peak), from 28 Oct 2026.
+  const SP = {}, SP_AT = {}, SP_FAIL = {};   // 'day:2026-10-29' / 'month:2026-10' -> { gen_kwh, export_kwh, import_kwh, use_kwh, final }
+  try { const c = JSON.parse(localStorage.getItem('semsplus-v1') || '{}'); Object.assign(SP, c); } catch (e) {}
+  const saveSP = () => { try { localStorage.setItem('semsplus-v1', JSON.stringify(Object.fromEntries(Object.entries(SP).filter(([, v]) => v.final)))); } catch (e) {} };
+  let queue = [], running = 0, rerender = null;
+  function need(id) {
+    const v = SP[id];
+    if (v && (v.final || Date.now() - (SP_AT[id] || 0) < 10 * 60e3)) return;
+    if (SP_FAIL[id] && Date.now() - SP_FAIL[id] < 5 * 60e3) return;
+    if (!queue.includes(id)) queue.push(id);
+  }
+  function pump() {
+    while (running < 2 && queue.length) {
+      const id = queue.shift(), [w, d] = id.split(':');
+      running++;
+      fetch(`/.netlify/functions/semsplus?window=${w}&date=${d}`, { signal: AbortSignal.timeout(25000) })
+        .then(r => r.json().then(j => { if (!r.ok || j.error) throw new Error(j.error || r.status); return j; }))
+        .then(j => { SP[id] = { gen_kwh: j.gen_kwh, export_kwh: j.export_kwh, import_kwh: j.import_kwh, use_kwh: j.use_kwh, final: !!j.final }; SP_AT[id] = Date.now(); delete SP_FAIL[id]; saveSP(); })
+        .catch(() => { SP_FAIL[id] = Date.now(); })
+        .finally(() => { running--; clearTimeout(rerender); rerender = setTimeout(render, 250); pump(); });
+    }
+  }
+  // Pi rows by day, with today from the live totals
+  function piRows() {
     const out = {};
     (H.S.evhist?.days || []).forEach(d => out[d.date] = d);
     const T = H.S.ev?.totals, tk = todayKey();
     if (T) out[tk] = { ...(out[tk] || {}), ...T, date: tk };
     return out;
   }
-  function derive(d) {
+  function piDerive(d) {
     const carSolar = d.car_solar_kwh || 0, carOff = d.car_offpeak_kwh || 0, carGrid = d.car_grid_day_kwh || 0;
     const car = carSolar + carOff + carGrid, house = d.house_kwh || 0, exp = d.export_kwh || 0, imp = d.import_kwh || 0;
     const impOff = Math.min(imp, d.import_offpeak_kwh || 0), houseSolar = d.house_solar_kwh || 0;
     const gen = Math.max(d.solar_kwh || 0, houseSolar + carSolar + exp);
     return { gen, house, car, carSolar, carOff, carGrid, houseSolar, exp, imp, impOff, impPeak: imp - impOff, use: house + car,
-      ev5: d.car_ev5_kwh || 0, ioniq5: d.car_ioniq5_kwh || 0, days: 1 };
+      ev5: d.car_ev5_kwh || 0, ioniq5: d.car_ioniq5_kwh || 0, days: 1, sems: 0, pi: 1 };
   }
-  const ZERO = () => ({ gen: 0, house: 0, car: 0, carSolar: 0, carOff: 0, carGrid: 0, houseSolar: 0, exp: 0, imp: 0, impOff: 0, impPeak: 0, use: 0, ev5: 0, ioniq5: 0, days: 0 });
+  const ZERO = () => ({ gen: 0, house: 0, car: 0, carSolar: 0, carOff: 0, carGrid: 0, houseSolar: 0, exp: 0, imp: 0, impOff: 0, impPeak: 0, use: 0, ev5: 0, ioniq5: 0, days: 0, sems: 0, pi: 0 });
   const add = (a, b) => { for (const k in a) a[k] += b[k] || 0; return a; };
-  // Buckets for the chart and the table: hours (today only), days of a month, or months of a year
-  function buckets(all) {
-    const [y, m] = parts(anchor), tk = todayKey();
-    if (mode === 'month') {
-      const n = new Date(y, m, 0).getDate();
-      return Array.from({ length: n }, (_, i) => { const k = `${y}-${pad(m)}-${pad(i + 1)}`;
-        return { key: k, label: String(i + 1), long: new Date(y, m - 1, i + 1, 12).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }), v: all[k] ? derive(all[k]) : null, future: k > tk }; });
-    }
-    if (mode === 'year') {
-      return MON.map((mn, i) => { const pre = `${y}-${pad(i + 1)}`, v = ZERO(); let any = false;
-        Object.keys(all).forEach(k => { if (k.startsWith(pre)) { add(v, derive(all[k])); any = true; } });
-        return { key: pre, label: mn, long: `${mn} ${y}`, v: any ? v : null, future: pre > tk.slice(0, 7) }; });
-    }
-    return [];
+  // SEMS meter figures with the Pi's car split laid over them
+  function merge(pi, sp, days) {
+    if (!sp || sp.gen_kwh == null) return pi;
+    const gen = sp.gen_kwh || 0, exp = sp.export_kwh || 0, imp = sp.import_kwh || 0;
+    const use = sp.use_kwh != null ? sp.use_kwh : Math.max(0, gen + imp - exp), selfUse = Math.max(0, gen - exp);
+    const p = pi || ZERO(), car = p.car, carSolar = Math.min(p.carSolar, selfUse);
+    const impOff = Math.min(imp, p.impOff);
+    return { ...p, gen, exp, imp, use, house: Math.max(0, use - car), carSolar, houseSolar: Math.max(0, selfUse - carSolar),
+      impOff, impPeak: imp - impOff, days, sems: 1, pi: pi ? p.pi : 0 };
+  }
+  const daysIn = (y, m) => new Date(y, m, 0).getDate();
+  function dayVal(k, pi) { return merge(pi[k] ? piDerive(pi[k]) : null, SP['day:' + k], 1); }
+  function monthVal(mk, pi) {
+    let p = null;
+    Object.keys(pi).forEach(k => { if (k.startsWith(mk)) { p = p || ZERO(); add(p, piDerive(pi[k])); } });
+    const [y, m] = mk.split('-').map(Number), tk = todayKey();
+    const days = mk === tk.slice(0, 7) ? +tk.slice(8) : daysIn(y, m);
+    return merge(p, SP['month:' + mk], days);
+  }
+  // Buckets for the chart and the table: days of a month, or months of a year
+  function buckets(pi) {
+    const [y, m] = parts(anchor), tk = todayKey(), narrow = innerWidth < 600;
+    if (mode === 'year') return MON.map((mn, i) => { const k = `${y}-${pad(i + 1)}`; return { key: k, label: mn, long: `${mn} ${y}`, v: k <= tk.slice(0, 7) ? monthVal(k, pi) : null, future: k > tk.slice(0, 7) }; });
+    return Array.from({ length: daysIn(y, m) }, (_, i) => { const k = `${y}-${pad(m)}-${pad(i + 1)}`;
+      return { key: k, label: String(i + 1), long: new Date(y, m - 1, i + 1, 12).toLocaleDateString('en-AU', narrow ? { day: 'numeric', month: 'short' } : { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', ''),
+        v: k <= tk ? dayVal(k, pi) : null, future: k > tk }; });
   }
 
   // ---------- render ----------
@@ -270,38 +306,37 @@
     $('plabel').textContent = label();
     const tk = todayKey();
     $('next').disabled = mode === 'day' ? anchor >= tk : mode === 'month' ? anchor.slice(0, 7) >= tk.slice(0, 7) : anchor.slice(0, 4) >= tk.slice(0, 4);
-    const all = rows(), keys = Object.keys(all).sort();
-    if (!H.S.evhist && !H.S.ev) {
-      if (H.failed.evhist && H.failed.ev) $('sum').innerHTML = '<div class="empty">The Pi isn\'t reachable right now, so there are no totals to show.</div>';
-      return;
-    }
+    // Ask SEMS+ for what this view needs (the chosen day first, then the rest of its month for the table)
+    const [y] = parts(anchor);
+    if (mode === 'year') for (let i = 1; i <= 12; i++) { const k = `${y}-${pad(i)}`; if (k <= tk.slice(0, 7)) need('month:' + k); }
+    else { if (mode === 'day') need('day:' + anchor); buckets({}).forEach(b => { if (!b.future) need('day:' + b.key); }); }
+    pump();
+    const pi = piRows(), B = buckets(pi);
     const T = ZERO();
-    keys.filter(inPeriod).forEach(k => add(T, derive(all[k])));
-    renderSum(T, keys);
+    if (mode === 'day') { const v = dayVal(anchor, pi); if (v) add(T, v); }
+    else B.forEach(b => { if (b.v) add(T, b.v); });
     renderRings(T);
-    renderChart(all);
+    renderChart(B);
     renderSavings(T);
-    renderTable(all);
+    renderTable(B);
+    renderBill(T, B, pi);
   }
 
-  function renderSum(T, keys) {
+  // What's left of the old top strip: the grid bill estimate, the daily average and where the numbers come from
+  function renderBill(T, B, pi) {
     const cost = T.impOff * R.offpeak + T.impPeak * R.general + SUPPLY * T.days - T.exp * R.feedin;
-    const self = T.use > 0 ? Math.round(100 * (T.use - T.imp) / T.use) : 0;
-    const stat = (v, k, s = '') => `<div class="stat"><div class="v">${v}</div><div class="k">${k}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
-    $('sum').innerHTML =
-      stat(kwh(T.gen), 'Generation', T.days > 1 ? `${f1(T.gen / T.days)} kWh a day` : '') +
-      stat(kwh(T.use), 'Consumption', 'house and cars') +
-      stat(kwh(T.car), 'Car charging', `${pct(T.carSolar, T.car)} from solar`) +
-      stat(`${Math.max(0, self)}<small>%</small>`, 'Self-powered', 'of use from solar') +
-      stat(money(T.exp * R.feedin), 'Generation revenue', `${f1(T.exp)} kWh fed in at 0.5c`) +
-      stat(money(cost), 'Grid cost', `incl. ${money(SUPPLY * T.days)} supply`);
-    const first = keys[0], lifetime = H.S.sems?.kpi?.total_power;
+    const stat = (v, k, sub = '') => `<div class="stat"><div class="v">${v}</div><div class="k">${k}</div>${sub ? `<div class="s">${sub}</div>` : ''}</div>`;
+    $('bill').innerHTML = T.days
+      ? stat(money(cost), 'Grid cost', `incl. ${money(SUPPLY * T.days)} supply, less ${money(T.exp * R.feedin)} feed-in`) +
+        (T.days > 1 ? stat(money(cost / T.days), 'Grid cost a day', 'average') + stat(kwh(T.gen / T.days), 'Generation a day', `over ${T.days} days`) + stat(kwh(T.use / T.days), 'Consumption a day', 'house and cars') : '')
+      : '<div class="empty">Nothing recorded for this period yet.</div>';
+    const piFirst = Object.keys(pi).sort()[0], loading = queue.length + running, lifetime = H.S.sems?.kpi?.total_power;
     const notes = [];
-    if (!T.days) notes.push(`No readings for ${label()}. The Pi's daily records start ${first ? new Date(first + 'T12:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }) : 'when it was set up'}.`);
-    else if (mode !== 'day' && keys[0] && inPeriod(keys[0]) && keys[0].slice(8) !== '01') notes.push(`Covers ${T.days} day${T.days === 1 ? '' : 's'}: the Pi's daily records start ${new Date(keys[0] + 'T12:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'long' })}.`);
-    if (mode === 'year' && has(lifetime)) notes.push(`SEMS lifetime generation: ${(lifetime / 1000).toFixed(1)} MWh.`);
-    $('sumnote').textContent = notes.join(' ');
-    $('sumnote').hidden = !notes.length;
+    if (loading) notes.push(`Loading ${loading} more from SEMS…`);
+    notes.push('Generation, export, import and consumption from the GoodWe meter (SEMS).');
+    notes.push(`Car charging from the Pi's charger log${piFirst ? ', which starts ' + new Date(piFirst + 'T12:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}; before then cars count as house use and grid imports are costed at the general rate.`);
+    if (mode === 'year' && has(lifetime)) notes.push(`Lifetime generation ${(lifetime / 1000).toFixed(1)} MWh.`);
+    $('billnote').textContent = notes.join(' ');
   }
 
   // ring: segments [[value, colour]]
@@ -330,7 +365,7 @@
 
   // ---------- energy monitoring chart ----------
   const LEG_BARS = `<span><i style="--c:${C.gen}"></i>Generation</span><span><i style="--c:${C.house}"></i>House</span><span><i style="--c:${C.car}"></i>Cars</span><span><i style="--c:${C.exp}"></i>Grid export</span><span><i style="--c:${C.imp}"></i>Grid import</span>`;
-  function renderChart(all) {
+  function renderChart(B) {
     const el = $('chart');
     if (mode === 'day') {
       if (anchor === todayKey()) { $('chart-meta').textContent = 'kW through the day'; return renderToday(); }
@@ -338,7 +373,6 @@
       el.innerHTML = '<div class="empty">The 5-minute curve is only kept for today. Switch to Month to compare days.</div>';
       $('cleg').innerHTML = ''; return;
     }
-    const B = buckets(all);
     $('chart-meta').textContent = mode === 'month' ? 'kWh a day' : 'kWh a month';
     $('cleg').innerHTML = LEG_BARS;
     const W = Math.max(300, el.clientWidth), Hh = Math.max(200, el.clientHeight), L = 40, Rm = 6, T = 10, Bm = 24, pw = W - L - Rm, ph = Hh - T - Bm;
@@ -418,15 +452,10 @@
   }
 
   // ---------- table: the period's days (day and month views) or months (year view) ----------
-  function renderTable(all) {
-    let list;
-    if (mode === 'year') { list = buckets(all).filter(b => b.v); $('table-h').textContent = 'Month by month'; }
-    else {
-      // Day view lists the rest of that month too, with the chosen day highlighted
-      $('table-h').textContent = 'Day by day';
-      list = Object.keys(all).filter(k => k.slice(0, 7) === anchor.slice(0, 7)).sort().reverse()
-        .map(k => ({ key: k, long: new Date(k + 'T12:00:00').toLocaleDateString('en-AU', innerWidth < 600 ? { day: 'numeric', month: 'short' } : { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', ''), v: derive(all[k]) }));
-    }
+  function renderTable(B) {
+    // Day view lists the rest of that month too, with the chosen day highlighted
+    $('table-h').textContent = mode === 'year' ? 'Month by month' : 'Day by day';
+    const list = B.filter(b => b.v).reverse();
     if (!list.length) { $('htable').innerHTML = `<tbody><tr><td class="none">Nothing recorded for ${esc(label())}.</td></tr></tbody>`; return; }
     const cost = v => v.impOff * R.offpeak + v.impPeak * R.general + SUPPLY * v.days - v.exp * R.feedin;
     const row = (name, v, cls = '') => `<tr class="${cls}"><td>${name}</td><td>${f1(v.gen)}</td><td>${f1(v.house)}</td><td>${f1(v.car)}</td><td>${f1(v.exp)}</td><td>${f1(v.impOff)}</td><td>${f1(v.impPeak)}</td><td>${money(cost(v))}</td></tr>`;

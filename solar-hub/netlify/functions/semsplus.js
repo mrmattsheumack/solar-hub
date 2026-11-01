@@ -131,6 +131,28 @@ exports.handler = async (event) => {
   if (!email || !password) return { statusCode: 500, headers, body: JSON.stringify({ error: "SEMS_EMAIL or SEMS_PASSWORD env vars not set" }) };
 
   const q = event.queryStringParameters || {};
+  // ?window=day|month|year&date=... -> that one window's totals (one SEMS+ call, quick). The Energy
+  // page asks for each bar this way, a couple at a time, and caches finished ones.
+  if (q.window) {
+    const w = q.window, d = String(q.date || "");
+    const valid = (w === "year" && /^20\d\d$/.test(d)) || (w === "month" && /^20\d\d-(0[1-9]|1[0-2])$/.test(d)) || (w === "day" && /^20\d\d-\d\d-\d\d$/.test(d));
+    if (!valid) return { statusCode: 400, headers, body: JSON.stringify({ error: "window=day&date=YYYY-MM-DD, window=month&date=YYYY-MM or window=year&date=YYYY" }) };
+    try {
+      const s = await session(email, password);
+      const today = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date());
+      const [y, m] = d.split("-").map(Number);
+      const start = w === "year" ? `${y}-01-01 00:00:00` : w === "month" ? `${d}-01 00:00:00` : `${d} 00:00:00`;
+      const end = w === "year" ? `${y}-12-31 23:59:59` : w === "month" ? `${d}-${pad(lastDay(y, m))} 23:59:59` : `${d} 23:59:59`;
+      const sleep = ms => new Promise(r => setTimeout(r, ms));
+      let j = await production(s, w, start, end);
+      for (let k = 0; k < 3 && (j.code ?? j.status) === "GY0429"; k++) { await sleep(700 * (k + 1)); j = await production(s, w, start, end); }
+      const code = j.code ?? j.status;
+      if (code !== "00000" && code !== 0) return { statusCode: code === "GY0429" ? 429 : 502, headers, body: JSON.stringify({ error: `SEMS+ ${code}: ${j.msg || "no message"}`, code }) };
+      const current = w === "day" ? d >= today : w === "month" ? d >= today.slice(0, 7) : String(y) >= today.slice(0, 4);
+      return { statusCode: 200, headers: { ...headers, "Cache-Control": current ? "public, max-age=600" : "public, max-age=604800" },
+        body: JSON.stringify({ window: w, date: d, final: !current, ...mapRow(j.data) }) };
+    } catch (err) { cached = null; return { statusCode: 502, headers, body: JSON.stringify({ error: err.message }) }; }
+  }
   const period = q.period, date = String(q.date || "");
   const ok = (period === "year" && /^20\d\d$/.test(date)) || (period === "month" && /^20\d\d-(0[1-9]|1[0-2])$/.test(date)) || (period === "day" && /^20\d\d-\d\d-\d\d$/.test(date));
   if (!ok) return { statusCode: 400, headers, body: JSON.stringify({ error: "period=year&date=YYYY, period=month&date=YYYY-MM or period=day&date=YYYY-MM-DD" }) };

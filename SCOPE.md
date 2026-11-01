@@ -310,13 +310,27 @@ Year, and the savings moved over from the EV page.
   savings, off-peak savings, cars from the grid (cost), total and per-day average.
 - Data: the Pi's per-day history (ev?view=history), with today from the live totals. Those records
   only start 28 Oct 2026, so Month and Year fill in from there; the page says how many days it covers.
-- SEMS: month and year history isn't available. The old v2 chart endpoint answers with no charts
-  since the SEMS+ migration, and the SEMS+ history endpoints aren't publicly documented. The sems
-  function now passes through the plant summary (kpi: month and lifetime generation, income);
-  lifetime generation shows on the Year view. A probe used to look for history was removed; a
-  generic "call any SEMS endpoint" probe was declined as unsafe (it would expose the login).
-- The AGL usage store (Supabase, used by usage.js and the classic history) returned "fetch failed"
-  on 2026-11-01, so it couldn't back-fill earlier months either.
+- (Superseded the same night, see below.) SEMS month and year history first looked unavailable.
+
+### SEMS+ history and layout tidy (2026-11-01, later)
+
+- New `semsplus` function: logs in to GoodWe SEMS+ (semsplus.goodwe.com, password as base64 of the
+  MD5 hex, login signed with an empty token; the account sits on au-gateway.semsportal.com) and
+  calls `stations/production` for one window: `?window=day&date=YYYY-MM-DD`, `window=month&date=YYYY-MM`
+  or `window=year&date=YYYY`. Returns gen, export, import (purchase), consumption and SEMS's income
+  figures. Read-only and fixed: it only accepts a validated period. SEMS+ rate-limits parallel calls
+  (GY0429), so the page asks two at a time and the function retries. Finished windows are cached by
+  the CDN for a week and in the browser; the current day or month refreshes every 10 minutes.
+  Method from the open-source goodwe-semsplus client (github.com/WestLabsAI/goodwe-semsplus).
+- Energy page figures now come from SEMS (the GoodWe meter) for generation, export, import and
+  consumption, back to January 2026. The Pi still supplies the car split (solar / off-peak / on-peak,
+  EV5 / IONIQ 5); house = SEMS consumption less the cars. Before the Pi's log starts, cars count as
+  house use and grid imports are costed at the general rate.
+- The Pi's own export/import estimates disagree with the meter (29 Oct: Pi 42 kWh exported, SEMS 4.9),
+  which is why SEMS is now the source for those.
+- Layout: the top totals strip is gone (every figure in it is shown in the rings or savings below).
+  Live flow sits at the top next to the chart. What was left (grid cost incl. supply, daily
+  averages, where the numbers come from) moved to a "Grid bill estimate" card at the bottom.
 
 ## Name (2026-10-31)
 
