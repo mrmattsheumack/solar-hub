@@ -97,11 +97,19 @@ def main():
     was_plugged = None
     last_cached = last_force = 0.0
     need_identify = False
+    last_plug_seen = now()
     while True:
         try:
             st = read_json(STATE, {}) or {}
             c = st.get("charger") or {}
             plug = c.get("plug")
+            if plug:
+                last_plug_seen = now()
+            elif now() - last_plug_seen > 1800 and out.get("car"):
+                log.info("no charger status for 30 min, forgetting the car tag (may have missed an unplug)")
+                out.update({"car": None, "car_since": None, "car_how": None}); was_plugged = None
+                try: MANUAL.unlink()
+                except FileNotFoundError: pass
             plugged = plug in PLUGGED if plug else was_plugged     # no status: keep what we had
             charging = float(c.get("power_w") or 0) > 500
             t = now()
@@ -150,6 +158,9 @@ def main():
                         and ev5["plugged"] and ev5["charging"] and ev5["at_home"] and charging:
                     out.update({"car": "ev5", "car_how": "kia_connect"})      # corrected by a later reading
                     log.info("re-tagged as ev5")
+                if plugged and out.get("car") == "ev5" and out.get("car_how") != "manual" and fresh and not ev5["plugged"]:
+                    out.update({"car": "ioniq5", "car_how": "elimination"})
+                    log.info("re-tagged as ioniq5 (EV5 reports not plugged in)")
                 ev5.pop("_st", None)
                 out["ev5"] = ev5
                 out["checked_at"] = iso(t)
