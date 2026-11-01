@@ -11,8 +11,12 @@
 const crypto = require("crypto");
 
 // Login host by region; the account only exists in one of them
-const SEMS_HOSTS = ["https://au-semsplus.goodwe.com", "https://semsplus.goodwe.com", "https://us-semsplus.goodwe.com", "https://eu-semsplus.goodwe.com"];
-let SEMS_HOST = SEMS_HOSTS[1];
+const SEMS_HOSTS = ["https://semsplus.goodwe.com", "https://au-semsplus.goodwe.com", "https://us-semsplus.goodwe.com"];
+let SEMS_HOST = SEMS_HOSTS[0];
+const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36";
+// The login itself is signed with an empty token, as the SEMS+ web portal does
+const EMPTY_TOKEN = { uid: "", timestamp: 0, token: "", client: "semsPlusWeb", version: "", language: "en" };
+const gwHeaders = tok => ({ token: JSON.stringify(tok), "X-Signature": signature(tok), "Access-Control-Allow-Origin": "*", neutral: "0", currentLang: "en" });
 const LOGIN_PATH = "/web/sems/sems-user/api/v1/auth/cross-login";
 const GATEWAYS = ["https://au-gateway.semsportal.com", "https://eu-gateway.semsportal.com", "https://us-gateway.semsportal.com"];
 const ITEMS = ["proSystemTotalStats", "proGridStats", "proPurchaseStats", "proConsumStats", "profitProStats", "profitGridStats"];
@@ -28,11 +32,11 @@ function signature(tok) {
 let cached = null;   // { tok, gateway, stationId, at } kept while the function stays warm
 
 async function loginAt(host, email, password) {
-  const home = await fetch(host, { redirect: "follow" }).catch(() => null);
+  const home = await fetch(host, { redirect: "follow", headers: { "User-Agent": UA } }).catch(() => null);
   const cookie = home ? (home.headers.getSetCookie?.() || []).map(c => c.split(";")[0]).join("; ") : "";
   const r = await fetch(host + LOGIN_PATH, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Origin: host, Referer: host + "/", ...(cookie ? { Cookie: cookie } : {}) },
+    headers: { "Content-Type": "application/json", Accept: "application/json, text/plain, */*", "User-Agent": UA, Origin: host, Referer: host + "/", ...gwHeaders(EMPTY_TOKEN), ...(cookie ? { Cookie: cookie } : {}) },
     body: JSON.stringify({ account: email, pwd: md5b64(password), agreement: 1, isChinese: false, isLocal: false }),
   });
   const t = await r.text(); let j; try { j = JSON.parse(t); } catch (e) { j = { code: `http ${r.status}`, msg: t.slice(0, 60) }; }
@@ -56,10 +60,9 @@ async function login(email, password) {
 }
 
 async function call(gateway, tok, method, path, body) {
-  const tokenJson = JSON.stringify(tok);
   const r = await fetch(gateway + "/web/sems" + path, {
     method,
-    headers: { "Content-Type": "application/json", token: tokenJson, "X-Signature": signature(tok), neutral: "0", currentLang: "en", Origin: SEMS_HOST, Referer: SEMS_HOST + "/" },
+    headers: { "Content-Type": "application/json", Accept: "application/json, text/plain, */*", "User-Agent": UA, Origin: SEMS_HOST, Referer: SEMS_HOST + "/", ...gwHeaders(tok) },
     body: method === "POST" ? JSON.stringify(body || {}) : undefined,
   });
   const t = await r.text();
