@@ -10,7 +10,9 @@
 // totals for the items asked for, over a start/end window.
 const crypto = require("crypto");
 
-const SEMS_HOST = "https://semsplus.goodwe.com";
+// Login host by region; the account only exists in one of them
+const SEMS_HOSTS = ["https://au-semsplus.goodwe.com", "https://semsplus.goodwe.com", "https://us-semsplus.goodwe.com", "https://eu-semsplus.goodwe.com"];
+let SEMS_HOST = SEMS_HOSTS[1];
 const LOGIN_PATH = "/web/sems/sems-user/api/v1/auth/cross-login";
 const GATEWAYS = ["https://au-gateway.semsportal.com", "https://eu-gateway.semsportal.com", "https://us-gateway.semsportal.com"];
 const ITEMS = ["proSystemTotalStats", "proGridStats", "proPurchaseStats", "proConsumStats", "profitProStats", "profitGridStats"];
@@ -25,21 +27,32 @@ function signature(tok) {
 
 let cached = null;   // { tok, gateway, stationId, at } kept while the function stays warm
 
-async function login(email, password) {
-  const home = await fetch(SEMS_HOST, { redirect: "follow" });
-  const cookie = (home.headers.getSetCookie?.() || []).map(c => c.split(";")[0]).join("; ");
-  const r = await fetch(SEMS_HOST + LOGIN_PATH, {
+async function loginAt(host, email, password) {
+  const home = await fetch(host, { redirect: "follow" }).catch(() => null);
+  const cookie = home ? (home.headers.getSetCookie?.() || []).map(c => c.split(";")[0]).join("; ") : "";
+  const r = await fetch(host + LOGIN_PATH, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Origin: SEMS_HOST, Referer: SEMS_HOST + "/", ...(cookie ? { Cookie: cookie } : {}) },
+    headers: { "Content-Type": "application/json", Origin: host, Referer: host + "/", ...(cookie ? { Cookie: cookie } : {}) },
     body: JSON.stringify({ account: email, pwd: md5b64(password), agreement: 1, isChinese: false, isLocal: false }),
   });
-  const j = await r.json().catch(() => ({}));
-  const code = j.code ?? j.status;
-  if (![0, 200, "0", "00000", "200"].includes(code)) throw new Error(`SEMS+ login failed (${code}): ${j.msg || j.message || "no message"}`);
-  const tok = { ...(j.data || {}), client: "semsPlusWeb" };
-  // Some accounts get their region's gateway back with the login; otherwise try the known ones
-  const hinted = [tok.api, tok.gateway, tok.apiUrl].filter(v => typeof v === "string" && v.startsWith("http")).map(v => v.replace(/\/+$/, "").replace(/\/web\/sems.*$/, "").replace(/\/api$/, ""));
-  return { tok, gateways: [...new Set([...hinted, ...GATEWAYS])] };
+  const t = await r.text(); let j; try { j = JSON.parse(t); } catch (e) { j = { code: `http ${r.status}`, msg: t.slice(0, 60) }; }
+  return j;
+}
+async function login(email, password) {
+  const tried = [];
+  for (const host of SEMS_HOSTS) {
+    let j; try { j = await loginAt(host, email, password); } catch (e) { tried.push(`${host.replace("https://", "")}: ${e.message.slice(0, 60)}`); continue; }
+    const code = j.code ?? j.status;
+    if ([0, 200, "0", "00000", "200"].includes(code) && j.data) {
+      SEMS_HOST = host;
+      const tok = { ...(j.data || {}), client: "semsPlusWeb" };
+      // The login may name this account's API gateway; otherwise try the known ones
+      const hinted = [tok.api, tok.gateway, tok.apiUrl, j.api].filter(v => typeof v === "string" && v.startsWith("http")).map(v => v.replace(/\/+$/, "").replace(/\/web\/sems.*$/, "").replace(/\/api$/, ""));
+      return { tok, gateways: [...new Set([...hinted, ...GATEWAYS])] };
+    }
+    tried.push(`${host.replace("https://", "")}: ${code} ${j.msg || j.message || ""}`.trim());
+  }
+  throw new Error("SEMS+ login failed (" + tried.join("; ") + ")");
 }
 
 async function call(gateway, tok, method, path, body) {
