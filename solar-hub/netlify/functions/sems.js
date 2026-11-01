@@ -52,24 +52,6 @@ exports.handler = async (event) => {
       body: JSON.stringify(body),
     });
 
-    // ?probe=1 -> temporary: try the chart endpoint's period options and report the shapes back
-    if ((event.queryStringParameters || {}).probe) {
-      const base = (auth._api || "https://au.semsportal.com/api/").replace(/\/?$/, "/");
-      const today = new Date().toISOString().slice(0, 10), out = [];
-      const tries = [];
-      for (const range of [1, 2, 3, 4]) for (const ci of ["8", "1", "2"]) tries.push({ id: STATION_ID, date: today, range, chartIndexId: ci, isDetailFull: false });
-      await Promise.all(tries.map(async (b) => {
-        try {
-          const r = await post(base + "v2/Charts/GetChartByPlant", b), j = await r.json();
-          const d = j.data || {}, lines = d.lines || [];
-          out.push({ range: b.range, ci: b.chartIndexId, code: j.code, msg: j.msg, keys: Object.keys(d),
-            lines: lines.map(l => ({ name: l.name || l.label || l.key, unit: l.unit, n: (l.xy || []).length, head: (l.xy || []).slice(0, 3), tail: (l.xy || []).slice(-2) })),
-            extra: Object.fromEntries(Object.entries(d).filter(([k, v]) => k !== "lines" && typeof v !== "object").slice(0, 12)) });
-        } catch (e) { out.push({ range: b.range, ci: b.chartIndexId, err: e.message }); }
-      }));
-      out.sort((a, b) => a.range - b.range || a.ci.localeCompare(b.ci));
-      return { statusCode: 200, headers, body: JSON.stringify({ api: auth._api, out }) };
-    }
     const [pfRes, plantRes, chartRes] = await Promise.all([
       post(POWERFLOW_URL, { PowerStationId: STATION_ID }),
       post(PLANT_URL, { powerStationId: STATION_ID }),
@@ -156,6 +138,8 @@ exports.handler = async (event) => {
         exportPower, importPower,
         dailyGeneration, dailyExport, dailyImport,
         dailyConsumption: parseFloat(Number(dailyConsumption).toFixed(2)),
+        // Plant summary figures from SEMS (generation this month, total, income...), as SEMS sends them
+        kpi: Object.fromEntries(Object.entries(kpi).filter(([k, v]) => typeof v === "number" || typeof v === "string")),
         stationName: info.stationname || "Home PV array",
         capacity: info.capacity || 13.2,
         timestamp: new Date().toISOString(),
