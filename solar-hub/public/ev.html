@@ -276,21 +276,8 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     </section>
   </div>
 
-  <div class="dash">
-    <section class="panel span-12">
-      <div class="p-title"><span id="save-h">Savings today</span><div class="seg period" role="tablist" aria-label="Period">
-        <button role="tab" data-period="today" aria-pressed="true">Today</button>
-        <button role="tab" data-period="week" aria-pressed="false">Week</button>
-        <button role="tab" data-period="month" aria-pressed="false">Month</button>
-        <button role="tab" data-period="year" aria-pressed="false">Year</button>
-        <button role="tab" data-period="all" aria-pressed="false">All time</button>
-      </div></div>
-      <div class="save-grid" id="save"></div>
-      <div class="facts-note" id="save-note"></div>
-    </section>
-  </div>
 
-  <p class="foot">Refreshed every 30 seconds from the Pi. Solar from the inverter, house use from GoodWe (a few minutes behind), EV5 battery from Kia Connect. AGL Night Saver EV: 27.6c general, 8c off-peak 12–6 am, 0.5c feed-in, $1.11 a day supply.</p>
+  <p class="foot">Savings and day / month / year totals are on the <a href="energy.html">Energy page</a>. Refreshed every 30 seconds from the Pi. Solar from the inverter, house use from GoodWe (a few minutes behind), EV5 battery from Kia Connect. AGL Night Saver EV: 27.6c general, 8c off-peak 12–6 am, 0.5c feed-in, $1.11 a day supply.</p>
 </div>
 
 <script>
@@ -674,34 +661,6 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
       ['House', houseSolar, '#5794f2', `$${(houseSolar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs grid`],
       ['Exported', exp, 'rgba(204,204,220,.42)', `$${(exp * RATE.feedin).toFixed(2)} earned at 0.5c`]
     ], solarTotal, solarTotal > 0.05 ? Math.round(100 * (carSolarAll + houseSolar) / solarTotal) : null, 'efficiency', 'Generated', `${solarTotal.toFixed(1)} kWh generated ${name}` + (period === 'all' && HISTORY.length ? ` (since ${new Date(HISTORY[0].date + 'T12:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short'})})` : '') + '.');
-    renderSavings(T, name);
-  }
-  function renderSavings(T, name){
-    $('save-h').textContent = 'Savings ' + name;
-    const g = RATE.general, o = RATE.offpeak, f = RATE.feedin, c = v => (v * 100).toFixed(1).replace(/\.0$/, '') + 'c';
-    const groups = [
-      ['Solar', 'Solar savings', [
-        ['Solar into the car', T.car_solar_kwh || 0, g - f, `instead of the grid on-peak at ${c(g)}, less the ${c(f)} feed-in given up`, '#73bf69'],
-        ['Solar used in the house', T.house_solar_kwh || 0, g - f, `instead of the grid at ${c(g)}, less the ${c(f)} feed-in given up`, '#5794f2'],
-        ['Solar exported', T.export_kwh || 0, f, `feed-in credit at ${c(f)}`, 'rgba(204,204,220,.42)']
-      ]],
-      ['Off-peak', 'Off-peak savings', [
-        ['Car charged off-peak', T.car_offpeak_kwh || 0, g - o, `at ${c(o)} instead of the ${c(g)} general rate`, '#e89cbd']
-      ]]
-    ];
-    let total = 0, body = '';
-    groups.forEach(([head, subName, rows]) => {
-      let sub = 0, lines = '';
-      rows.forEach(([n, kwh, rate, how, col]) => { const v = kwh * rate; sub += v;
-        lines += `<div class="r" title="${esc(how)}"><span><i style="background:${col}"></i>${n}</span><b>$${v.toFixed(2)}</b></div>`; });
-      body += `<div class="save-col"><h3>${head}</h3>${lines}<div class="r st"><span>${subName}</span><b>$${sub.toFixed(2)}</b></div></div>`;
-      total += sub;
-    });
-    $('save').innerHTML = body + `<div class="save-col total"><h3>Grand total ${name}</h3><div class="v">$${total.toFixed(2)}</div></div>`;
-    const carCost = (T.car_offpeak_kwh || 0) * o + (T.car_grid_day_kwh || 0) * g;
-    const days = period === 'today' ? 1 : (T._days || 1);
-    $('save-note').textContent = (days > 1 ? `About $${(total / days).toFixed(2)} a day over ${days} days. ` : '') +
-      `Car charging from the grid cost $${carCost.toFixed(2)} ${name}. Compared with the same energy at your AGL rates, excluding supply.`;
   }
   let carView = 'total';
   try { const v = localStorage.getItem('ev-carview'); if (['total','ev5','ioniq5'].includes(v)) carView = v; } catch (e) {}

@@ -294,6 +294,30 @@ New data:
   public feed behind their "Check air and water quality" map
   (epa.vic.gov.au/api/environment/water/sites). Good / Fair / Poor, mostly rain driven.
 
+## Energy page rebuilt (2026-11-01)
+
+Matt asked for the Energy page to match the GoodWe SEMS app, with the cars split out, Day / Month /
+Year, and the savings moved over from the EV page.
+
+- Day / Month / Year buttons with ‹ date › stepping (remembered per device; `energy.html#day`,
+  `#month`, `#year` open on a view). Same layout as the SEMS app: totals strip (generation,
+  consumption, car charging, self-powered %, generation revenue, grid cost), a Solar generation ring
+  (self-use split house / cars, to grid), an Energy consumption ring (from solar, grid off-peak / peak)
+  and a House and cars ring (EV5 / IONIQ 5), then Energy monitoring bars (generation, house + cars
+  stacked, grid export, grid import) by day for a month or by month for a year. Day view for today
+  keeps the 5-minute solar / house / car curve against the forecast; past days show totals only.
+- Savings section moved from ev.html to the Energy page, following the chosen period: solar
+  savings, off-peak savings, cars from the grid (cost), total and per-day average.
+- Data: the Pi's per-day history (ev?view=history), with today from the live totals. Those records
+  only start 28 Oct 2026, so Month and Year fill in from there; the page says how many days it covers.
+- SEMS: month and year history isn't available. The old v2 chart endpoint answers with no charts
+  since the SEMS+ migration, and the SEMS+ history endpoints aren't publicly documented. The sems
+  function now passes through the plant summary (kpi: month and lifetime generation, income);
+  lifetime generation shows on the Year view. A probe used to look for history was removed; a
+  generic "call any SEMS endpoint" probe was declined as unsafe (it would expose the login).
+- The AGL usage store (Supabase, used by usage.js and the classic history) returned "fetch failed"
+  on 2026-11-01, so it couldn't back-fill earlier months either.
+
 ## Name (2026-10-31)
 
 Shown to people as **Home Dashboard** everywhere (page titles, menu, EV breadcrumbs, the app name
