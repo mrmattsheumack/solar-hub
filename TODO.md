@@ -132,3 +132,5 @@ Removed all [PERF] console.log markers and associated performance.now() timing v
 - [ ] Tag the 28-29 Oct and 29-30 Oct overnight sessions once Matt confirms which car.
 - [ ] WiCAN for the IONIQ 5 battery %, if wanted.
 - [ ] Watch Kia wake budget (10/day) and whether the stored status goes stale while charging.
+- [x] WiCAN for the IONIQ 5 ordered 1 Nov (Crowd Supply order 358059). Pi side ready: mosquitto on :1883 (user wican, password in ~/solar-hub-pi/.mqtt), ioniq_mqtt.py service writes ev_ioniq.json, kia_poll tags ioniq5 when WiCAN says charging, page shows IONIQ battery.
+- [ ] When it arrives: configure WiCAN (station mode, MQTT, AutoPID, Ioniq5/Ioniq6 72kWh profile, destination wican/ioniq5/data, sleep mode on) and check live readings.

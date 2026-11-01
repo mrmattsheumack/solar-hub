@@ -18,6 +18,7 @@ from hyundai_kia_connect_api import VehicleManager
 
 D = Path.home() / "solar-hub-pi"
 STATE, OUT, MANUAL, HOME = D / "ev_state.json", D / "ev_car.json", D / "ev_car_manual.json", D / ".kia_home.json"
+IONIQ = D / "ev_ioniq.json"   # written by ioniq_mqtt.py from the WiCAN
 CFG = {"loop_s": 60, "cached_on_s": 900, "cached_off_s": 3600, "force_charging_s": 7200,
        "force_retry_s": 300, "force_per_day": 10, "home_m": 300, "fresh_slack_s": 600}
 PLUGGED = ("plugged", "plugged_locked")
@@ -37,6 +38,16 @@ def dist_m(a, b):
     la1, lo1, la2, lo2 = map(math.radians, (a[0], a[1], b[0], b[1]))
     h = math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2
     return 6371000 * 2 * math.asin(math.sqrt(h))
+
+
+def ioniq_charging_now(max_age_s=600):
+    """True if the IONIQ 5's WiCAN reported it charging in the last few minutes."""
+    d = read_json(IONIQ) or {}
+    try:
+        age = time.time() - datetime.fromisoformat(d["updated_at"]).timestamp()
+    except (KeyError, ValueError):
+        return False
+    return age <= max_age_s and bool(d.get("charging"))
 
 
 class Kia:
@@ -106,6 +117,13 @@ def main():
                 except FileNotFoundError: pass
                 need_identify = False
             was_plugged = plugged
+
+            # the IONIQ 5 says it's charging (WiCAN): that settles it, no Kia request needed
+            if plugged and charging and ioniq_charging_now() and out.get("car_how") != "manual" and \
+                    not (out.get("car") == "ioniq5" and out.get("car_how") == "wican"):
+                out.update({"car": "ioniq5", "car_how": "wican", "car_since": out.get("car_since") or iso(plug_since)})
+                need_identify = False
+                log.info("car on charger: ioniq5 (WiCAN reports charging)")
 
             manual = read_json(MANUAL)
             if plugged and manual and manual.get("car") in ("ev5", "ioniq5"):

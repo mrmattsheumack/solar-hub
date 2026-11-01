@@ -444,6 +444,12 @@ def ev_state():
             car = json.load(f)
     except (FileNotFoundError, ValueError):
         car = None
+    try:
+        with open(os.path.join(EV_DIR, "ev_ioniq.json")) as f:
+            ioniq = json.load(f)
+        car = dict(car or {}, ioniq={k: ioniq.get(k) for k in ("soc", "soc_bms", "charging", "charging_dc", "soh", "updated_at")})
+    except (FileNotFoundError, ValueError):
+        pass
     return jsonify({
         "latest": latest,
         "plugin": plugin,
