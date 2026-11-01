@@ -378,3 +378,8 @@ body.radar-fs .sh-rail,body.radar-fs .sh-burger{visibility:hidden}
 .wx .wx-hours b{font-size:17px}
 .wx .wx-hours>div{font-size:12px;gap:4px}
 .wx-top{display:flex;flex-direction:column;gap:10px}
+
+/* efficiency donuts inside the energy flow tile (dashboard): one slim row under the split bar */
+.flowcard .eff-row{border-top:1px solid var(--border);padding-top:8px}
+.flowcard .eff svg{width:clamp(42px,3.6vw,56px)}
+.flowcard .eff-txt b{font-size:12px}

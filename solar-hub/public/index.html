@@ -16,27 +16,27 @@
 <style>
 /* Dashboard layout: which tile goes where. Tile styles are in hub.css. */
 body{overflow:hidden}
-.wx{grid-area:wx} .radar{grid-area:radar} .flowcard{grid-area:flow} .effcard{grid-area:eff} .cars{grid-area:car} .climatecard{grid-area:climate}
+.wx{grid-area:wx} .radar{grid-area:radar} .flowcard{grid-area:flow} .cars{grid-area:car} .climatecard{grid-area:climate}
 /* Whole screen. Shifted a pixel or two every few minutes to spare the panel. */
 .screen{height:100dvh;display:grid;gap:var(--gap);
   padding:calc(var(--gap) + env(safe-area-inset-top,0px)) max(var(--gap),env(safe-area-inset-right,0px)) calc(var(--gap) + env(safe-area-inset-bottom,0px)) max(var(--gap),env(safe-area-inset-left,0px));
   grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) minmax(0,1fr);
-  grid-template-rows:auto auto minmax(0,1.55fr) auto minmax(0,1fr);
-  /* Left: weather, full height. Middle: energy flow, radar under it. Right: cars, efficiency, climate. */
-  grid-template-areas:"head head head" "notes notes notes" "wx flow car" "wx radar eff" "wx radar climate";
+  grid-template-rows:auto auto minmax(0,1.25fr) minmax(0,1fr);
+  /* Left: weather, full height. Middle: energy flow (with the efficiency donuts), radar under it. Right: cars, climate. */
+  grid-template-areas:"head head head" "notes notes notes" "wx flow car" "wx radar climate";
   transition:transform 2s ease}
 
 /* ---------- smaller screens: stack and scroll ---------- */
 @media (max-width:1000px), (max-height:640px) and (max-width:1200px){
   body{overflow:auto}
   .screen{height:auto;grid-template-columns:1fr 1fr;grid-template-rows:auto;
-    grid-template-areas:"head head" "notes notes" "wx flow" "car climate" "eff eff" "radar radar"}
+    grid-template-areas:"head head" "notes notes" "wx flow" "car climate" "radar radar"}
   .radar{min-height:420px} .flowcard{min-height:460px}
   .head{flex-wrap:wrap}
   .notes{max-height:none} .note{white-space:normal;height:auto;padding:8px 14px}
 }
 @media (max-width:640px){
-  .screen{grid-template-columns:1fr;grid-template-areas:"head" "notes" "wx" "flow" "eff" "car" "climate" "radar"}
+  .screen{grid-template-columns:1fr;grid-template-areas:"head" "notes" "wx" "flow" "car" "climate" "radar"}
   .head{flex-wrap:wrap} .dots{display:none}
   .head-left{flex-wrap:wrap} .agenda{max-width:100%;flex:1 1 100%}
   .head-right{flex-wrap:wrap;flex:1 1 100%} .net span{display:none} #btn-fs{display:none}
@@ -89,7 +89,7 @@ body{overflow:hidden}
         <a class="card-link" href="https://www.bom.gov.au/products/IDR023.loop.shtml" target="_blank" rel="noopener">BoM radar ›</a>
       </div>
     </div>
-    <div class="map-wrap"><div id="map" data-bounds="-38.52,144.25,-37.74,145.40" data-fs-bounds="-39.2,140.95,-33.95,149.98" data-lock="1" data-max-zoom="8" role="img" aria-label="Rain radar from Melbourne to the Peninsula. Tap for all of Victoria"></div>
+    <div class="map-wrap"><div id="map" data-bounds="-38.50,144.30,-37.70,145.60" data-fill="lat" data-fs-bounds="-39.2,140.95,-33.95,149.98" data-lock="1" role="img" aria-label="Rain radar from just north of Melbourne down to Cape Schanck. Tap for all of Victoria"></div>
     <div class="radar-bar">
       <button class="btn" id="radar-play" aria-label="Pause radar animation">
         <svg viewBox="0 0 24 24" fill="currentColor" id="radar-icon"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
@@ -105,12 +105,8 @@ body{overflow:hidden}
     <div id="flow-body" style="display:flex;flex-direction:column;gap:10px;flex:1;min-height:0">
       <div class="empty">Waiting for solar and charger data…</div>
     </div>
-  </section>
-
-  <!-- ===== efficiency today ===== -->
-  <section class="card effcard" aria-labelledby="eff-h">
-    <div class="card-head"><h2 id="eff-h"><a class="wx-title" href="ev.html">Efficiency today</a></h2><a class="card-link" href="energy.html">Energy ›</a></div>
-    <div class="eff-row" id="eff"><div class="empty">Adding up today…</div></div>
+    <!-- efficiency today, same maths as the EV page -->
+    <div class="eff-row" id="eff" aria-label="Efficiency today"></div>
   </section>
 
   <!-- ===== car charging ===== -->

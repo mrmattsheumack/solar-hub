@@ -1,4 +1,4 @@
-/* Solar Hub shared client code (dashboard, Weather and Energy pages).
+/* Home Dashboard shared client code (dashboard, Weather and Energy pages).
    Each page puts the tiles it wants in its markup; every renderer here quietly skips tiles that
    aren't on the page. A page starts it with Hub.start({ sources, wall, extra }):
      sources: which feeds to poll (ev sems wx fc radar net warn climate wxhist evhist beach cal)
@@ -379,7 +379,7 @@ window.Hub = (() => {
     const solar = T.car_solar_kwh || 0, off = T.car_offpeak_kwh || 0, grid = T.car_grid_day_kwh || 0, car = solar + off + grid;
     const house = T.house_solar_kwh || 0, exp = T.export_kwh || 0, gen = Math.max(T.solar_kwh || 0, solar + house + exp);
     box.innerHTML =
-      miniPie('Car charging', [['Solar', solar, '#fade2a'], ['Off-peak', off, '#e89cbd'], ['On-peak', grid, '#f2495c']], car, car > 0.05 ? Math.round(100 * (solar + off * credit) / car) : null, 'ev.html') +
+      miniPie('Car charging', [['Solar', solar, '#fade2a'], ['Off-peak', off, '#5794f2'], ['On-peak', grid, '#f2495c']], car, car > 0.05 ? Math.round(100 * (solar + off * credit) / car) : null, 'ev.html') +
       miniPie('Solar', [['Cars', solar, '#73bf69'], ['House', house, '#5794f2'], ['Exported', exp, 'rgba(204,204,220,.42)']], gen, gen > 0.05 ? Math.round(100 * (solar + house) / gen) : null, 'energy.html');
   }
 
@@ -635,7 +635,7 @@ window.Hub = (() => {
     }
     warns.filter(x => x.level === 'info').forEach(x => out.push(x));
     if ((S.ev && at.ev && Date.now() - at.ev > STALE.ev) || (!S.ev && failed.ev)) add('warn', "Can't reach the Pi. The charger controller keeps running on its own.");
-    $('notes').innerHTML = out.slice(0, 5).map(n => n.href
+    $('notes').innerHTML = out.slice(0, 7).map(n => n.href
       ? `<a class="note ${n.cls}" href="${esc(n.href)}"${n.local ? '' : ' target="_blank" rel="noopener"'} title="${esc(n.tip || '')}"><i></i>${esc(n.text)}</a>`
       : `<span class="note ${n.cls}"><i></i>${esc(n.text)}</span>`).join('');
   }
@@ -678,10 +678,12 @@ window.Hub = (() => {
     if (!S.cal) return [];
     const now = Date.now(), m = mel(), out = [];
     const { timed, allDayToday } = calUpcoming();
-    for (const e of timed) {
+    // Everything still to come today (and anything on now), soonest first; bold inside 15 minutes
+    const todays = timed.filter(e => evStart(e).getTime() <= now || evDay(e) === m.key);
+    for (const e of todays) {
       const st = evStart(e).getTime();
       if (st <= now) out.push({ cls: 'cal', text: `On now: ${e.title} until ${calTime(evEnd(e))}`, href: 'calendar.html', local: true });
-      else if (st - now <= 2 * 3600e3) out.push({ cls: st - now <= 15 * 60e3 ? 'cal strong-cal' : 'cal', text: `${e.title} ${until(st - now)} (${calTime(evStart(e))})`, href: 'calendar.html', local: true });
+      else out.push({ cls: st - now <= 15 * 60e3 ? 'cal strong-cal' : 'cal', text: `${calTime(evStart(e))} ${e.title}${st - now <= 2 * 3600e3 ? ` · ${until(st - now)}` : ''}`, href: 'calendar.html', local: true });
     }
     allDayToday.forEach(e => out.push({ cls: 'cal', text: `Today: ${e.title}`, href: 'calendar.html', local: true }));
     if (m.h >= 18) {
@@ -689,7 +691,9 @@ window.Hub = (() => {
       calEvents().filter(e => e.allDay ? e.start === tk : evDay(e) === tk && mel(evStart(e)).hf < 9.5)
         .forEach(e => out.push({ cls: 'cal', text: `Tomorrow${e.allDay ? '' : ' ' + calTime(evStart(e))}: ${e.title}`, href: 'calendar.html', local: true }));
     }
-    return out.slice(0, 3);
+    // Up to four in the strip; past that, one note says how many more there are
+    if (out.length > 4) { const more = out.length - 3; out.splice(3, out.length, { cls: 'cal', text: `+${more} more today`, href: 'calendar.html', local: true }); }
+    return out;
   }
   // Header "Next up" on the dashboard
   function renderAgenda() {
@@ -726,6 +730,9 @@ window.Hub = (() => {
     // area for full screen (data-fs-bounds). The same area then shows whatever size the tile is.
     const toBounds = v => { if (!v) return null; const [s1, w, n, e] = v.split(',').map(Number); return L.latLngBounds([s1, w], [n, e]); };
     const viewB = toBounds(md.bounds), fsB = toBounds(md.fsBounds), locked = md.lock === '1';
+    // data-fill="lat": the pinned view zooms (in-between zooms allowed) so data-bounds' north and south
+    // edges sit exactly at the top and bottom of the tile. Its base map is then one stitched image, not tiles.
+    const fill = md.fill === 'lat' && !!viewB;
     map = L.map('map', { center: md.centre ? md.centre.split(',').map(Number) : RADAR_CENTRE, zoom: md.zoom ? +md.zoom : RADAR_ZOOM, minZoom: 5, maxZoom: 11, zoomControl: false, attributionControl: true, zoomSnap: viewB || fsB ? 1 : 0.5, fadeAnimation: false });   // tile fade-ins pass through partial opacity, which draws seams
     // BoM-style background: Esri's Ocean basemap (blue sea, pale land with relief), keyless.
     // (CARTO stopped serving keyless tiles in 2026; they come back watermarked.)
@@ -747,7 +754,39 @@ window.Hub = (() => {
         return c;
       },
     });
-    new CleanTiles(esri('World_Ocean_Base'), { maxZoom: 13, className: 'basemap', attribution: 'Tiles © Esri, GEBCO, NOAA, Garmin, HERE' }).addTo(map);
+    const baseTiles = new CleanTiles(esri('World_Ocean_Base'), { maxZoom: 13, className: 'basemap', attribution: 'Tiles © Esri, GEBCO, NOAA, Garmin, HERE' });
+    if (!fill) baseTiles.addTo(map);
+    // One image of the base map for the in-between zoom: the tiles a zoom level up, drawn edge to edge
+    // on a canvas (pale tile borders patched as in CleanTiles), then scaled as a single picture.
+    let baseImg = null, baseKey = '', baseUrl = null;
+    const t2lon = (x, z) => x / 2 ** z * 360 - 180, t2lat = (y, z) => Math.atan(Math.sinh(Math.PI * (1 - 2 * y / 2 ** z))) * 180 / Math.PI;
+    async function stitchBase() {
+      const zb = Math.min(13, Math.ceil(map.getZoom() - 1e-6)), b = map.getBounds().pad(0.12);
+      const x0 = lon2tile(b.getWest(), zb), x1 = lon2tile(b.getEast(), zb), y0 = lat2tile(b.getNorth(), zb), y1 = lat2tile(b.getSouth(), zb);
+      const key = [zb, x0, x1, y0, y1].join(',');
+      if (key === baseKey) return;
+      baseKey = key;
+      const c = document.createElement('canvas'); c.width = (x1 - x0 + 1) * 256; c.height = (y1 - y0 + 1) * 256;
+      const g = c.getContext('2d'), jobs = [];
+      for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) jobs.push(new Promise(res => {
+        const img = new Image(); img.crossOrigin = 'anonymous';
+        img.onload = () => { const dx = (x - x0) * 256, dy = (y - y0) * 256; g.drawImage(img, dx, dy);
+          g.drawImage(c, dx, dy + 1, 256, 1, dx, dy, 256, 1); g.drawImage(c, dx, dy + 254, 256, 1, dx, dy + 255, 256, 1);
+          g.drawImage(c, dx + 1, dy, 1, 256, dx, dy, 1, 256); g.drawImage(c, dx + 254, dy, 1, 256, dx + 255, dy, 1, 256); res(); };
+        img.onerror = res;
+        img.src = esri('World_Ocean_Base').replace('{z}', zb).replace('{y}', y).replace('{x}', x);
+      }));
+      await Promise.all(jobs);
+      if (key !== baseKey) return;   // the view moved on while the tiles loaded
+      let blob = null;
+      try { blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92)); } catch (e) {}
+      if (!blob) { if (!map.hasLayer(baseTiles)) baseTiles.addTo(map); return; }   // couldn't stitch: ordinary tiles
+      if (!blob || key !== baseKey) return;
+      const url = URL.createObjectURL(blob), bounds = [[t2lat(y1 + 1, zb), t2lon(x0, zb)], [t2lat(y0, zb), t2lon(x1 + 1, zb)]];
+      if (baseImg) { baseImg.setUrl(url); baseImg.setBounds(L.latLngBounds(bounds)); } else baseImg = L.imageOverlay(url, bounds, { pane: 'tilePane', className: 'basemap', attribution: 'Tiles © Esri, GEBCO, NOAA, Garmin, HERE' }).addTo(map);
+      if (baseUrl) setTimeout(((u) => () => URL.revokeObjectURL(u))(baseUrl), 1000);
+      baseUrl = url;
+    }
     // Town names drawn as our own labels above the radar, like the Bureau's maps. (Esri's labels layer
     // left a faint seam along its tile edges.)
     [['Melbourne', -37.8136, 144.9631, 1], ['Geelong', -38.1499, 144.3617, 1], ['Frankston', -38.144, 145.123, 0], ['Dandenong', -37.987, 145.215, 0],
@@ -772,7 +811,16 @@ window.Hub = (() => {
       const b = fs ? (fsB || viewB) : viewB;
       // Whole zoom levels only (in-between zooms scale the tiles and draw hairline seams): the nearest
       // zoom to the area for the dashboard, the one that fits all of it for full-screen Victoria
-      if (b) {
+      if (b && fill && !fs) {
+        // Pinned dashboard view: zoom so the area's north-south span exactly fills the tile's height
+        if (map.hasLayer(baseTiles)) map.removeLayer(baseTiles);
+        if (baseImg && !map.hasLayer(baseImg)) baseImg.addTo(map);
+        map.options.zoomSnap = 0;
+        const c0 = b.getCenter(), strip = L.latLngBounds([b.getSouth(), c0.lng - 0.001], [b.getNorth(), c0.lng + 0.001]);
+        map.setView(c0, map.getBoundsZoom(strip, false), { animate: false });
+        stitchBase();
+      } else if (b) {
+        if (fill) { if (baseImg && map.hasLayer(baseImg)) map.removeLayer(baseImg); if (!map.hasLayer(baseTiles)) baseTiles.addTo(map); map.options.zoomSnap = 1; }
         const o = map.options.zoomSnap; map.options.zoomSnap = 0.01;
         const zr = map.getBoundsZoom(b, false, L.point(fs ? 16 : 0, fs ? 16 : 0)); map.options.zoomSnap = o;
         // data-max-zoom caps the pinned view: the free radar stops at zoom 7, so one step past it keeps rain sharp

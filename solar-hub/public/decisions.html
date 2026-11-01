@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* Solar Hub EV Charging. Live view of the Pi controller (ev_solar.py) via the bridge.
-   Tokens copied from Solar Hub index.html (dark-first). */
+/* Home Dashboard: EV Charging. Live view of the Pi controller (ev_solar.py) via the bridge.
+   Tokens copied from the original index.html (dark-first). */
 :root{
   --bg:#0b0f1a; --surface:#121828; --surface-2:#1a2137; --surface-3:#242c46;
   --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
@@ -376,7 +376,7 @@ svg.chart{display:block;width:100%;min-width:560px;height:auto}
     });
   }
 
-  // ---------- 5-day outlook from Solar Hub's forecast feed ----------
+  // ---------- 5-day outlook from the dashboard's forecast feed ----------
   const CLEAR_GHI = 7.8, PANEL_KW = 13.2, PR = 0.65;
   function dayStats(fc){
     const byDay = {}; (fc.hourly||[]).forEach(h => (byDay[h.time.slice(0,10)] ||= []).push(h));

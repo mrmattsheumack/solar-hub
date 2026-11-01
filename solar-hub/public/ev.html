@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>EV Charging · Solar Hub</title>
+<title>EV Charging · Home Dashboard</title>
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-/* Solar Hub EV Charging. Live view of the Pi controller (ev_solar.py) via the bridge.
+/* Home Dashboard: EV Charging. Live view of the Pi controller (ev_solar.py) via the bridge.
    Dashboard look: dark panels, coloured stat values, flow diagram, time series. */
 :root{
   --bg:#111217; --surface:#181b1f; --surface-2:#22252b; --surface-3:#2c3036;
   --border:rgba(204,204,220,.08); --border-strong:rgba(204,204,220,.16);
   --text:#d8d9da; --text-muted:rgba(204,204,220,.65); --text-dim:rgba(204,204,220,.42);
   --green:#73bf69; --yellow:#fade2a; --blue:#5794f2; --blue-l:#8ab8ff; --red:#f2495c; --orange:#ff9830;
-  --import-soft:#e89cbd; --offpeak:rgba(87,148,242,.10); --peak:rgba(242,73,92,.07);
+  --import-soft:#5794f2; --offpeak:rgba(87,148,242,.10); --peak:rgba(242,73,92,.07);
   --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
   color-scheme:dark;
 }
@@ -198,7 +198,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
   <header class="top">
     <div class="crumb">
       <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><g fill="rgba(204,204,220,.65)"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></g></svg>
-      <a href="./">Solar Hub</a><span class="sep">/</span><span>EV Charging</span>
+      <a href="./">Home Dashboard</a><span class="sep">/</span><span>EV Charging</span>
     </div>
     <div class="top-right">
       <div class="seg" role="group" aria-label="Charging mode">
@@ -505,7 +505,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
       }
       const hrs = T[`car_${pk}_hours`] || 0, so = T[`car_${pk}_solar_kwh`] || 0, op = T[`car_${pk}_offpeak_kwh`] || 0, gd = T[`car_${pk}_grid_day_kwh`] || 0, tot = so + op + gd;
       lines.push(hrs >= 1/60 ? `Charged today for <b>${hm(hrs)}</b>` : 'Not charged today');
-      const parts = [['Solar', so, '#fade2a'], ['Off-peak', op, '#e89cbd'], ['On-peak', gd, '#f2495c']];
+      const parts = [['Solar', so, '#fade2a'], ['Off-peak', op, '#5794f2'], ['On-peak', gd, '#f2495c']];
       const srcBar = tot >= 0.05 ? `<div class="src-bar" role="img" aria-label="Today: ${parts.map(([n,v]) => `${n} ${v.toFixed(1)} kWh`).join(', ')}">${parts.map(([n,v,col]) => v > 0 ? `<div style="width:${(100*v/tot).toFixed(1)}%;background:${col}"></div>` : '').join('')}</div>
         <div class="src-leg">${parts.filter(([,v]) => v >= 0.05).map(([n,v,col]) => `<span><i style="background:${col}"></i>${n} <b>${v.toFixed(1)} kWh</b> · ${Math.round(100*v/tot)}%</span>`).join('')}</div>` : '';
       const bg = hasPhoto[k] ? `<img src="${car.photo}" alt="">` : carSVG(k);
@@ -650,7 +650,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const solar = T[pre + 'solar_kwh'] || 0, off = T[pre + 'offpeak_kwh'] || 0, grid = T[pre + 'grid_day_kwh'] || 0, carTotal = solar + off + grid;
     $('car-pie').innerHTML = pie([
       ['Solar', solar, '#fade2a', `$${(solar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs on-peak`],
-      ['Off-peak grid', off, '#e89cbd', `$${(off * RATE.offpeak).toFixed(2)} at 8c`],
+      ['Off-peak grid', off, '#5794f2', `$${(off * RATE.offpeak).toFixed(2)} at 8c`],
       ['On-peak grid', grid, '#f2495c', `$${(grid * RATE.general).toFixed(2)} at 27.6c`]
     ], carTotal, carTotal > 0.05 ? Math.round(100 * (solar + off * OFFPEAK_CREDIT) / carTotal) : null, 'efficiency', carView === 'total' ? 'Into both cars' : 'Into the ' + (carView === 'ev5' ? 'EV5' : 'IONIQ 5'), `${carTotal.toFixed(1)} kWh into ${who} ${name}, ${carTotal > 0.05 ? Math.round(100 * solar / carTotal) : 0}% from solar.`);
 

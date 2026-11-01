@@ -56,7 +56,7 @@
 .side .br{font-size:11.5px;color:var(--text-dim);line-height:1.45;margin-top:4px}
 .side .br span{display:block;white-space:nowrap}
 .mid{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
-.mid svg{width:clamp(84px,6.6vw,124px);height:auto}
+.mid svg{width:clamp(76px,6.6vw,124px);height:auto}
 .mid b{font-family:var(--mono);font-size:15px;font-weight:600}
 
 /* energy monitoring chart */
@@ -100,9 +100,14 @@
 .linkgrid a:hover{border-color:var(--border-strong)}
 .linkgrid b{font-size:14px;font-weight:600} .linkgrid span{display:block;font-size:12px;color:var(--text-muted)}
 
-@media (max-width:1200px){
+/* three columns down to landscape iPads (1024-1180 px less the menu); two columns only on portrait screens */
+@media (max-width:900px){
   .screen{grid-template-columns:1fr 1fr;grid-template-areas:"head head" "flow flow" "chart chart" "gen use" "who who" "save save" "table table" "links links" "bill bill"}
   .save-grid{grid-template-columns:1fr 1fr}
+}
+@media (max-width:1180px) and (min-width:901px){
+  .side{padding:8px} .side b{font-size:16px} .side .tag,.side .br{font-size:11px} .ring{gap:6px}
+  .save-col{padding:10px 12px;font-size:12.5px}
 }
 @media (max-width:760px){
   .screen{grid-template-columns:1fr;grid-template-areas:"head" "flow" "chart" "gen" "use" "who" "save" "table" "links" "bill"}
@@ -192,7 +197,7 @@
 (() => {
   const H = Hub, $ = H.$, { has, f1, esc } = H, R = H.RATE;
   const SUPPLY = 1.10781;   // $ a day (AGL Night Saver EV, Oct 2026 bill)
-  const C = { gen: 'var(--solar)', house: 'var(--home)', car: 'var(--car)', exp: 'var(--gridout)', imp: 'var(--import)', impOff: 'var(--import-soft)' };
+  const C = { gen: 'var(--solar)', house: 'var(--home)', car: 'var(--car)', exp: 'var(--gridout)', imp: 'var(--import)', impOff: '#4fa3f7' };   // off-peak grid: blue, well clear of on-peak red
   const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const pad = n => String(n).padStart(2, '0');
   const todayKey = () => H.mel().key;
@@ -432,7 +437,7 @@
         ['Solar exported', T.exp, f, `feed-in credit at ${c(f)}`, C.exp]
       ]],
       ['Off-peak', 'Off-peak savings', [
-        ['Cars charged off-peak', T.carOff, g - o, `at ${c(o)} instead of the ${c(g)} general rate`, '#e89cbd']
+        ['Cars charged off-peak', T.carOff, g - o, `at ${c(o)} instead of the ${c(g)} general rate`, C.impOff]
       ]]
     ];
     let total = 0, body = '';
@@ -444,7 +449,7 @@
       total += sub;
     });
     const carCost = T.carOff * o + T.carGrid * g;
-    body += `<div class="save-col"><h3>Cars from the grid</h3><div class="r"><span><i style="background:#e89cbd"></i>Off-peak, ${f1(T.carOff)} kWh</span><b class="cost">${money(T.carOff * o)}</b></div>` +
+    body += `<div class="save-col"><h3>Cars from the grid</h3><div class="r"><span><i style="background:${C.impOff}"></i>Off-peak, ${f1(T.carOff)} kWh</span><b class="cost">${money(T.carOff * o)}</b></div>` +
       `<div class="r"><span><i style="background:var(--import)"></i>On-peak, ${f1(T.carGrid)} kWh</span><b class="cost">${money(T.carGrid * g)}</b></div>` +
       `<div class="r st"><span>Car charging cost</span><b class="cost">${money(carCost)}</b></div></div>`;
     $('save').innerHTML = body +

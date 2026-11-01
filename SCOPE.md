@@ -294,6 +294,24 @@ New data:
   public feed behind their "Check air and water quality" map
   (epa.vic.gov.au/api/environment/water/sites). Good / Fair / Poor, mostly rain driven.
 
+## Dashboard and page tweaks (2026-11-02)
+
+- Header notes show every calendar appointment still to come today (time and title, a countdown
+  inside 2 hours, bold inside 15 minutes), plus anything on now and today's all-day events. Past
+  four, the last note reads "+N more today". The strip now holds up to seven notes.
+- Dashboard radar: `data-fill="lat"` with bounds -38.50,144.30,-37.70,145.60, so the top of the tile
+  is just north of Melbourne and the bottom is the bottom of the Mornington Peninsula (Cape Schanck),
+  whatever size the tile is. That needs an in-between zoom, so in this pinned view the base map is
+  stitched into one image (tiles one zoom up, pale edges patched) and scaled as a single picture:
+  no tile seams. Full screen still uses ordinary tiles at whole zooms. If stitching fails, it falls
+  back to tiles.
+- Efficiency donuts are back inside the energy flow tile (one slim row under the split bar); the
+  separate "Efficiency today" tile is gone. Layout: "wx flow car" / "wx radar climate".
+- Energy page keeps three columns down to 900 px (landscape iPads); two columns only on portrait.
+- Off-peak is blue everywhere (EV page pies and history, Energy page, dashboard donut) so it can't be
+  confused with on-peak red. Was pink.
+- EV page title and breadcrumb say Home Dashboard (Solar Hub had come back in a later edit).
+
 ## Energy page rebuilt (2026-11-01)
 
 Matt asked for the Energy page to match the GoodWe SEMS app, with the cars split out, Day / Month /
