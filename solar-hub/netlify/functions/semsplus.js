@@ -72,13 +72,16 @@ async function call(gateway, tok, method, path, body) {
 
 async function session(email, password) {
   if (cached && Date.now() - cached.at < 20 * 60e3) return cached;
+  for (let attempt = 0; attempt < 2; attempt++) {
   const { tok, gateways } = await login(email, password);
   const tried = [];
+  let kicked = false;
   for (const gw of gateways) {
     try {
       const j = await call(gw, tok, "POST", "/sems-plant/api/stations/simple-query", { pageIndex: 1, pageSize: 20 });
       const list = (j.data && (j.data.dataList || j.data.list)) || [];
       tried.push(`${gw.replace("https://", "")}: ${j.code ?? j.status} ${list.length}`);
+      if ((j.code ?? j.status) === "C0602") { kicked = true; break; }
       if (list.length) {
         const st = list[0];
         cached = { tok, gateway: gw, stationId: st.id || st.stationId || st.powerStationId, stationName: st.name || st.stationName, at: Date.now() };
@@ -86,7 +89,9 @@ async function session(email, password) {
       }
     } catch (e) { tried.push(`${gw.replace("https://", "")}: ${e.message.slice(0, 80)}`); }
   }
+  if (kicked && attempt === 0) { await new Promise(r => setTimeout(r, 1200 + Math.random() * 800)); continue; }
   throw new Error("No SEMS+ station found (" + tried.join("; ") + ")");
+  }
 }
 
 // Pull a kWh / money number out of whatever shape an item comes back in
@@ -100,10 +105,19 @@ function num(v) {
 const pad = n => String(n).padStart(2, "0");
 const lastDay = (y, m) => new Date(Date.UTC(y, m, 0)).getUTCDate();
 
-async function production(s, dimension, start, end) {
-  const j = await call(s.gateway, s.tok, "POST", "/sems-plant/api/stations/production",
-    { stationId: s.stationId, items: ITEMS, dimension, isReport: false, startTime: start, endTime: end });
-  return j;
+// C0602 means the token was replaced (each SEMS+ login cancels the last one, so a second function
+// instance logging in kicks this one out): log in again and retry. GY0429 is "too many requests".
+async function production(s, dimension, start, end, creds) {
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  for (let k = 0; k < 4; k++) {
+    const j = await call(s.gateway, s.tok, "POST", "/sems-plant/api/stations/production",
+      { stationId: s.stationId, items: ITEMS, dimension, isReport: false, startTime: start, endTime: end });
+    const code = j.code ?? j.status;
+    if (code === "C0602" && creds) { cached = null; await sleep(400 + Math.random() * 600); s = await session(creds[0], creds[1]); continue; }
+    if (code === "GY0429") { await sleep(800 * (k + 1)); continue; }
+    return j;
+  }
+  return { code: "GY0429", msg: "SEMS+ kept saying too many requests" };
 }
 // Map the production answer onto our names. Items come back keyed by their code (or as a list
 // of {item/key, value}); each may hold a figure for the window.
@@ -143,9 +157,7 @@ exports.handler = async (event) => {
       const [y, m] = d.split("-").map(Number);
       const start = w === "year" ? `${y}-01-01 00:00:00` : w === "month" ? `${d}-01 00:00:00` : `${d} 00:00:00`;
       const end = w === "year" ? `${y}-12-31 23:59:59` : w === "month" ? `${d}-${pad(lastDay(y, m))} 23:59:59` : `${d} 23:59:59`;
-      const sleep = ms => new Promise(r => setTimeout(r, ms));
-      let j = await production(s, w, start, end);
-      for (let k = 0; k < 3 && (j.code ?? j.status) === "GY0429"; k++) { await sleep(700 * (k + 1)); j = await production(s, w, start, end); }
+      const j = await production(s, w, start, end, [email, password]);
       const code = j.code ?? j.status;
       if (code !== "00000" && code !== 0) return { statusCode: code === "GY0429" ? 429 : 502, headers, body: JSON.stringify({ error: `SEMS+ ${code}: ${j.msg || "no message"}`, code }) };
       const current = w === "day" ? d >= today : w === "month" ? d >= today.slice(0, 7) : String(y) >= today.slice(0, 4);

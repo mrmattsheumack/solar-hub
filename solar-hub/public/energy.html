@@ -240,17 +240,18 @@
   function need(id) {
     const v = SP[id];
     if (v && (v.final || Date.now() - (SP_AT[id] || 0) < 10 * 60e3)) return;
-    if (SP_FAIL[id] && Date.now() - SP_FAIL[id] < 5 * 60e3) return;
+    const f = SP_FAIL[id];   // failed: try again after 20 s, then less often
+    if (f && Date.now() - f.at < (f.n < 4 ? 20e3 : 5 * 60e3)) return;
     if (!queue.includes(id)) queue.push(id);
   }
   function pump() {
-    while (running < 2 && queue.length) {
+    while (running < 1 && queue.length) {   // one at a time: SEMS+ rate-limits and each login cancels the last
       const id = queue.shift(), [w, d] = id.split(':');
       running++;
       fetch(`/.netlify/functions/semsplus?window=${w}&date=${d}`, { signal: AbortSignal.timeout(25000) })
         .then(r => r.json().then(j => { if (!r.ok || j.error) throw new Error(j.error || r.status); return j; }))
         .then(j => { SP[id] = { gen_kwh: j.gen_kwh, export_kwh: j.export_kwh, import_kwh: j.import_kwh, use_kwh: j.use_kwh, final: !!j.final }; SP_AT[id] = Date.now(); delete SP_FAIL[id]; saveSP(); })
-        .catch(() => { SP_FAIL[id] = Date.now(); })
+        .catch(() => { SP_FAIL[id] = { at: Date.now(), n: (SP_FAIL[id]?.n || 0) + 1 }; setTimeout(render, 21e3); })
         .finally(() => { running--; clearTimeout(rerender); rerender = setTimeout(render, 250); pump(); });
     }
   }
