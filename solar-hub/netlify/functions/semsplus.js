@@ -152,13 +152,15 @@ exports.handler = async (event) => {
       return { statusCode: 200, headers, body: JSON.stringify({ gateway: s.gateway, station: s.stationName, window: wins[0], code: j.code ?? j.status, msg: j.msg, data: shape(j.data) }) };
     }
 
-    const rows = [];
-    for (let i = 0; i < wins.length; i += 6) {   // a few at a time so SEMS+ isn't hammered
-      const batch = await Promise.all(wins.slice(i, i + 6).map(async w => {
-        const j = await production(s, w.dim, w.start, w.end);
-        return { key: w.key, code: j.code ?? j.status, ...mapRow(j.data) };
-      }));
-      rows.push(...batch);
+    // One at a time: SEMS+ answers GY0429 (too many requests) to parallel calls
+    const rows = [], t0 = Date.now(), sleep = ms => new Promise(r => setTimeout(r, ms));
+    for (const w of wins) {
+      if (Date.now() - t0 > 8000) { rows.push({ key: w.key, code: "timeout" }); continue; }
+      let j = await production(s, w.dim, w.start, w.end);
+      for (let k = 0; k < 2 && (j.code ?? j.status) === "GY0429"; k++) { await sleep(900 * (k + 1)); j = await production(s, w.dim, w.start, w.end); }
+      const code = j.code ?? j.status;
+      rows.push({ key: w.key, code, ...(code === "00000" || code === 0 ? mapRow(j.data) : { msg: j.msg || j.message }) });
+      await sleep(120);
     }
     // Finished periods never change, so let the CDN keep them; the current one refreshes every 10 min
     const current = period === "day" ? date === today : period === "month" ? date === today.slice(0, 7) : date === today.slice(0, 4);
