@@ -331,6 +331,17 @@ Code changes for it:
 - `hub.js`: the notes strip drawing and dismiss handling moved into `paintNotes(el, notes, rerender)`
   (the dashboard uses it unchanged); `warnNotes(list)` accepts a filtered list.
 
+## Overnight meter check (2026-11-03, 7:15 am)
+
+- The inverter answered Modbus all night (no sleep). The meter was read every 30 s from 9 pm to 1:52 am
+  (5.6 kWh imported in that time), then the controller's connection kept returning solar but no meter
+  figures, through to 7:15 am. A fresh connection at 7:16 read the meter normally (meter_comm Normal).
+  Likely the goodwe library stops reading the meter on a connection after a failed meter read.
+- Fix written (ev_solar.py: reconnect after 4 meter-less reads in a row), staged on the Pi as
+  ev_solar.py.new, waiting for Matt's OK to swap in and restart ev-solar.
+- SEMS was also unreachable overnight (solar_age_s ~32,000 at 7:16 am), so until the fix the
+  controller fell back to its 1.5 kW house assumption.
+
 ## Meter counters unreliable: totals from live meter power (2026-11-02, 7:40 pm)
 
 - The meter's lifetime kWh counters (meter_e_total_imp / _exp over Modbus) don't track at day scale:

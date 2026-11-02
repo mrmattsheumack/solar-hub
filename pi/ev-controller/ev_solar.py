@@ -185,6 +185,7 @@ class Inverter:
         self.meter = None          # dict from the last good read
         self.meter_at = 0.0
         self.fail_at = 0.0
+        self.meter_miss = 0        # reads in a row that came back without the meter
 
     async def poll(self, quiet_retry_s=0):
         if self.inv is None and quiet_retry_s and time.time() - self.fail_at < quiet_retry_s:
@@ -202,6 +203,15 @@ class Inverter:
                               "pv_e_total": float(d["e_total"]) if d.get("e_total") is not None else None,
                               "house_total_w": max(0.0, float(pv or 0) - float(mw))}
                 self.meter_at = time.time()
+                self.meter_miss = 0
+            else:
+                # Seen 3 Nov 2026: after the meter missed a read at 1:52 am, the same connection kept
+                # returning solar but never the meter again (the goodwe library stops asking). A fresh
+                # connection reads it fine, so reconnect after a few meter-less reads.
+                self.meter_miss += 1
+                if self.meter_miss >= 4:
+                    log.info("inverter answered without the meter %d times: reconnecting", self.meter_miss)
+                    self.inv, self.meter_miss = None, 0
         except Exception as e:
             self.inv = None
             self.fail_at = time.time()
