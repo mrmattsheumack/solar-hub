@@ -128,7 +128,7 @@
     <div class="head-left"><div><h1>Energy</h1><div class="sub">GoodWe 10 kW inverter · 13.2 kW of panels · AGL Night Saver EV</div></div></div>
     <div class="head-right">
       <div class="picker">
-        <div class="seg" role="group" aria-label="Period"><button data-mode="day" aria-pressed="true">Day</button><button data-mode="month" aria-pressed="false">Month</button><button data-mode="year" aria-pressed="false">Year</button></div>
+        <div class="seg" role="group" aria-label="Period"><button data-mode="day" aria-pressed="true">Day</button><button data-mode="week" aria-pressed="false">Week</button><button data-mode="month" aria-pressed="false">Month</button><button data-mode="year" aria-pressed="false">Year</button></div>
         <div class="stepper"><button id="prev" aria-label="Previous">‹</button><span id="plabel">Today</span><button id="next" aria-label="Next">›</button></div>
       </div>
       <div class="dots" title="Data sources">
@@ -209,25 +209,31 @@
 
   // ---------- period state ----------
   let mode = 'day', anchor = todayKey();   // anchor: YYYY-MM-DD inside the period shown
-  try { const m = localStorage.getItem('energy-view'); if (['day', 'month', 'year'].includes(m)) mode = m; } catch (e) {}
+  try { const m = localStorage.getItem('energy-view'); if (['day', 'week', 'month', 'year'].includes(m)) mode = m; } catch (e) {}
   const parts = k => k.split('-').map(Number);
+  const keyOf = t => `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+  const weekStart = k => { const [y, m, d] = parts(k), t = new Date(y, m - 1, d, 12); t.setDate(t.getDate() - ((t.getDay() + 6) % 7)); return keyOf(t); };
+  const addDays = (k, n) => { const [y, m, d] = parts(k); return keyOf(new Date(y, m - 1, d + n, 12)); };
   function shift(dir) {
     const [y, m, d] = parts(anchor);
     if (mode === 'day') { const t = new Date(y, m - 1, d + dir, 12); anchor = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`; }
+    if (mode === 'week') anchor = addDays(weekStart(anchor), 7 * dir);
     if (mode === 'month') { const t = new Date(y, m - 1 + dir, 1, 12); anchor = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-01`; }
     if (mode === 'year') anchor = `${y + dir}-01-01`;
     if (anchor > todayKey()) anchor = todayKey();
     render();
   }
-  const inPeriod = k => mode === 'day' ? k === anchor : mode === 'month' ? k.slice(0, 7) === anchor.slice(0, 7) : k.slice(0, 4) === anchor.slice(0, 4);
+  const inPeriod = k => mode === 'day' ? k === anchor : mode === 'week' ? k >= weekStart(anchor) && k <= addDays(weekStart(anchor), 6) : mode === 'month' ? k.slice(0, 7) === anchor.slice(0, 7) : k.slice(0, 4) === anchor.slice(0, 4);
   function label() {
     const [y, m, d] = parts(anchor);
     if (mode === 'year') return String(y);
+    if (mode === 'week') { const ws = weekStart(anchor), we = addDays(ws, 6), f = k => { const [a, b, c] = parts(k); return new Date(a, b - 1, c, 12).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }); };
+      return ws === weekStart(todayKey()) ? 'This week' : `${f(ws)} – ${f(we)}`; }
     if (mode === 'month') return `${new Date(y, m - 1, 1).toLocaleDateString('en-AU', { month: 'long' })} ${y}`;
     if (anchor === todayKey()) return 'Today';
     return new Date(y, m - 1, d, 12).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: y === parts(todayKey())[0] ? undefined : 'numeric' });
   }
-  const periodName = () => mode === 'day' ? (anchor === todayKey() ? 'today' : `on ${label()}`) : `in ${label()}`;
+  const periodName = () => mode === 'day' ? (anchor === todayKey() ? 'today' : `on ${label()}`) : mode === 'week' ? (label() === 'This week' ? 'this week' : `in the week ${label()}`) : `in ${label()}`;
   document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
     mode = b.dataset.mode; try { localStorage.setItem('energy-view', mode); } catch (e) {}
     render();
@@ -313,9 +319,11 @@
     Object.keys(pi).forEach(k => { if (k.startsWith(mk)) { p = p || ZERO(); add(p, piDerive(pi[k])); } });
     return merge(p, SP['month:' + mk], n);
   }
-  // Buckets for the chart and the table: days of a month, or months of a year
+  // Buckets for the chart and the table: days of a week or a month, or months of a year
   function buckets(pi) {
     const [y, m] = parts(anchor), tk = todayKey(), narrow = innerWidth < 600;
+    if (mode === 'week') { const ws = weekStart(anchor); return Array.from({ length: 7 }, (_, i) => { const k = addDays(ws, i), [a, b, c] = parts(k), dt = new Date(a, b - 1, c, 12);
+      return { key: k, label: dt.toLocaleDateString('en-AU', { weekday: 'short' }), long: dt.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', ''), v: k <= tk ? dayVal(k, pi) : null, future: k > tk }; }); }
     if (mode === 'year') return MON.map((mn, i) => { const k = `${y}-${pad(i + 1)}`; return { key: k, label: mn, long: `${mn} ${y}`, v: k <= tk.slice(0, 7) ? monthVal(k, pi) : null, future: k > tk.slice(0, 7) }; });
     return Array.from({ length: daysIn(y, m) }, (_, i) => { const k = `${y}-${pad(m)}-${pad(i + 1)}`;
       return { key: k, label: String(i + 1), long: new Date(y, m - 1, i + 1, 12).toLocaleDateString('en-AU', narrow ? { day: 'numeric', month: 'short' } : { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', ''),
@@ -327,7 +335,7 @@
     document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
     $('plabel').textContent = label();
     const tk = todayKey();
-    $('next').disabled = mode === 'day' ? anchor >= tk : mode === 'month' ? anchor.slice(0, 7) >= tk.slice(0, 7) : anchor.slice(0, 4) >= tk.slice(0, 4);
+    $('next').disabled = mode === 'day' ? anchor >= tk : mode === 'week' ? addDays(weekStart(anchor), 7) > tk : mode === 'month' ? anchor.slice(0, 7) >= tk.slice(0, 7) : anchor.slice(0, 4) >= tk.slice(0, 4);
     // Ask SEMS+ for what this view needs (the chosen day first, then the rest of its month for the table)
     const [y] = parts(anchor);
     if (mode === 'year') for (let i = 1; i <= 12; i++) { const k = `${y}-${pad(i)}`; if (k <= tk.slice(0, 7)) need('month:' + k); }
@@ -407,7 +415,7 @@
       el.innerHTML = '<div class="empty">The 5-minute curve is only kept for today. Switch to Month to compare days.</div>';
       $('cleg').innerHTML = ''; return;
     }
-    $('chart-meta').textContent = mode === 'month' ? 'kWh a day' : 'kWh a month';
+    $('chart-meta').textContent = mode === 'year' ? 'kWh a month' : 'kWh a day';
     $('cleg').innerHTML = LEG_BARS;
     const W = Math.max(300, el.clientWidth), Hh = Math.max(200, el.clientHeight), L = 40, Rm = 6, T = 10, Bm = 24, pw = W - L - Rm, ph = Hh - T - Bm;
     const top = Math.max(5, ...B.filter(b => b.v).map(b => Math.max(b.v.gen, b.v.use, b.v.exp, b.v.imp)));
@@ -499,7 +507,7 @@
   }
 
   // energy.html#day, #month, #year (and the old #today) open on that view
-  { const hv = location.hash.slice(1); if (hv === 'today') mode = 'day'; else if (['day', 'month', 'year'].includes(hv)) mode = hv; }
+  { const hv = location.hash.slice(1); if (hv === 'today') mode = 'day'; else if (['day', 'week', 'month', 'year'].includes(hv)) mode = hv; }
   H.start({ sources: ['ev', 'sems', 'fc', 'evhist'], extra: [render] });
   let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(render, 200); });
 })();

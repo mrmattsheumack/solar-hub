@@ -250,7 +250,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
       <div id="car-pie"></div>
     </section>
     <section class="panel span-4">
-      <div class="p-title"><span id="solar-h" title="Efficiency: share of the solar used at home, in the house or the cars. Exporting to the grid counts against it.">Solar</span></div>
+      <div class="p-title"><span id="solar-h" title="Efficiency: share of the solar used at home, in the house or the cars. Exporting to the grid counts against it.">Solar generation</span></div>
       <div id="solar-pie"></div>
     </section>
     <section class="panel span-4">
@@ -654,22 +654,24 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     document.querySelectorAll('.period button').forEach(b => b.setAttribute('aria-pressed', b.dataset.period === period ? 'true' : 'false'));
     $('energy-h').textContent = 'Energy ' + name;
     $('car-h').textContent = 'Car charging';
-    $('solar-h').textContent = 'Solar';
+    $('solar-h').textContent = 'Solar generation';
     document.querySelectorAll('[data-carview]').forEach(b => b.setAttribute('aria-pressed', b.dataset.carview === carView ? 'true' : 'false'));
     const pre = carView === 'total' ? 'car_' : `car_${carView}_`, who = carView === 'total' ? 'the cars' : carView === 'ev5' ? 'the EV5' : 'the IONIQ 5';
     const solar = T[pre + 'solar_kwh'] || 0, off = T[pre + 'offpeak_kwh'] || 0, grid = T[pre + 'grid_day_kwh'] || 0, carTotal = solar + off + grid;
     $('car-pie').innerHTML = pie([
       ['Solar', solar, '#facc15', `$${(solar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs on-peak`],
-      ['Off-peak grid', off, '#a855f7', `$${(off * RATE.offpeak).toFixed(2)} at 8c`],
-      ['On-peak grid', grid, '#ef4444', `$${(grid * RATE.general).toFixed(2)} at 27.6c`]
+      ['Grid off-peak', off, '#a855f7', `$${(off * RATE.offpeak).toFixed(2)} at 8c`],
+      ['Grid peak', grid, '#ef4444', `$${(grid * RATE.general).toFixed(2)} at 27.6c`]
     ], carTotal, carTotal > 0.05 ? Math.round(100 * (solar + off * OFFPEAK_CREDIT) / carTotal) : null, 'efficiency', carView === 'total' ? 'Into both cars' : 'Into the ' + (carView === 'ev5' ? 'EV5' : 'IONIQ 5'), `${carTotal.toFixed(1)} kWh into ${who} ${name}, ${carTotal > 0.05 ? Math.round(100 * solar / carTotal) : 0}% from solar.`);
 
     const houseSolar = T.house_solar_kwh || 0, exp = T.export_kwh || 0, carSolarAll = T.car_solar_kwh || 0;
     const solarTotal = Math.max(T.solar_kwh || 0, carSolarAll + houseSolar + exp);
     $('solar-pie').innerHTML = pie([
-      ['Cars', carSolarAll, '#22c55e', `$${(carSolarAll * (RATE.general - RATE.feedin)).toFixed(2)} saved vs on-peak`],
       ['House', houseSolar, '#4c8dff', `$${(houseSolar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs grid`],
-      ['Exported', exp, '#94a3b8', `$${(exp * RATE.feedin).toFixed(2)} earned at 0.5c`]
+
+      ['Cars', carSolarAll, '#22c55e', `$${(carSolarAll * (RATE.general - RATE.feedin)).toFixed(2)} saved vs on-peak`],
+
+      ['To grid', exp, '#94a3b8', `$${(exp * RATE.feedin).toFixed(2)} earned at 0.5c`]
     ], solarTotal, solarTotal > 0.05 ? Math.round(100 * (carSolarAll + houseSolar) / solarTotal) : null, 'efficiency', 'Generated', `${solarTotal.toFixed(1)} kWh generated ${name}` + (period === 'all' && HISTORY.length ? ` (since ${new Date(HISTORY[0].date + 'T12:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short'})})` : '') + '.');
     renderChart();
   }
