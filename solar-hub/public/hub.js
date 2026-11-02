@@ -225,7 +225,7 @@ window.Hub = (() => {
   const ADVICE_CLS = { Good: 'good', Fair: 'fair', Poor: 'poor' };
   function beachLine() {
     const b = S.beach?.sites; if (!b || !b.length) return '';
-    return `<div class="beachline" title="EPA Victoria beach water quality forecast"><span>Beach water</span>${b.slice(0, 2).map(x => `<span class="bq ${ADVICE_CLS[x.advice] || ''}"><i></i>${esc(x.name.replace(/ Beach$| Life Saving Club$/, ''))} <b>${esc(x.advice || 'n/a')}</b></span>`).join('')}</div>`;
+    return `<div class="beachline" title="EPA Victoria beach water quality forecast"><span>Beach</span>${b.slice(0, 2).map(x => `<span class="bq ${ADVICE_CLS[x.advice] || ''}"><i></i>${esc(x.name.replace(/ Beach$| Life Saving Club$/, ''))} <b>${esc(x.advice || 'n/a')}</b></span>`).join('')}</div>`;
   }
   function renderWx() {
     const w = S.wx, box = $('wx-body');
@@ -247,7 +247,8 @@ window.Hub = (() => {
         ${row('Rain today', `<span class="${raining ? 'raining' : ''}">${f1(w.rainDaily ?? 0)}</span><small> mm</small>`, raining ? `<span class="raining">${f1(w.rainRate)} mm/h now</span>` : '')}
         ${row('UV', has(w.uvi) ? f1(w.uvi) : '--', uvLabel(w.uvi), has(w.uvi) && w.uvi >= UV_ALERT)}
       </div>
-      <div class="wx-hours">${nextHours(7).slice(1).map(h => `<div><span>${ampm(fcHour(h.time)).replace(' ', '')}</span>${icon(hourKind(h, isNight(h.time)))}<b>${Math.round(h.temperature)}°</b><em>${h.precipProbability >= 20 ? h.precipProbability + '%' : ''}</em></div>`).join('')}</div>`;
+      <div class="wx-hours">${nextHours(7).slice(1).map(h => `<div><span>${ampm(fcHour(h.time)).replace(' ', '')}</span>${icon(hourKind(h, isNight(h.time)))}<b>${Math.round(h.temperature)}°</b><em>${h.precipProbability >= 20 ? h.precipProbability + '%' : ''}</em></div>`).join('')}</div>
+      <div class="wx-days" aria-label="Next five days">${fcDays().filter(d => d.date > mel().key).slice(0, 5).map(d => `<div title="${esc(KIND_TXT[dayKind(d)])}${d.rainProb >= 30 ? ', rain ' + d.rainProb + '%' : ''}"><span>${new Date(d.date + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short' })}</span>${dayIcon(dayKind(d))}<b>${f0(d.tmax)}°</b><em>${f0(d.tmin)}°</em></div>`).join('')}</div>`;
     const t = w.stationTime ? new Date(w.stationTime) : (at.wx ? new Date(at.wx) : null);
     if ($('wx-meta')) $('wx-meta').textContent = t ? `WS90 · ${clock(t)}` : 'Ecowitt WS90';
   }
@@ -624,6 +625,12 @@ window.Hub = (() => {
     if (w && has(w.rainRate) && w.rainRate >= HEAVY_RAIN) add('alert', `Heavy rain now: ${f1(w.rainRate)} mm/h`);
     else if (storm) add('alert', `Storms possible around ${ampm(fcHour(storm.time))}`);
     else if (heavy) add('warn', `Heavy rain likely around ${ampm(fcHour(heavy.time))} (${f1(heavy.precipitation)} mm in the hour)`);
+    else if (!(w && has(w.rainRate) && w.rainRate > 0)) {
+      // Rain on the way: the forecast shows it within the next 2 hours while it's dry at the station
+      // hrs[0] is the current hour, so [0..2] covers the next two hours
+      const i = hrs.slice(0, 3).findIndex(h => h.precipProbability >= 50 || (h.precipitation || 0) >= 0.3), wet = hrs[i];
+      if (i >= 0) add('rain', `Rain coming ${i === 0 ? 'within the hour' : 'around ' + ampm(fcHour(wet.time))}${wet.precipProbability ? ` (${wet.precipProbability}%)` : ''}`);
+    }
     const fcLeft = solarLeftToday();
     const plugged = plugState(e.c);
     if (now.h >= 7 && now.h < 16 && S.ev && !plugged && fcLeft >= 8 && !ex) add('sun', `About ${Math.round(fcLeft)} kWh of sun left today. Plug a car in to use it.`);
@@ -699,6 +706,25 @@ window.Hub = (() => {
     if (out.length > 4) { const more = out.length - 3; out.splice(3, out.length, { cls: 'cal', text: `+${more} more today`, href: 'calendar.html', local: true }); }
     return out;
   }
+  // Drive time from home to an appointment (travel function: OpenStreetMap lookup and route, cached)
+  const TRAVEL = {};
+  try { Object.assign(TRAVEL, JSON.parse(localStorage.getItem('travel-v1') || '{}')); } catch (e) {}
+  const travelBusy = new Set();
+  function travelFor(loc) {
+    const k = String(loc || '').trim().toLowerCase();
+    if (!k) return null;
+    const hit = TRAVEL[k];
+    if (hit && Date.now() - (hit.at || 0) < 30 * 86400e3) return hit;
+    if (!travelBusy.has(k)) {
+      travelBusy.add(k);
+      const key = hubKey();
+      fetch(`/.netlify/functions/travel?q=${encodeURIComponent(loc.trim())}`, { headers: key ? { 'x-hub-token': key } : {}, signal: AbortSignal.timeout(20000) })
+        .then(r => r.ok ? r.json() : null)
+        .then(j => { if (j && !j.error) { TRAVEL[k] = { ...j, at: Date.now() }; try { localStorage.setItem('travel-v1', JSON.stringify(TRAVEL)); } catch (e) {} renderAgenda(); } })
+        .catch(() => {}).finally(() => setTimeout(() => travelBusy.delete(k), 10 * 60e3));
+    }
+    return hit || null;
+  }
   // Header "Next up" on the dashboard
   function renderAgenda() {
     const el = $('agenda'); if (!el) return;
@@ -712,15 +738,22 @@ window.Hub = (() => {
     const { timed, allDayToday } = calUpcoming(), now = Date.now(), tk = tomorrowKey();
     const next = timed.find(e => evStart(e).getTime() <= now || evDay(e) <= tk);
     const later = calEvents().filter(e => e.allDay && e.start > mel().key && e.start <= tk).sort((a, b) => a.start.localeCompare(b.start))[0];
-    let main, sub;
+    let main, sub, leaveBy = '';
     if (next) {
       const st = evStart(next), on = st.getTime() <= now;
       main = esc(next.title);
       sub = on ? `On now · until ${calTime(evEnd(next))}` : `${dayWord(evDay(next)) === 'today' ? '' : cap(dayWord(evDay(next))) + ' '}${calTime(st)} · ${until(st - now)}`;
+      // Where it is: the drive from home, and when to leave (5 minutes' slack) once it's within 2 hours
+      const tv = !on && next.location ? travelFor(next.location) : null;
+      if (tv && tv.mins) {
+        sub += ` · ${tv.mins} min drive`;
+        const leave = st.getTime() - (tv.mins + 5) * 60e3;
+        if (leave - now < 2 * 3600e3) leaveBy = `<em class="${leave - now < 10 * 60e3 ? 'leave soon' : 'leave'}">${leave <= now ? 'Time to leave' : 'Leave by ' + calTime(new Date(leave))} · ${tv.km} km</em>`;
+      }
     } else if (later) { main = esc(later.title); sub = cap(dayWord(later.start)) + ' · all day'; }
     else { main = 'Nothing on'; sub = 'Today and tomorrow are clear'; }
     const extra = allDayToday.length ? `<em>Today: ${allDayToday.map(e => esc(e.title)).join(', ')}</em>` : '';
-    el.innerHTML = `<span class="ag-k">Next up</span><b>${main}</b><span>${esc(sub)}</span>${extra}`;
+    el.innerHTML = `<span class="ag-k">Next up</span><b>${main}</b><span>${esc(sub)}</span>${leaveBy || extra}`;   // all-day events are in the notes too
   }
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 

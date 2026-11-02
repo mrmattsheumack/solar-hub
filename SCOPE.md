@@ -294,6 +294,22 @@ New data:
   public feed behind their "Check air and water quality" map
   (epa.vic.gov.au/api/environment/water/sites). Good / Fair / Poor, mostly rain driven.
 
+## Drive times, 5-day outlook, rain alerts (2026-11-02, afternoon)
+
+- New `travel` function: `?q=<event location>` -> { place, km, mins }. Looks the place up with
+  OpenStreetMap Nominatim (biased to Victoria) and routes from home (-38.33, 144.97) with the public
+  OSRM router (typical drive, no live traffic). Cached by the CDN for 30 days and in the browser, so
+  regular places are looked up once. Locked with HUB_TOKEN like the calendar; online-meeting links
+  are skipped. Only the event's location text leaves the site, never the title.
+- Next up adds "NN min drive" when the event has a location, and from 2 hours out a line
+  "Leave by h:mm · N km" (drive plus 5 minutes; pink inside 10 minutes, "Time to leave" after).
+  Events without a location show no drive.
+- Weather tile condensed: wind, rain today and UV in one row; the next 6 hours, then a 5-day outlook
+  (day, icon, high and low; tap-and-hold title gives the forecast words and rain chance).
+- Notifications: "Rain coming within the hour" / "Rain coming around 3 pm (90%)" when the forecast
+  shows rain (50%+ or 0.3 mm+) in the next two hours while the station is dry. Heavy rain and storms
+  still get their stronger alerts.
+
 ## Calmer dashboard, one palette (2026-11-02, later)
 
 From Matt's photo of the iPad on its stand (Safari, about 1080 x 740 CSS px):

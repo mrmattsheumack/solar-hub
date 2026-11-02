@@ -420,3 +420,34 @@ body{font-variant-numeric:tabular-nums}
 .flowcard .split-leg{flex-wrap:nowrap;gap:10px;white-space:nowrap}
 .flowcard .split-leg .eff-tag{flex:none}
 .flowcard{gap:8px}
+
+/* ---------- weather tile, condensed (2026-11-02): readings in one row, next hours, then 5 days ---------- */
+.wx .wgrid{grid-template-columns:repeat(3,minmax(0,1fr));column-gap:10px}
+.wx .wrow{grid-template-columns:1fr;grid-template-areas:"k" "v" "s";row-gap:2px;padding:8px 0}
+.wx .wrow .v{justify-self:start}
+.wx .wrow .s{justify-self:start}
+.wx .temps{gap:6px}
+.wx-days{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding-top:8px;border-top:1px solid var(--border)}
+.wx-days>div{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;color:var(--text-muted);min-width:0}
+.wx-days svg{width:32px;height:34px}
+.wx-days b{font-size:15px;font-weight:600;color:var(--text)}
+.wx-days em{font-style:normal;font-size:12px;color:var(--text-muted)}
+.wx .wx-hours svg{width:30px;height:32px}
+.wx .wx-hours b{font-size:15px}
+/* next up: drive time and when to leave */
+.agenda em.leave{color:var(--text);font-weight:600}
+.agenda em.leave.soon{color:var(--cal)}
+.wx{gap:8px}
+.wx #wx-body{gap:8px!important}
+.wx .wx-top{gap:6px}
+.wx .today-wx{padding:5px 10px}
+.wx .beachline{flex-wrap:nowrap;white-space:nowrap;overflow:hidden;font-size:12px;gap:8px}
+.wx .temp{font-size:clamp(28px,2.7vw,44px)}
+.wx .temps .label{font-size:10.5px}
+.wx .wrow{padding:5px 0}
+.wx .wx-hours{padding-top:6px}
+.wx .wx-hours svg{width:24px;height:26px}
+.wx .wx-hours b,.wx-days b{font-size:14px}
+.wx-days{padding-top:6px}
+.wx-days svg{width:26px;height:28px}
+.wx-days>div,.wx .wx-hours>div{font-size:11px;gap:1px}
