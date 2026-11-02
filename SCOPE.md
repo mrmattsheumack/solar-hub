@@ -331,6 +331,19 @@ Code changes for it:
 - `hub.js`: the notes strip drawing and dismiss handling moved into `paintNotes(el, notes, rerender)`
   (the dashboard uses it unchanged); `warnNotes(list)` accepts a filtered list.
 
+## Meter counters unreliable: totals from live meter power (2026-11-02, 7:40 pm)
+
+- The meter's lifetime kWh counters (meter_e_total_imp / _exp over Modbus) don't track at day scale:
+  from 5:41 to 7:35 pm the import counter rose 0.11 kWh while the meter's live power added up to
+  1.26 kWh of import, and the counter sometimes went backwards. The live power (meter_active_power) is
+  consistent with the inverter output and house load every time.
+- `_ev_day_summary` now adds up the logged live meter power (every 30 s) for import, export and the
+  12-6 am import; solar is the inverter's live output added up. Counters are still logged, not used.
+- Energy page: any day with meter readings (meter_share > 0) uses the Pi's figures, not SEMS; days
+  the meter only partly covers are labelled "partly estimated". 2 Nov is one (meter from 5:41 pm).
+- To check: whether the inverter answers Modbus overnight. If it sleeps, nights fall back to the
+  SEMS-based estimate until a different meter source is found.
+
 ## Tides on the Weather page (2026-11-02, evening)
 
 - New `tides` function: Open-Meteo Marine API (free, keyless) hourly sea level for the nearest sea

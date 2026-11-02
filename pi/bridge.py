@@ -534,11 +534,10 @@ def _meter_pt(r: dict):
 def _ev_day_summary(rows: list[dict], before=None, after=None) -> dict:
     """One day's energy, from that day's log rows.
 
-    Grid import / export (and solar, when the inverter's lifetime counter is there) are the smart
-    meter's own counters: the change between consecutive meter readings, shared out by time when a
-    gap crosses midnight or 6 am. `before` / `after` are the nearest meter readings on either side of
-    the day, (t, imp, exp, pv) tuples, so nothing at the edges is lost. Time the meter doesn't cover
-    (older log rows, an outage) falls back to the old estimate from live power.
+    Grid import / export are the smart meter's live power (read every 30 s over Modbus) added up
+    over time; solar is the inverter's live output added up. Time the meter doesn't cover (older log
+    rows, the inverter asleep, an outage) falls back to the old estimate from live power and SEMS.
+    `before` / `after` are accepted for compatibility and not needed any more.
     The car comes from the charger's own reading; each moment it's charging, the part covered by
     solar is solar minus the rest of the house (live, from the meter). 12-6 am counts as off-peak;
     any other grid charging, evening included, counts as on-peak.
@@ -570,39 +569,30 @@ def _ev_day_summary(rows: list[dict], before=None, after=None) -> dict:
         at = lambda x: cum_e[max(0, bisect.bisect_right(cum_t, x) - 1)] if x >= cum_t[0] else 0.0
         return max(0.0, at(x1) - at(x0))
 
-    # ---- smart meter counters ----
-    pts = [p for p in ([before] + [_meter_pt(r) for r in rows] + [after]) if p]
-    pts.sort(key=lambda p: p[0])
-    covered = []                                   # (start, end) spans the meter accounts for
-    m = {"imp": 0.0, "exp": 0.0, "imp_off": 0.0, "pv": 0.0, "pv_secs": 0.0}
-    for a, b in zip(pts, pts[1:]):
-        span = b[0] - a[0]
-        if span <= 0 or span > 18 * 3600:
+    # ---- the smart meter's live power ----
+    # The controller logs the meter's power every 30 s. Import / export are that power added up over
+    # time. (Its lifetime kWh counters, also logged, aren't reliable at this scale: on 2 Nov they rose
+    # 0.11 kWh over two hours of 0.3-3.7 kW import and sometimes went backwards, so they're not used.)
+    covered = []
+    m = {"imp": 0.0, "exp": 0.0, "imp_off": 0.0}
+    tp, wp = None, None
+    for r in rows:
+        t = _ts(r)
+        if t is None:
             continue
-        dimp, dexp = b[1] - a[1], b[2] - a[2]
-        if dimp < 0 or dexp < 0:                   # counter reset or a bad read: skip that stretch
-            continue
-        f_day, f_off = ov(a[0], b[0], d0, d1) / span, ov(a[0], b[0], d0, op1) / span
-        if f_day <= 0:
-            continue
-        if span > 600:
-            # A gap in meter readings (inverter asleep, a restart): the car's share of the import is
-            # known from the charger, the rest is the house, spread evenly over the gap. A gap that
-            # crosses midnight also carries the car energy on the far side (5th item of the reading).
-            x0, x1 = max(a[0], d0), min(b[0], d1)
-            car_day, car_off = car_e(x0, x1), car_e(x0, min(x1, op1))
-            car_out = (a[4] if a is before and len(a) > 4 else 0.0) + (b[4] if b is after and len(b) > 4 else 0.0)
-            rest = max(0.0, dimp - car_day - car_out)
-            imp_day = min(dimp, car_day + rest * f_day)
-            m["imp"] += imp_day; m["exp"] += dexp * f_day
-            m["imp_off"] += min(imp_day, car_off + rest * f_off)
-        else:
-            m["imp"] += dimp * f_day; m["exp"] += dexp * f_day; m["imp_off"] += dimp * f_off
-        if a[3] is not None and b[3] is not None and b[3] >= a[3]:
-            m["pv"] += (b[3] - a[3]) * f_day; m["pv_secs"] += ov(a[0], b[0], d0, d1)
-        covered.append((max(a[0], d0), min(b[0], d1)))
+        w = r.get("meter_w")
+        if w is not None and tp is not None and wp is not None and 0 < t - tp <= 300:
+            h = (t - tp) / 3600
+            w = float(w)
+            m["imp"] += max(0.0, -w) / 1000 * h
+            m["exp"] += max(0.0, w) / 1000 * h
+            if r.get("window") == "offpeak":
+                m["imp_off"] += max(0.0, -w) / 1000 * h
+            covered.append((tp, t))
+        tp, wp = t, w
     covered_secs = sum(e - s0 for s0, e in covered)
-    in_cover = lambda t: any(s0 < t <= e for s0, e in covered)
+    cov_set = {e for _, e in covered}
+    in_cover = lambda t: t in cov_set
 
     # ---- the car, and estimates for anything the meter doesn't cover ----
     est = {"imp": 0.0, "exp": 0.0, "imp_off": 0.0, "pv": 0.0}
@@ -648,8 +638,7 @@ def _ev_day_summary(rows: list[dict], before=None, after=None) -> dict:
         t_prev = t
 
     imp, exp, imp_off = m["imp"] + est["imp"], m["exp"] + est["exp"], m["imp_off"] + est["imp_off"]
-    # Solar: the inverter's own counter where it covers the day, live power elsewhere
-    solar = m["pv"] + est["pv"] if m["pv_secs"] > 0.9 * covered_secs and covered_secs else pv_power_kwh
+    solar = pv_power_kwh       # the inverter's live output, added up
     car_kwh = out["car_ev5_kwh"] + out["car_ioniq5_kwh"] + out["car_unknown_kwh"]
     # Can't have put more solar into the car than solar that stayed home
     self_use = max(0.0, solar - exp)
