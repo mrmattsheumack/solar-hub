@@ -1,4 +1,4 @@
-"""Solar Hub EV charging controller (runs on the Pi).
+"""Home Dashboard EV charging controller (runs on the Pi).
 
 Rules (agreed with Matt, 2026-10-28):
   * 00:00-06:00  Off-peak (8c). Charge at full rate whenever something is plugged in.
@@ -167,15 +167,28 @@ class Solar:
 
 
 class Inverter:
-    """Live PV straight from the inverter (no cloud lag). Dark at night, so failures are normal then."""
+    """Live PV and the GoodWe smart meter, straight from the inverter over Modbus (no cloud lag).
+
+    The meter (GM1000 on the grid connection) is the only true record of grid import and export:
+      meter_w        + exporting, - importing (W)
+      imp/exp_kwh    the meter's own lifetime import / export counters (kWh)
+      house_total_w  everything the house draws, car included = inverter AC out - meter_w
+    (2026-11-02: SEMS's cloud copy of the meter drops out for hours at a time; while it does,
+    SEMS reports house = solar and grid = 0, which made grid use look like nearly nothing.)
+    The inverter may sleep at night; failures then are normal, so retries back off."""
 
     def __init__(self, host, port):
         self.host, self.port = host, port
         self.inv = None
         self.pv_w = None
         self.ok_at = 0.0
+        self.meter = None          # dict from the last good read
+        self.meter_at = 0.0
+        self.fail_at = 0.0
 
-    async def poll(self):
+    async def poll(self, quiet_retry_s=0):
+        if self.inv is None and quiet_retry_s and time.time() - self.fail_at < quiet_retry_s:
+            return
         try:
             if self.inv is None:
                 self.inv = await goodwe.connect(self.host, port=self.port, family="DT", timeout=4, retries=1)
@@ -183,9 +196,19 @@ class Inverter:
             pv = d.get("total_inverter_power", d.get("ppv"))
             if pv is not None:
                 self.pv_w, self.ok_at = float(pv), time.time()
+            mw, imp, exp = d.get("meter_active_power"), d.get("meter_e_total_imp"), d.get("meter_e_total_exp")
+            if mw is not None and imp is not None and exp is not None and d.get("meter_comm_status", 1) == 1:
+                self.meter = {"meter_w": float(mw), "imp_kwh": float(imp), "exp_kwh": float(exp),
+                              "pv_e_total": float(d["e_total"]) if d.get("e_total") is not None else None,
+                              "house_total_w": max(0.0, float(pv or 0) - float(mw))}
+                self.meter_at = time.time()
         except Exception as e:
             self.inv = None
+            self.fail_at = time.time()
             log.debug("inverter read failed: %s", e)
+
+    def fresh(self, max_age):
+        return self.meter is not None and time.time() - self.meter_at <= max_age
 
 
 class Controller:
@@ -220,7 +243,13 @@ class Controller:
         recent = [w for ts, w in self.car_hist if t - ts <= CFG["sems_lag_s"]]
         car_w = sum(recent) / len(recent) if recent else ((st or {}).get("power_w") or 0)
         sems_ok = not self.solar.zero and t - self.solar.ok_at <= CFG["sems_stale_s"]
-        if sems_ok:
+        if self.inverter.fresh(CFG["inverter_stale_s"]):
+            # The meter, live: house = everything drawn less the car's draw right now. No lag, so no
+            # averaging needed (and no 400 W floor guessing).
+            live_car = (st or {}).get("power_w") or 0
+            house_w = max(0.0, self.inverter.meter["house_total_w"] - live_car)
+            self.house_source = "meter"
+        elif sems_ok:
             house_w = max(CFG["house_floor_w"], d["homePower"] - car_w)   # SEMS feed is in watts
             self.house_source = "sems"
         else:
@@ -244,8 +273,9 @@ class Controller:
         offpeak_on = read_offpeak()
         win = self.window(now)
         self.solar.poll(CFG["sems_every_s"])
-        if win == "day":
-            await self.inverter.poll()
+        # Every loop, day and night: the meter's counters are what the daily totals are built from.
+        # If the inverter is asleep at night, try again only every 5 minutes.
+        await self.inverter.poll(quiet_retry_s=0 if win == "day" else 300)
         if not await self.charger.ensure():
             return self.record(now, mode, win, None, None, "charger unreachable")
         await self.charger.refresh()
@@ -358,6 +388,10 @@ class Controller:
 
     def record(self, now, mode, win, st, desired, reason):
         d = self.solar.data or {}
+        inv_live = self.inverter.pv_w is not None and time.time() - self.inverter.ok_at <= CFG["inverter_stale_s"]
+        m = self.inverter.meter if self.inverter.fresh(CFG["inverter_stale_s"]) else None
+        if m and self.house_source != "meter":    # not computed this loop (evening, off-peak): from the meter
+            self.last_house_w = round(max(0.0, m["house_total_w"] - ((st or {}).get("power_w") or 0)))
         car = None
         try:   # label from kia_poll.py; never used for control
             with open(os.path.join(os.path.dirname(STATE_PATH), "ev_car.json")) as f:
@@ -368,8 +402,12 @@ class Controller:
             "ts": now.isoformat(timespec="seconds"), "dry_run": DRY_RUN, "mode": mode, "window": win,
             "offpeak": read_offpeak(),
             "pv_kw": round(d["pvPower"] / 1000, 3) if d.get("pvPower") is not None else None,
-            "pv_live_w": self.inverter.pv_w if hasattr(self, "inverter") else None, "pv_source": self.pv_source, "house_source": self.house_source,
-            "house_w": self.last_house_w if win == "day" else None, "home_kw": round(d["homePower"] / 1000, 3) if d.get("homePower") is not None else None,
+            "pv_live_w": self.inverter.pv_w if inv_live else None, "pv_source": self.pv_source, "house_source": self.house_source,
+            "house_w": self.last_house_w if (win == "day" or m) else None, "home_kw": round(d["homePower"] / 1000, 3) if d.get("homePower") is not None else None,
+            # the smart meter, read over Modbus this loop (None if the inverter didn't answer)
+            "meter_w": m["meter_w"] if m else None, "house_total_w": round(m["house_total_w"]) if m else None,
+            "meter_imp_kwh": m["imp_kwh"] if m else None, "meter_exp_kwh": m["exp_kwh"] if m else None,
+            "pv_e_total": m["pv_e_total"] if m else None,
             "export_kw": round(d.get("exportPower", 0) / 1000, 3), "import_kw": round(d.get("importPower", 0) / 1000, 3),
             "solar_age_s": int(time.time() - self.solar.ok_at) if self.solar.ok_at else None,
             "charger": st, "limit_a": self.charger.limit if self.charger.evse else None,

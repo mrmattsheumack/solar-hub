@@ -165,9 +165,12 @@ window.Hub = (() => {
     if (L && has(L.pv_live_w) && evAge < STALE.ev) { pv = L.pv_live_w; pvSrc = 'inverter'; }
     else if (s && has(s.pvPower)) { pv = s.pvPower; pvSrc = 'SEMS'; }
     const car = has(c.power_w) ? c.power_w : 0;
-    const home = s && has(s.homePower) ? s.homePower : (L && has(L.home_kw) ? L.home_kw * 1000 : null);   // includes the car
+    // The smart meter, read by the Pi over Modbus, is the truth for house and grid. SEMS's copy lags
+    // and sometimes loses the meter altogether (then it reports house = solar, grid = 0).
+    const meter = L && evAge < STALE.ev && has(L.meter_w) && has(L.house_total_w);
+    const home = meter ? L.house_total_w : s && has(s.homePower) ? s.homePower : (L && has(L.home_kw) ? L.home_kw * 1000 : null);   // includes the car
     const house = home != null ? Math.max(0, home - car) : null;
-    const grid = s && has(s.gridPower) ? s.gridPower : null;                                              // + export, - import
+    const grid = meter ? L.meter_w : s && has(s.gridPower) ? s.gridPower : null;                     // + export, - import
     return { pv, pvSrc, car, house, home, grid, L, c, mode: S.ev?.mode, totals: S.ev?.totals || {} };
   }
 
@@ -310,7 +313,7 @@ window.Hub = (() => {
     const pv = has(e.pv) ? e.pv : 0, house = e.house ?? 0, car = e.car || 0;
     const a = allocate(pv, house, car);
     // Grid direction: trust the live balance when we have the inverter reading, else SEMS
-    const net = has(e.pv) && e.house != null ? pv - house - car : (has(e.grid) ? e.grid : 0);
+    const net = has(e.grid) && S.ev?.latest?.meter_w != null ? e.grid : has(e.pv) && e.house != null ? pv - house - car : (has(e.grid) ? e.grid : 0);   // the meter's own reading when we have it
     const imp = Math.max(0, -net), exp = Math.max(0, net);
     const pct = v => pv > 100 ? Math.round(v / pv * 100) + '%' : '';
     const W = 360, H = 252, hub = [180, 124];

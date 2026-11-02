@@ -535,7 +535,8 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const watts = c.power_w || 0;
     const pv = L.pv_live_w != null ? L.pv_live_w : (L.pv_kw != null ? L.pv_kw * 1000 : null);
     const houseW = L.house_w != null ? L.house_w : (L.home_kw != null ? Math.max(0, L.home_kw * 1000 - watts) : null);
-    const g = (pv != null && houseW != null) ? houseW + watts - pv : null;     // + import, - export
+    // + import, - export: the smart meter's own reading when the Pi has it, else the balance
+    const g = L.meter_w != null ? -L.meter_w : (pv != null && houseW != null) ? houseW + watts - pv : null;
     const exporting = g != null && g < -50;
     const hub = [220, 90], R = 22;
     const nodes = {

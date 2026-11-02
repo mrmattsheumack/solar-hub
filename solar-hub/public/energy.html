@@ -275,12 +275,20 @@
     const impOff = Math.min(imp, d.import_offpeak_kwh || 0), houseSolar = d.house_solar_kwh || 0;
     const gen = Math.max(d.solar_kwh || 0, houseSolar + carSolar + exp);
     return { gen, house, car, carSolar, carOff, carGrid, houseSolar, exp, imp, impOff, impPeak: imp - impOff, use: house + car,
-      ev5: d.car_ev5_kwh || 0, ioniq5: d.car_ioniq5_kwh || 0, days: 1, sems: 0, pi: 1 };
+      ev5: d.car_ev5_kwh || 0, ioniq5: d.car_ioniq5_kwh || 0, days: 1, sems: 0, pi: 1,
+      // the Pi read the smart meter for most of the day: its grid and solar figures are the meter's own
+      meter: (d.meter_share || 0) >= 0.5 ? 1 : 0 };
   }
-  const ZERO = () => ({ gen: 0, house: 0, car: 0, carSolar: 0, carOff: 0, carGrid: 0, houseSolar: 0, exp: 0, imp: 0, impOff: 0, impPeak: 0, use: 0, ev5: 0, ioniq5: 0, days: 0, sems: 0, pi: 0 });
+  const ZERO = () => ({ gen: 0, house: 0, car: 0, carSolar: 0, carOff: 0, carGrid: 0, houseSolar: 0, exp: 0, imp: 0, impOff: 0, impPeak: 0, use: 0, ev5: 0, ioniq5: 0, days: 0, sems: 0, pi: 0, meter: 0 });
   const add = (a, b) => { for (const k in a) a[k] += b[k] || 0; return a; };
   // SEMS meter figures with the Pi's car split laid over them
+  // Which source wins, day by day:
+  //  1. the Pi's smart-meter figures (from 2 Nov 2026): exact grid import / export, solar and cars
+  //  2. otherwise SEMS for generation, export, import and consumption, with the Pi's car split on top.
+  //     SEMS's copy of the meter drops out for long stretches, and grid use is understated whenever it
+  //     does (2026: nearly every evening and night since about July).
   function merge(pi, sp, days) {
+    if (pi && pi.meter) return { ...pi, days };
     if (!sp || sp.gen_kwh == null) return pi;
     const gen = sp.gen_kwh || 0, exp = sp.export_kwh || 0, imp = sp.import_kwh || 0;
     const use = sp.use_kwh != null ? sp.use_kwh : Math.max(0, gen + imp - exp), selfUse = Math.max(0, gen - exp);
@@ -292,11 +300,17 @@
   const daysIn = (y, m) => new Date(y, m, 0).getDate();
   function dayVal(k, pi) { return merge(pi[k] ? piDerive(pi[k]) : null, SP['day:' + k], 1); }
   function monthVal(mk, pi) {
+    const [y, m] = mk.split('-').map(Number), tk = todayKey();
+    const n = mk === tk.slice(0, 7) ? +tk.slice(8) : daysIn(y, m);
+    // A month with any smart-meter days is added up day by day, so those days use the meter
+    if (Object.keys(pi).some(k => k.startsWith(mk) && (pi[k].meter_share || 0) >= 0.5)) {
+      const v = ZERO(); let any = false;
+      for (let i = 1; i <= n; i++) { const dv = dayVal(`${mk}-${pad(i)}`, pi); if (dv) { add(v, dv); any = true; } }
+      return any ? v : null;
+    }
     let p = null;
     Object.keys(pi).forEach(k => { if (k.startsWith(mk)) { p = p || ZERO(); add(p, piDerive(pi[k])); } });
-    const [y, m] = mk.split('-').map(Number), tk = todayKey();
-    const days = mk === tk.slice(0, 7) ? +tk.slice(8) : daysIn(y, m);
-    return merge(p, SP['month:' + mk], days);
+    return merge(p, SP['month:' + mk], n);
   }
   // Buckets for the chart and the table: days of a month, or months of a year
   function buckets(pi) {
@@ -316,6 +330,9 @@
     // Ask SEMS+ for what this view needs (the chosen day first, then the rest of its month for the table)
     const [y] = parts(anchor);
     if (mode === 'year') for (let i = 1; i <= 12; i++) { const k = `${y}-${pad(i)}`; if (k <= tk.slice(0, 7)) need('month:' + k); }
+    // months with smart-meter days are added up day by day, so they need the other days' SEMS figures
+    if (mode === 'year') { const pi0 = piRows(); for (let i = 1; i <= 12; i++) { const mk = `${y}-${pad(i)}`;
+      if (Object.keys(pi0).some(k => k.startsWith(mk) && (pi0[k].meter_share || 0) >= 0.5)) for (let dd = 1; dd <= daysIn(y, i); dd++) { const k = `${mk}-${pad(dd)}`; if (k <= tk) need('day:' + k); } } }
     else { if (mode === 'day') need('day:' + anchor); buckets({}).forEach(b => { if (!b.future) need('day:' + b.key); }); }
     pump();
     const pi = piRows(), B = buckets(pi);
@@ -340,8 +357,15 @@
     const piFirst = Object.keys(pi).sort()[0], loading = queue.length + running, lifetime = H.S.sems?.kpi?.total_power;
     const notes = [];
     if (loading) notes.push(`Loading ${loading} more from SEMS…`);
-    notes.push('Generation, export, import and consumption from the GoodWe meter (SEMS).');
-    notes.push(`Car charging from the Pi's charger log${piFirst ? ', which starts ' + new Date(piFirst + 'T12:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}; before then cars count as house use and grid imports are costed at the general rate.`);
+    // Where the numbers in this period came from
+    const days = mode === 'day' ? [anchor] : B.filter(b => b.v).map(b => b.key);
+    const meterDays = mode === 'year' ? 0 : days.filter(k => (pi[k]?.meter_share || 0) >= 0.5).length;
+    const meterFirst = Object.keys(pi).sort().find(k => (pi[k].meter_share || 0) >= 0.5);
+    if (mode !== 'year' && meterDays === days.length && days.length) notes.push('Grid, solar and house figures are the smart meter\'s own readings (via the Pi); cars from the charger.');
+    else {
+      notes.push(`From ${meterFirst ? new Date(meterFirst + 'T12:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '2 Nov 2026'} the grid, solar and house figures are the smart meter's own readings (via the Pi). Earlier days use SEMS, which loses the meter for long stretches: grid use, consumption and grid cost for those days are understated, often badly.`);
+      notes.push(`Car charging from the Pi's charger log${piFirst ? ' (from ' + new Date(piFirst + 'T12:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) + ')' : ''}; before then cars count as house use and grid imports are costed at the general rate.`);
+    }
     if (mode === 'year' && has(lifetime)) notes.push(`Lifetime generation ${(lifetime / 1000).toFixed(1)} MWh.`);
     $('billnote').textContent = notes.join(' ');
   }

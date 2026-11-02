@@ -294,6 +294,41 @@ New data:
   public feed behind their "Check air and water quality" map
   (epa.vic.gov.au/api/environment/water/sites). Good / Fair / Poor, mostly rain driven.
 
+## Grid figures from the smart meter (2026-11-02, evening)
+
+Found: SEMS's cloud copy of the GoodWe smart meter drops out for hours at a time. While it does,
+SEMS reports house = solar and grid = 0 (2 Nov 4 pm: SEMS house 377 W; the meter itself said
+4.9 kW house, 4.3 kW from the grid). SEMS's daily and monthly "purchase" is understated whenever
+that happens; in 2026 consumption ~= generation and import ~= export ~= 0 from about July
+(Sep: 72 kWh bought, Oct: 102 kWh), which is the no-meter signature. SEMS's grid history is not
+reliable; its solar figures are (lifetime 24,294 kWh = the inverter's own counter).
+
+The inverter (GW10K-MS-30, Modbus TCP 192.168.1.155:502, `goodwe` DT family) gives the meter
+directly: meter_active_power (+ export / - import), meter_e_total_imp / _exp (lifetime counters,
+15,140 / 9,251 kWh on 2 Nov), e_total (solar counter), meter_comm_status.
+
+Fix:
+- `pi/ev-controller/ev_solar.py`: reads the inverter and meter every loop, day and night (backs off
+  to every 5 min at night if the inverter doesn't answer). House load for the charging decisions is
+  now the meter's live figure (everything drawn less the car's live draw), not SEMS's lagging,
+  sometimes meter-less one. Each log row adds meter_w, house_total_w, meter_imp_kwh, meter_exp_kwh,
+  pv_e_total.
+- `pi/bridge.py`: one calculation (`_ev_day_summary`) for today's live totals and the daily history.
+  Grid import / export and solar are the meter / inverter counters (change between readings, shared
+  out by time across midnight and 6 am; overnight gaps use the charger's measured energy for the car
+  and spread the rest evenly). The car split uses the meter's live house figure; evening grid
+  charging now counts as on-peak (it was dropped from the split before). Solar into the cars is
+  capped at solar that stayed home. `meter_share` says how much of each day the meter covers.
+  History cache is now ev_daily_cache_v2.json.
+- Web: dashboard and EV page live flow use the meter's house and grid figures when the Pi has them.
+  Energy page uses the Pi's meter figures for any day with meter_share >= 0.5 (months containing such
+  days are added up day by day) and SEMS otherwise, and says which on the page.
+- Checked against a synthetic day: exact with the meter running all night; with the inverter asleep
+  overnight the day totals are still exact and the 12-6 am share is within about 1 kWh.
+- Days before the meter logging (28 Oct to 2 Nov on the Pi, everything earlier from SEMS) keep their
+  old figures and are flagged on the Energy page as understating grid use. The Pi's old daytime car
+  split also over-counted solar into the cars whenever SEMS had lost the meter.
+
 ## Drive times, 5-day outlook, rain alerts (2026-11-02, afternoon)
 
 - New `travel` function: `?q=<event location>` -> { place, km, mins }. Looks the place up with
