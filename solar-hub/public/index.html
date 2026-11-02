@@ -21,7 +21,7 @@ body{overflow:hidden}
 .screen{height:100dvh;display:grid;gap:var(--gap);
   padding:calc(var(--gap) + env(safe-area-inset-top,0px)) max(var(--gap),env(safe-area-inset-right,0px)) calc(var(--gap) + env(safe-area-inset-bottom,0px)) max(var(--gap),env(safe-area-inset-left,0px));
   grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) minmax(0,1fr);
-  grid-template-rows:auto auto minmax(0,1.25fr) minmax(0,1fr);
+  grid-template-rows:auto auto minmax(0,1.5fr) minmax(0,1fr);
   /* Left: weather, full height. Middle: energy flow (with the efficiency donuts), radar under it. Right: cars, climate. */
   grid-template-areas:"head head head" "notes notes notes" "wx flow car" "wx radar climate";
   transition:transform 2s ease}
@@ -74,7 +74,7 @@ body{overflow:hidden}
 
   <!-- ===== weather: WS90 + next 12 h ===== -->
   <section class="card wx" aria-labelledby="wx-h">
-    <div class="card-head"><h2 id="wx-h"><a class="wx-title" id="wx-title" href="weather.html">Weather</a></h2><a class="card-link" href="weather.html"><span id="wx-meta">WS90</span> · Weather ›</a></div>
+    <div class="card-head"><h2 id="wx-h"><a class="wx-title" id="wx-title" href="weather.html">Weather</a></h2></div>
     <div id="wx-body" style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
       <div class="empty">Waiting for the weather station…</div>
     </div>
@@ -89,7 +89,7 @@ body{overflow:hidden}
         <a class="card-link" href="https://www.bom.gov.au/products/IDR023.loop.shtml" target="_blank" rel="noopener">BoM radar ›</a>
       </div>
     </div>
-    <div class="map-wrap"><div id="map" data-bounds="-38.50,144.30,-37.70,145.60" data-fill="lat" data-fs-bounds="-39.2,140.95,-33.95,149.98" data-lock="1" role="img" aria-label="Rain radar from just north of Melbourne down to Cape Schanck. Tap for all of Victoria"></div>
+    <div class="map-wrap"><div id="map" data-bounds="-38.58,144.30,-37.70,145.60" data-fill="lat" data-fs-bounds="-39.2,140.95,-33.95,149.98" data-lock="1" role="img" aria-label="Rain radar from just north of Melbourne down to Cape Schanck. Tap for all of Victoria"></div>
     <div class="radar-bar">
       <button class="btn" id="radar-play" aria-label="Pause radar animation">
         <svg viewBox="0 0 24 24" fill="currentColor" id="radar-icon"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
@@ -101,23 +101,21 @@ body{overflow:hidden}
 
   <!-- ===== energy flow ===== -->
   <section class="card flowcard" aria-labelledby="flow-h">
-    <div class="card-head"><h2 id="flow-h"><a class="wx-title" href="energy.html">Energy flow</a></h2><a class="card-link" href="energy.html"><span id="en-mode"></span>Energy ›</a></div>
+    <div class="card-head"><h2 id="flow-h"><a class="wx-title" href="energy.html">Energy flow</a></h2></div>
     <div id="flow-body" style="display:flex;flex-direction:column;gap:10px;flex:1;min-height:0">
       <div class="empty">Waiting for solar and charger data…</div>
     </div>
-    <!-- efficiency today, same maths as the EV page -->
-    <div class="eff-row" id="eff" aria-label="Efficiency today"></div>
   </section>
 
   <!-- ===== car charging ===== -->
   <section class="card cars" aria-labelledby="cars-h">
-    <div class="card-head"><h2 id="cars-h"><a class="wx-title" href="ev.html">Car charging</a></h2><a class="card-link" href="ev.html">EV charging ›</a></div>
+    <div class="card-head"><h2 id="cars-h"><a class="wx-title" href="ev.html">Car charging</a></h2></div>
     <a class="carlink" href="ev.html" id="cars" aria-label="Open EV charging"><div class="empty">Waiting for the charger…</div></a>
   </section>
 
   <!-- ===== climate ===== -->
   <section class="card climatecard" aria-labelledby="climate-h">
-    <div class="card-head"><h2 id="climate-h"><a class="wx-title" href="climate.html">Climate</a></h2><a class="card-link" href="climate.html">Climate control ›</a></div>
+    <div class="card-head"><h2 id="climate-h"><a class="wx-title" href="climate.html">Climate</a></h2></div>
     <a class="carlink" href="climate.html" id="climate" aria-label="Open climate control"><div class="empty">Checking the AC…</div></a>
   </section>
 </div>

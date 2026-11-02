@@ -294,6 +294,26 @@ New data:
   public feed behind their "Check air and water quality" map
   (epa.vic.gov.au/api/environment/water/sites). Good / Fair / Poor, mostly rain driven.
 
+## Calmer dashboard, one palette (2026-11-02, later)
+
+From Matt's photo of the iPad on its stand (Safari, about 1080 x 740 CSS px):
+- Colours, the same on the dashboard, Energy, EV, history and decisions pages (tokens in hub.css and
+  the pages' own :root blocks): solar #facc15 yellow, house #4c8dff blue, cars #22c55e green,
+  exported #94a3b8 grey, grid on-peak #ef4444 red, grid off-peak #a855f7 purple (--offpeak-c; the
+  off-peak window shading is a faint purple). Calendar notes and Next up are pink (--cal #f472b6).
+  Efficiency ratings keep their green / yellow / orange / red scale.
+- One typeface: Inter everywhere, with tabular figures for numbers (--mono now points at Inter).
+- Dashboard: the car charging and solar donuts are gone from the flow tile (they're on the Energy
+  page); the diagram is bigger (top row 1.5 : 1) with larger labels, and "Solar efficiency NN%"
+  (today, EV-page formula) sits at the right-hand end of the legend under the bar.
+- Tile headings are just the title (still a link): removed "WS90 · time · Weather ›",
+  "Auto · solar window · Energy ›", "EV charging ›" and "Climate control ›". The Energy page's live
+  flow lost its equivalent too.
+- Weather tile: Feels like removed, temperatures smaller. Sunrise and sunset have small icons.
+  Next up is a little larger.
+- Radar: the play bar is small, faint and in the bottom-left corner, and the view now runs to
+  -38.58 so the bottom of the peninsula sits just above it.
+
 ## Dashboard and page tweaks (2026-11-02)
 
 - Header notes show every calendar appointment still to come today (time and title, a countdown

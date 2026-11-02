@@ -180,7 +180,9 @@ window.Hub = (() => {
     const d = fcDays().find(x => x.date === mel().key);
     if (d?.sunrise) {
       const t = s => { const h = +s.slice(11, 13), m = s.slice(14, 16); return `${h % 12 || 12}:${m} ${h < 12 ? 'am' : 'pm'}`; };
-      $('sun').textContent = `Sunrise ${t(d.sunrise)} · Sunset ${t(d.sunset)}`;
+      // little sun-on-the-horizon icons, arrow up for sunrise and down for sunset
+      const sunIco = up => `<svg class="sunico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16M7.5 18a4.5 4.5 0 0 1 9 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="${up ? 'M12 3v6M9 6l3-3 3 3' : 'M12 3v6M9 6l3 3 3-3'}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      $('sun').innerHTML = `<span class="sunt">${sunIco(true)}Sunrise ${t(d.sunrise)}</span><span class="sunt">${sunIco(false)}Sunset ${t(d.sunset)}</span>`;
     }
   }
 
@@ -241,14 +243,13 @@ window.Hub = (() => {
         <div><div class="label">Inside</div><div class="temp">${f1(w.indoorTemp)}<sup>°</sup></div></div>
       </div>
       <div class="wgrid">
-        ${row('Feels like', `${f1(w.feelsLike)}°`)}
         ${row('Wind', `${windArrow(w.windDirection)}${f0(w.windSpeed)}<small> km/h</small>`, [cardinal(w.windDirection), has(w.windGust) ? `gust ${f0(w.windGust)}` : ''].filter(Boolean).join(' · '), windy)}
         ${row('Rain today', `<span class="${raining ? 'raining' : ''}">${f1(w.rainDaily ?? 0)}</span><small> mm</small>`, raining ? `<span class="raining">${f1(w.rainRate)} mm/h now</span>` : '')}
         ${row('UV', has(w.uvi) ? f1(w.uvi) : '--', uvLabel(w.uvi), has(w.uvi) && w.uvi >= UV_ALERT)}
       </div>
       <div class="wx-hours">${nextHours(7).slice(1).map(h => `<div><span>${ampm(fcHour(h.time)).replace(' ', '')}</span>${icon(hourKind(h, isNight(h.time)))}<b>${Math.round(h.temperature)}°</b><em>${h.precipProbability >= 20 ? h.precipProbability + '%' : ''}</em></div>`).join('')}</div>`;
     const t = w.stationTime ? new Date(w.stationTime) : (at.wx ? new Date(at.wx) : null);
-    $('wx-meta').textContent = t ? `WS90 · ${clock(t)}` : 'Ecowitt WS90';
+    if ($('wx-meta')) $('wx-meta').textContent = t ? `WS90 · ${clock(t)}` : 'Ecowitt WS90';
   }
 
   // ---------- energy accounting ----------
@@ -326,7 +327,7 @@ window.Hub = (() => {
       return `<path class="wire bg" d="${d}" stroke-width="6"/><path class="wire live${rev ? ' rev' : ''}" d="${d}" stroke="${col}" stroke-width="${width(p)}"/>` + (rev ? arrow(to, from, p, col) : arrow(from, to, p, col));
     };
     const node = (k, pos, col, active) => `<g transform="translate(${pos[0]} ${pos[1]})"> <circle r="27" fill="var(--surface-2)" stroke="${active ? col : 'var(--border-strong)'}" stroke-width="2"/><g>${ICON[k]}</g></g>`;
-    const txt = (x, y, anchor, big, small, col = 'var(--text)') => `<text x="${x}" y="${y}" text-anchor="${anchor}"><tspan class="num" font-size="21" fill="${col}">${big}</tspan><tspan x="${x}" dy="17" font-size="13" fill="var(--text-muted)">${esc(small)}</tspan></text>`;
+    const txt = (x, y, anchor, big, small, col = 'var(--text)') => `<text x="${x}" y="${y}" text-anchor="${anchor}"><tspan class="num" font-size="21" fill="${col}">${big}</tspan><tspan x="${x}" dy="17" font-size="14" fill="var(--text-muted)">${esc(small)}</tspan></text>`;
     const gridCol = imp >= 50 ? 'var(--import)' : 'var(--gridout)';
     const carState = !S.ev ? 'Pi not reachable' : c.state === 'charging' ? (L.override ? 'Manual, full rate' : L.window === 'offpeak' ? 'Off-peak charge' : 'Matching solar') : (STATE_TXT[c.state] || 'Not plugged in');
     let s = '';
@@ -345,10 +346,13 @@ window.Hub = (() => {
     if (pv > 100) {
       s += badge(248, 114, pct(a.sHouse), 'var(--home)') + badge(200, 174, pct(a.sCar), 'var(--car)') + badge(112, 112, pct(a.exp), 'var(--gridout)');
     }
+    const T0 = S.ev?.totals, solarGen = T0 ? Math.max(T0.solar_kwh || 0, (T0.car_solar_kwh || 0) + (T0.house_solar_kwh || 0) + (T0.export_kwh || 0)) : 0;
+    const solarEff = solarGen > 0.05 ? Math.round(100 * ((T0.car_solar_kwh || 0) + (T0.house_solar_kwh || 0)) / solarGen) : null;
+    const effTag = solarEff == null ? '' : `<a class="eff-tag" href="energy.html" title="Solar efficiency today: share of today's generation used at home or in the cars">Solar efficiency <b style="color:${effColor(solarEff)}">${solarEff}%</b></a>`;
     const solarLine = pv > 100
       ? `<div class="split"><div class="split-bar"><i style="width:${(a.sHouse / pv * 100).toFixed(1)}%;background:var(--home)"></i><i style="width:${(a.sCar / pv * 100).toFixed(1)}%;background:var(--car)"></i><i style="width:${(a.exp / pv * 100).toFixed(1)}%;background:var(--gridout)"></i></div>
-         <div class="split-leg"><span style="--c:var(--home)">House <b>${pct(a.sHouse)}</b></span><span style="--c:var(--car)">Car <b>${pct(a.sCar)}</b></span><span style="--c:var(--gridout)">Grid <b>${pct(a.exp)}</b></span>${imp >= 50 ? `<span style="--c:var(--import)">Grid supplying <b>${Math.round(imp / Math.max(1, house + car) * 100)}%</b> of use</span>` : ''}</div></div>`
-      : `<div class="split"><div class="split-leg">${mel().h >= 5 && mel().h < 21 ? 'Barely generating right now.' : 'No solar overnight.'}${L.window === 'offpeak' ? ' Off-peak window, 8c until 6 am.' : ''}</div></div>`;
+         <div class="split-leg"><span style="--c:var(--home)">House <b>${pct(a.sHouse)}</b></span><span style="--c:var(--car)">Car <b>${pct(a.sCar)}</b></span><span style="--c:var(--gridout)">Grid <b>${pct(a.exp)}</b></span>${imp >= 50 ? `<span style="--c:var(--import)">Grid supplying <b>${Math.round(imp / Math.max(1, house + car) * 100)}%</b> of use</span>` : ''}${effTag}</div></div>`
+      : `<div class="split"><div class="split-leg"><span class="plain">${mel().h >= 5 && mel().h < 21 ? 'Barely generating right now.' : 'No solar overnight.'}${L.window === 'offpeak' ? ' Off-peak window, 8c until 6 am.' : ''}</span>${effTag}</div></div>`;
     const ex = excessSolar();
     const exBox = ex ? `<div class="excess" role="alert"><svg viewBox="-16 -16 32 32" aria-hidden="true">${ICON.sun}</svg><div><b>Excess solar - Suggest Car Charging</b><span>About ${ex.kw.toFixed(1)} kW spare for ${ex.mins >= 60 ? Math.floor(ex.mins / 60) + ' h ' + (ex.mins % 60 ? (ex.mins % 60) + ' min' : '') : ex.mins + ' min'}, going to the grid at 0.5c</span></div></div>` : '';
     box.innerHTML = `<svg class="flow-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Live energy flow between solar, grid, house and car">${s}</svg>${solarLine}${L.override ? '<span class="chip over">Manual override, full rate until unplugged</span>' : ''}${exBox}`;
@@ -360,7 +364,7 @@ window.Hub = (() => {
   // ---------- efficiency donuts (today), same maths and colours as the EV page ----------
   // Car: solar counts 100%, off-peak grid 72% (the share of on-peak cost it avoids next to solar:
   // (27.6c - 8c) / (27.6c - 0.5c)), on-peak grid 0. Solar: share of generation used at home.
-  const effColor = e => e == null ? '#d8d9da' : e >= 85 ? '#73bf69' : e >= 60 ? '#fade2a' : e >= 30 ? '#ff9830' : '#f2495c';
+  const effColor = e => e == null ? '#d8d9da' : e >= 85 ? '#22c55e' : e >= 60 ? '#facc15' : e >= 30 ? '#fb923c' : '#ef4444';
   function miniPie(title, segs, total, eff, href) {
     const r = 54, C = 2 * Math.PI * r; let off = 0, arcs = '';
     if (total > 0) segs.forEach(([n, v, col]) => { if (v <= 0) return; const len = C * v / total;
@@ -379,8 +383,8 @@ window.Hub = (() => {
     const solar = T.car_solar_kwh || 0, off = T.car_offpeak_kwh || 0, grid = T.car_grid_day_kwh || 0, car = solar + off + grid;
     const house = T.house_solar_kwh || 0, exp = T.export_kwh || 0, gen = Math.max(T.solar_kwh || 0, solar + house + exp);
     box.innerHTML =
-      miniPie('Car charging', [['Solar', solar, '#fade2a'], ['Off-peak', off, '#5794f2'], ['On-peak', grid, '#f2495c']], car, car > 0.05 ? Math.round(100 * (solar + off * credit) / car) : null, 'ev.html') +
-      miniPie('Solar', [['Cars', solar, '#73bf69'], ['House', house, '#5794f2'], ['Exported', exp, 'rgba(204,204,220,.42)']], gen, gen > 0.05 ? Math.round(100 * (solar + house) / gen) : null, 'energy.html');
+      miniPie('Car charging', [['Solar', solar, 'var(--solar)'], ['Off-peak', off, 'var(--offpeak-c)'], ['On-peak', grid, 'var(--import)']], car, car > 0.05 ? Math.round(100 * (solar + off * credit) / car) : null, 'ev.html') +
+      miniPie('Solar', [['Cars', solar, 'var(--car)'], ['House', house, 'var(--home)'], ['Exported', exp, 'var(--gridout)']], gen, gen > 0.05 ? Math.round(100 * (solar + house) / gen) : null, 'energy.html');
   }
 
   // ---------- render: today's mix donuts ----------

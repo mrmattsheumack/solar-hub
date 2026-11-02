@@ -4,11 +4,15 @@
   --bg:#0b0f1a; --surface:#121828; --surface-2:#1a2137; --surface-3:#242c46;
   --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
   --text:#ecedf5; --text-muted:#8890a8; --text-dim:#5a6178;
-  --solar:#f5a623; --export:#00d4a6; --import:#ff5470; --import-soft:rgba(255,84,112,.45);
-  --home:#7ba3f7; --car:#00d4a6; --gridout:#b18cff; --rain:#4fb3ff; --offpeak:rgba(123,163,247,.08);
+  --solar:#facc15; --export:#00d4a6; --import:#ef4444; --import-soft:#a855f7;
+  --home:#4c8dff; --car:#22c55e; --gridout:#94a3b8; --rain:#4fb3ff; --offpeak:rgba(168,85,247,.08);
   --warn:#f5a623; --ok:#00d4a6;
+  /* one colour per thing, the same on every page: solar yellow, house blue, cars green, exported grey,
+     grid on-peak red, grid off-peak purple. Calendar pink. */
+  --offpeak-c:#a855f7; --cal:#f472b6;
   --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
-  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  /* one typeface everywhere: numbers use Inter's tabular figures so they still line up */
+  --mono:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
   --gap:clamp(10px,1.1vw,18px); --pad:clamp(14px,1.4vw,22px); --radius:16px;
   color-scheme:dark;
 }
@@ -16,9 +20,9 @@
   --bg:#f6f5ef; --surface:#ffffff; --surface-2:#faf9f3; --surface-3:#f0ede2;
   --border:rgba(0,0,0,.08); --border-strong:rgba(0,0,0,.16);
   --text:#1b1f2a; --text-muted:#6b7286; --text-dim:#9aa0b4;
-  --solar:#d9890a; --export:#00a383; --import:#e0304f; --import-soft:rgba(224,48,79,.4);
-  --home:#4a76d8; --car:#00a383; --gridout:#7c4dde; --rain:#1f7fd1; --offpeak:rgba(74,118,216,.07);
-  --warn:#c77a00; --ok:#00a383; color-scheme:light;
+  --solar:#ca8a04; --export:#00a383; --import:#dc2626; --import-soft:#9333ea;
+  --home:#2563eb; --car:#16a34a; --gridout:#64748b; --rain:#1f7fd1; --offpeak:rgba(147,51,234,.07);
+  --warn:#c77a00; --ok:#00a383; color-scheme:light; --offpeak-c:#9333ea; --cal:#db2777;
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
@@ -51,13 +55,13 @@ button{font:inherit;color:inherit}
 .note.emergency{animation:alertpulse 1.6s ease-in-out infinite}
 @keyframes alertpulse{50%{background:color-mix(in srgb,var(--import) 30%,var(--surface))}}
 .note.info i{background:var(--text-muted)}
-.note.cal i{background:var(--gridout)}
-.note.strong-cal{font-weight:700;color:var(--gridout);border-color:color-mix(in srgb,var(--gridout) 60%,transparent);background:color-mix(in srgb,var(--gridout) 12%,var(--surface))}
+.note.cal i{background:var(--cal)}
+.note.strong-cal{font-weight:700;color:var(--cal);border-color:color-mix(in srgb,var(--cal) 60%,transparent);background:color-mix(in srgb,var(--cal) 12%,var(--surface))}
 /* "Next up" from the family calendar, in the dashboard header */
-.agenda{display:flex;flex-direction:column;gap:1px;min-width:0;max-width:min(34vw,420px);padding:6px 14px 6px 12px;border-left:3px solid var(--gridout);
+.agenda{display:flex;flex-direction:column;gap:1px;min-width:0;max-width:min(34vw,420px);padding:6px 14px 6px 12px;border-left:3px solid var(--cal);
   border-radius:4px 12px 12px 4px;background:var(--surface);text-decoration:none;align-self:center}
 .agenda:hover{background:var(--surface-2)}
-.agenda .ag-k{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--gridout);font-weight:700}
+.agenda .ag-k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--cal);font-weight:700}
 .agenda b{font-size:clamp(14px,1.1vw,17px);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .agenda span:not(.ag-k),.agenda em{font-size:12.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:normal}
 .agenda[hidden]{display:none}
@@ -383,3 +387,36 @@ body.radar-fs .sh-rail,body.radar-fs .sh-burger{visibility:hidden}
 .flowcard .eff-row{border-top:1px solid var(--border);padding-top:8px}
 .flowcard .eff svg{width:clamp(42px,3.6vw,56px)}
 .flowcard .eff-txt b{font-size:12px}
+
+/* ---------- calmer dashboard (2026-11-02) ---------- */
+body{font-variant-numeric:tabular-nums}
+.clock{letter-spacing:-.02em;font-weight:600}
+.temp{letter-spacing:-.03em}
+/* weather: smaller temperatures */
+.wx .temp{font-size:clamp(30px,3vw,50px);font-weight:600}
+.wx .wrow .v{font-size:clamp(16px,1.35vw,20px)}
+/* sunrise and sunset with little icons */
+.date span#sun{display:flex;gap:12px}
+.sunt{display:inline-flex;align-items:center;gap:4px}
+.sunico{width:15px;height:15px;color:var(--solar);flex:none}
+/* next up: a touch bigger */
+.agenda{max-width:min(40vw,480px);padding:8px 16px 8px 14px}
+.agenda b{font-size:clamp(16px,1.4vw,21px)}
+.agenda span:not(.ag-k),.agenda em{font-size:13.5px}
+/* energy flow: bigger diagram, solar efficiency in the corner of the legend */
+.flowcard .flow-svg{min-height:0}
+.split-leg{align-items:center}
+.split-leg span.plain::before{display:none}
+.eff-tag{margin-left:auto;display:inline-flex;align-items:baseline;gap:5px;font-size:12px;color:var(--text-muted);text-decoration:none;white-space:nowrap}
+.eff-tag b{font-size:15px;font-weight:700}
+/* radar: play bar small, see-through and tucked in the bottom-left corner, below the peninsula */
+.radar-bar{left:8px;right:auto;transform:none;bottom:6px;width:min(44%,220px);gap:6px;padding:2px 7px 2px 3px;
+  background:rgba(13,18,32,.22);border-color:rgba(255,255,255,.08);backdrop-filter:none;opacity:.8}
+.radar-bar .btn{height:18px;width:18px;background:rgba(255,255,255,.12)}
+.radar-bar .btn svg{width:9px;height:9px}
+.frames i{height:2px}
+.radar-time,.rain-state{font-size:10.5px}
+.radar.fs .radar-bar{left:50%;transform:translateX(-50%);width:min(78%,420px);opacity:1;background:rgba(13,18,32,.45)}
+.flowcard .split-leg{flex-wrap:nowrap;gap:10px;white-space:nowrap}
+.flowcard .split-leg .eff-tag{flex:none}
+.flowcard{gap:8px}

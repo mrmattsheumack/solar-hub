@@ -8,14 +8,16 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-/* Home Dashboard: EV Charging. Live view of the Pi controller (ev_solar.py) via the bridge.
+/* Home Dashboard: EV Charging. Colours match the rest of the site: solar yellow, house blue,
+   cars green, exported grey, grid on-peak red, grid off-peak purple.
+   Live view of the Pi controller (ev_solar.py) via the bridge.
    Dashboard look: dark panels, coloured stat values, flow diagram, time series. */
 :root{
   --bg:#111217; --surface:#181b1f; --surface-2:#22252b; --surface-3:#2c3036;
   --border:rgba(204,204,220,.08); --border-strong:rgba(204,204,220,.16);
   --text:#d8d9da; --text-muted:rgba(204,204,220,.65); --text-dim:rgba(204,204,220,.42);
-  --green:#73bf69; --yellow:#fade2a; --blue:#5794f2; --blue-l:#8ab8ff; --red:#f2495c; --orange:#ff9830;
-  --import-soft:#5794f2; --offpeak:rgba(87,148,242,.10); --peak:rgba(242,73,92,.07);
+  --green:#22c55e; --yellow:#facc15; --blue:#5794f2; --blue-l:#8ab8ff; --red:#ef4444; --orange:#ff9830;
+  --import-soft:#a855f7; --offpeak:rgba(168,85,247,.10); --peak:rgba(242,73,92,.07);
   --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
   color-scheme:dark;
 }
@@ -83,7 +85,7 @@ a{color:inherit}
 .chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:2px;background:rgba(17,18,23,.78);border:1px solid var(--border-strong);color:var(--text-muted);white-space:nowrap}
 .chip .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:0 0 auto}
 .chip.solar{color:var(--yellow);border-color:rgba(250,222,42,.45)}
-.chip.offpeak{color:var(--blue-l);border-color:rgba(87,148,242,.5)}
+.chip.offpeak{color:#a855f7;border-color:rgba(168,85,247,.5)}
 .chip.onpeak{color:var(--red);border-color:rgba(242,73,92,.5)}
 .chip.waiting{color:var(--text);border-color:rgba(204,204,220,.3)}
 .chip.full{color:var(--green);border-color:rgba(115,191,105,.45)}
@@ -415,7 +417,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
   // Battery drawn as a battery: fill to the %, a tick at the charge limit, the % inside
   function battSVG(soc, limit, est){
     const W = 168, known = soc != null, pct = known ? soc : (est != null ? est : 0);
-    const col = !known ? 'rgba(115,191,105,.55)' : soc < 20 ? '#f2495c' : soc < 50 ? '#ff9830' : '#73bf69';
+    const col = !known ? 'rgba(115,191,105,.55)' : soc < 20 ? '#ef4444' : soc < 50 ? '#ff9830' : '#22c55e';
     const label = known ? `${Math.round(soc)}%` : est != null ? `+${Math.round(est)}%` : '?';
     return `<svg class="batt" viewBox="0 0 200 80" role="img" aria-label="${known ? 'Battery ' + Math.round(soc) + '%' : 'Battery unknown'}">
       <defs><pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="#22252b"/><rect width="4" height="8" fill="#2c3036"/></pattern></defs>
@@ -479,7 +481,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const plugged = c.plug === 'plugged' || c.plug === 'plugged_locked';
     const on = plugged ? carOnCharger() : null;
     const T = liveTotals || {}, src = chargeSource(d);
-    const amps = c.amps || 0, color = L.override ? '#f2495c' : L.window === 'offpeak' ? '#5794f2' : amps >= 16 ? '#73bf69' : '#fade2a';
+    const amps = c.amps || 0, color = L.override ? '#ef4444' : L.window === 'offpeak' ? '#a855f7' : amps >= 16 ? '#22c55e' : '#facc15';
     ['ev5','ioniq'].forEach(k => {
       const box = $(k === 'ev5' ? 'card-ev5' : 'card-ioniq'), car = CARS[k], isOn = on === k, pk = TO_PI[k];
       const k5 = carInfo && carInfo.ev5;
@@ -505,7 +507,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
       }
       const hrs = T[`car_${pk}_hours`] || 0, so = T[`car_${pk}_solar_kwh`] || 0, op = T[`car_${pk}_offpeak_kwh`] || 0, gd = T[`car_${pk}_grid_day_kwh`] || 0, tot = so + op + gd;
       lines.push(hrs >= 1/60 ? `Charged today for <b>${hm(hrs)}</b>` : 'Not charged today');
-      const parts = [['Solar', so, '#fade2a'], ['Off-peak', op, '#5794f2'], ['On-peak', gd, '#f2495c']];
+      const parts = [['Solar', so, '#facc15'], ['Off-peak', op, '#a855f7'], ['On-peak', gd, '#ef4444']];
       const srcBar = tot >= 0.05 ? `<div class="src-bar" role="img" aria-label="Today: ${parts.map(([n,v]) => `${n} ${v.toFixed(1)} kWh`).join(', ')}">${parts.map(([n,v,col]) => v > 0 ? `<div style="width:${(100*v/tot).toFixed(1)}%;background:${col}"></div>` : '').join('')}</div>
         <div class="src-leg">${parts.filter(([,v]) => v >= 0.05).map(([n,v,col]) => `<span><i style="background:${col}"></i>${n} <b>${v.toFixed(1)} kWh</b> · ${Math.round(100*v/tot)}%</span>`).join('')}</div>` : '';
       const bg = hasPhoto[k] ? `<img src="${car.photo}" alt="">` : carSVG(k);
@@ -523,10 +525,10 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
 
   // ---------- energy flow diagram ----------
   const ICON = {
-    solar: `<g stroke="#fade2a" stroke-width="2.2" stroke-linecap="round">${[0,45,90,135,180,225,270,315].map(a=>{const t=a*Math.PI/180;return `<line x1="${(Math.cos(t)*11).toFixed(1)}" y1="${(Math.sin(t)*11).toFixed(1)}" x2="${(Math.cos(t)*15).toFixed(1)}" y2="${(Math.sin(t)*15).toFixed(1)}"/>`}).join('')}</g><circle r="7" fill="#fade2a"/>`,
-    house: `<path d="M-13,1 L0,-11 L13,1 M-9,-2 L-9,12 L9,12 L9,-2" fill="none" stroke="#8ab8ff" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/><rect x="-3" y="4" width="6" height="8" fill="#8ab8ff"/>`,
-    car: `<path d="M-15,5 L-15,-1 L-10,-2 L-6,-8 L7,-8 L11,-2 L15,0 L15,5 Z" fill="none" stroke="#73bf69" stroke-width="2.2" stroke-linejoin="round"/><circle cx="-8" cy="6" r="3.2" fill="#73bf69"/><circle cx="8" cy="6" r="3.2" fill="#73bf69"/>`,
-    grid: `<path d="M0,-14 L-8,14 M0,-14 L8,14 M-11,-8 L11,-8 M-8,0 L8,0 M-5,7 L5,7" fill="none" stroke="#ff9830" stroke-width="2" stroke-linecap="round"/>`
+    solar: `<g stroke="#facc15" stroke-width="2.2" stroke-linecap="round">${[0,45,90,135,180,225,270,315].map(a=>{const t=a*Math.PI/180;return `<line x1="${(Math.cos(t)*11).toFixed(1)}" y1="${(Math.sin(t)*11).toFixed(1)}" x2="${(Math.cos(t)*15).toFixed(1)}" y2="${(Math.sin(t)*15).toFixed(1)}"/>`}).join('')}</g><circle r="7" fill="#facc15"/>`,
+    house: `<path d="M-13,1 L0,-11 L13,1 M-9,-2 L-9,12 L9,12 L9,-2" fill="none" stroke="#4c8dff" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/><rect x="-3" y="4" width="6" height="8" fill="#4c8dff"/>`,
+    car: `<path d="M-15,5 L-15,-1 L-10,-2 L-6,-8 L7,-8 L11,-2 L15,0 L15,5 Z" fill="none" stroke="#22c55e" stroke-width="2.2" stroke-linejoin="round"/><circle cx="-8" cy="6" r="3.2" fill="#22c55e"/><circle cx="8" cy="6" r="3.2" fill="#22c55e"/>`,
+    grid: `<path d="M0,-14 L-8,14 M0,-14 L8,14 M-11,-8 L11,-8 M-8,0 L8,0 M-5,7 L5,7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`
   };
   function renderFlow(d){
     const L = d.latest || {}, c = L.charger || {}, T = liveTotals || {};
@@ -537,10 +539,10 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const exporting = g != null && g < -50;
     const hub = [220, 90], R = 22;
     const nodes = {
-      solar: { p:[115, 40],  w: pv,     col:'#fade2a', name:'Solar', side:'left' },
-      grid:  { p:[115, 140], w: g == null ? null : Math.abs(g), col: exporting ? '#73bf69' : '#ff9830', name: exporting ? 'Grid, exporting' : 'Grid', side:'left' },
-      house: { p:[325, 40],  w: houseW, col:'#8ab8ff', name:'House', side:'right' },
-      car:   { p:[325, 140], w: watts,  col:'#73bf69', name:'Car',   side:'right' }
+      solar: { p:[115, 40],  w: pv,     col:'#facc15', name:'Solar', side:'left' },
+      grid:  { p:[115, 140], w: g == null ? null : Math.abs(g), col: exporting ? '#94a3b8' : (g != null && g > 50 ? '#ef4444' : '#94a3b8'), name: exporting ? 'Grid, exporting' : g != null && g > 50 ? 'Grid, importing' : 'Grid', side:'left' },   // site palette: export grey, import red
+      house: { p:[325, 40],  w: houseW, col:'#4c8dff', name:'House', side:'right' },
+      car:   { p:[325, 140], w: watts,  col:'#22c55e', name:'Car',   side:'right' }
     };
     const toHub = { solar: true, house: false, car: false, grid: g != null && g > 0 };
     const active = { solar: (pv || 0) > 30, house: (houseW || 0) > 30, car: watts > 30, grid: g != null && Math.abs(g) > 50 };
@@ -561,7 +563,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     s += `<circle cx="${hub[0]}" cy="${hub[1]}" r="10" fill="#22252b" stroke="rgba(204,204,220,.3)" stroke-width="1.5"/><circle cx="${hub[0]}" cy="${hub[1]}" r="4" fill="rgba(204,204,220,.55)"/>`;
     Object.entries(nodes).forEach(([k, n]) => {
       const [x, y] = n.p, v = n.w == null ? '–' : watt(n.w), sub = esc(n.name);
-      s += `<circle cx="${x}" cy="${y}" r="${R}" fill="#1d2025" stroke="${n.col}" stroke-width="2" stroke-opacity="${active[k] ? 1 : .35}"/><g transform="translate(${x} ${y}) scale(.72)">${ICON[k]}</g>`;
+      s += `<circle cx="${x}" cy="${y}" r="${R}" fill="#1d2025" stroke="${n.col}" stroke-width="2" stroke-opacity="${active[k] ? 1 : .35}"/><g transform="translate(${x} ${y}) scale(.72)" style="color:${n.col}">${ICON[k]}</g>`;
       const tx = n.side === 'left' ? x - R - 8 : x + R + 8, anc = n.side === 'left' ? 'end' : 'start';
       s += `<text x="${tx}" y="${y}" text-anchor="${anc}" fill="${n.col}" font-size="18" font-weight="600" font-family="Inter, sans-serif">${v}</text><text x="${tx}" y="${y + 15}" text-anchor="${anc}" fill="rgba(204,204,220,.65)" font-size="11.5" font-family="Inter, sans-serif">${sub}</text>`;
     });
@@ -570,8 +572,8 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const cost = (imp - impOff) * RATE.general + impOff * RATE.offpeak - exp * RATE.feedin + RATE.supply;
     const use = (T.house_kwh || 0) + (T.car_kwh || 0), fromSolar = (T.house_solar_kwh || 0) + (T.car_solar_kwh || 0);
     const self = use > 0.1 ? Math.round(100 * fromSolar / use) : null;
-    const selfCol = self == null ? '#d8d9da' : self >= 60 ? '#73bf69' : self >= 30 ? '#fade2a' : '#ff9830';
-    $('m-cost').textContent = '$' + cost.toFixed(2); $('m-cost').style.color = cost > 10 ? '#ff9830' : '#73bf69';
+    const selfCol = self == null ? '#d8d9da' : self >= 60 ? '#22c55e' : self >= 30 ? '#facc15' : '#ff9830';
+    $('m-cost').textContent = '$' + cost.toFixed(2); $('m-cost').style.color = cost > 10 ? '#ff9830' : '#22c55e';
     $('m-cost').parentElement.title = `${imp.toFixed(1)} kWh from the grid today, including the $${RATE.supply.toFixed(2)} daily supply charge`;
     $('m-self').textContent = self == null ? '–' : self + '%'; $('m-self').style.color = selfCol;
     $('m-self').parentElement.title = "Share of today's house and car use that came from solar";
@@ -622,7 +624,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
   }
   // Donut chart with a legend beside it
   // Efficiency colours: green 85%+, yellow 60%+ (all off-peak lands here), orange 30%+, red below
-  const effColor = e => e == null ? '#d8d9da' : e >= 85 ? '#73bf69' : e >= 60 ? '#fade2a' : e >= 30 ? '#ff9830' : '#f2495c';
+  const effColor = e => e == null ? '#d8d9da' : e >= 85 ? '#22c55e' : e >= 60 ? '#facc15' : e >= 30 ? '#fb923c' : '#ef4444';
   // How much an off-peak kWh is worth next to a solar one: the share of the on-peak cost it avoids,
   // against what solar avoids. (27.6c - 8c) / (27.6c - 0.5c) = 72%. On-peak grid is worth 0.
   const OFFPEAK_CREDIT = (RATE.general - RATE.offpeak) / (RATE.general - RATE.feedin);
@@ -649,17 +651,17 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const pre = carView === 'total' ? 'car_' : `car_${carView}_`, who = carView === 'total' ? 'the cars' : carView === 'ev5' ? 'the EV5' : 'the IONIQ 5';
     const solar = T[pre + 'solar_kwh'] || 0, off = T[pre + 'offpeak_kwh'] || 0, grid = T[pre + 'grid_day_kwh'] || 0, carTotal = solar + off + grid;
     $('car-pie').innerHTML = pie([
-      ['Solar', solar, '#fade2a', `$${(solar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs on-peak`],
-      ['Off-peak grid', off, '#5794f2', `$${(off * RATE.offpeak).toFixed(2)} at 8c`],
-      ['On-peak grid', grid, '#f2495c', `$${(grid * RATE.general).toFixed(2)} at 27.6c`]
+      ['Solar', solar, '#facc15', `$${(solar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs on-peak`],
+      ['Off-peak grid', off, '#a855f7', `$${(off * RATE.offpeak).toFixed(2)} at 8c`],
+      ['On-peak grid', grid, '#ef4444', `$${(grid * RATE.general).toFixed(2)} at 27.6c`]
     ], carTotal, carTotal > 0.05 ? Math.round(100 * (solar + off * OFFPEAK_CREDIT) / carTotal) : null, 'efficiency', carView === 'total' ? 'Into both cars' : 'Into the ' + (carView === 'ev5' ? 'EV5' : 'IONIQ 5'), `${carTotal.toFixed(1)} kWh into ${who} ${name}, ${carTotal > 0.05 ? Math.round(100 * solar / carTotal) : 0}% from solar.`);
 
     const houseSolar = T.house_solar_kwh || 0, exp = T.export_kwh || 0, carSolarAll = T.car_solar_kwh || 0;
     const solarTotal = Math.max(T.solar_kwh || 0, carSolarAll + houseSolar + exp);
     $('solar-pie').innerHTML = pie([
-      ['Cars', carSolarAll, '#73bf69', `$${(carSolarAll * (RATE.general - RATE.feedin)).toFixed(2)} saved vs on-peak`],
-      ['House', houseSolar, '#5794f2', `$${(houseSolar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs grid`],
-      ['Exported', exp, 'rgba(204,204,220,.42)', `$${(exp * RATE.feedin).toFixed(2)} earned at 0.5c`]
+      ['Cars', carSolarAll, '#22c55e', `$${(carSolarAll * (RATE.general - RATE.feedin)).toFixed(2)} saved vs on-peak`],
+      ['House', houseSolar, '#4c8dff', `$${(houseSolar * (RATE.general - RATE.feedin)).toFixed(2)} saved vs grid`],
+      ['Exported', exp, '#94a3b8', `$${(exp * RATE.feedin).toFixed(2)} earned at 0.5c`]
     ], solarTotal, solarTotal > 0.05 ? Math.round(100 * (carSolarAll + houseSolar) / solarTotal) : null, 'efficiency', 'Generated', `${solarTotal.toFixed(1)} kWh generated ${name}` + (period === 'all' && HISTORY.length ? ` (since ${new Date(HISTORY[0].date + 'T12:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short'})})` : '') + '.');
   }
   let carView = 'total';
@@ -718,7 +720,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     const el=(n,a,txt)=>{const e=document.createElementNS(ns,n);for(const k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;svg.appendChild(e);return e;};
     const x=h=>L+(W-L-R)*h/24, y=v=>T+(H-T-B)*(1-v/ymax);
-    el('rect',{x:x(0),y:T,width:x(6)-x(0),height:H-T-B,fill:'rgba(87,148,242,.07)'});
+    el('rect',{x:x(0),y:T,width:x(6)-x(0),height:H-T-B,fill:'rgba(168,85,247,.08)'});
     el('rect',{x:x(21),y:T,width:x(24)-x(21),height:H-T-B,fill:'rgba(242,73,92,.05)'});
     for(let v=0;v<=ymax;v+=2){ el('line',{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:'rgba(204,204,220,.07)'});
       el('text',{x:L-6,y:y(v)+4,'text-anchor':'end','font-size':11,fill:'rgba(204,204,220,.42)','font-family':'Inter, sans-serif'}, `${v} kW`); }
@@ -729,22 +731,22 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
       el('path',{d,fill:color,'fill-opacity':op,stroke:'none'});
       if (line) { let l=''; sg.forEach((p,i)=>l+=(i?' L':'M')+x(p.h).toFixed(1)+','+y(p[key]).toFixed(1)); el('path',{d:l,fill:'none',stroke:color,'stroke-width':1.5,'stroke-linejoin':'round'}); }
     });
-    area('pv','#fade2a',0.22,true);
-    area('car','#73bf69',0.25,true);
-    area('home','#5794f2',0.10,false);
+    area('pv','#facc15',0.22,true);
+    area('car','#22c55e',0.25,true);
+    area('home','#4c8dff',0.10,false);
     // house line: blue when solar covers it, red when it's drawing from the grid (lighter red off-peak)
     segs.forEach(sg => { for (let i=1;i<sg.length;i++){ const a=sg[i-1], b=sg[i], fromGrid = (a.home+a.car+b.home+b.car)/2 > (a.pv+b.pv)/2 + 0.05;
-      el('line',{x1:x(a.h).toFixed(1),y1:y(a.home).toFixed(1),x2:x(b.h).toFixed(1),y2:y(b.home).toFixed(1),stroke: fromGrid ? '#f2495c' : '#8ab8ff','stroke-width':1.6,'stroke-linecap':'round'}); } });
-    if (fp.length) el('path',{d: fp.map((p,i)=>(i?'L':'M')+x(p.h).toFixed(1)+','+y(p.v).toFixed(1)).join(' '), fill:'none', stroke:'#fade2a', 'stroke-width':1.6, 'stroke-dasharray':'4 4', opacity:.85});
+      el('line',{x1:x(a.h).toFixed(1),y1:y(a.home).toFixed(1),x2:x(b.h).toFixed(1),y2:y(b.home).toFixed(1),stroke: fromGrid ? '#ef4444' : '#4c8dff','stroke-width':1.6,'stroke-linecap':'round'}); } });
+    if (fp.length) el('path',{d: fp.map((p,i)=>(i?'L':'M')+x(p.h).toFixed(1)+','+y(p.v).toFixed(1)).join(' '), fill:'none', stroke:'#facc15', 'stroke-width':1.6, 'stroke-dasharray':'4 4', opacity:.85});
     el('line',{x1:x(nowH),x2:x(nowH),y1:T,y2:H-B,stroke:'rgba(204,204,220,.35)','stroke-dasharray':'3 3'});
     el('text',{x:x(nowH)+4,y:T+12,'font-size':10.5,fill:'rgba(204,204,220,.55)','font-family':'Inter, sans-serif'},'now');
     if (!pts.length) el('text',{x:W/2,y:H/2,'text-anchor':'middle','font-size':12,fill:'rgba(204,204,220,.65)','font-family':'Inter, sans-serif'},'No readings yet today');
     const fcRest = fp.slice(1).reduce((a,p)=>a+p.v,0);
     const item = (style, name, cls) => `<span class="n"><i${cls ? ` class="${cls}"` : ''} style="${style}"></i>${name}</span>`;
-    $('ts-leg').innerHTML = item('background:#fade2a', 'Solar generation') +
+    $('ts-leg').innerHTML = item('background:#facc15', 'Solar generation') +
       (fp.length > 1 ? item('', `Solar forecast, ≈ ${fcRest.toFixed(1)} kWh more today`, 'dash') : '') +
-      item('background:#8ab8ff', 'House') + item('background:#f2495c', 'Power from grid') +
-      item('background:#73bf69', 'Car charging') + item('background:rgba(87,148,242,.35)', 'Off-peak window');
+      item('background:#4c8dff', 'House') + item('background:#ef4444', 'Power from grid') +
+      item('background:#22c55e', 'Car charging') + item('background:rgba(168,85,247,.35)', 'Off-peak window');
   }
 
   // ---------- forecast (today line + 5-day outlook) ----------
@@ -771,12 +773,12 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     if (d.cloud<70) return ['partly','Partly cloudy'];
     return ['cloud','Cloudy'];
   };
-  const SUN=(cx,cy,r)=>`<g stroke="#fade2a" stroke-width="2.4" stroke-linecap="round">${[0,45,90,135,180,225,270,315].map(a=>{const t=a*Math.PI/180;return `<line x1="${(cx+Math.cos(t)*(r+4)).toFixed(1)}" y1="${(cy+Math.sin(t)*(r+4)).toFixed(1)}" x2="${(cx+Math.cos(t)*(r+8)).toFixed(1)}" y2="${(cy+Math.sin(t)*(r+8)).toFixed(1)}"/>`}).join('')}</g><circle cx="${cx}" cy="${cy}" r="${r}" fill="#fade2a"/>`;
+  const SUN=(cx,cy,r)=>`<g stroke="#facc15" stroke-width="2.4" stroke-linecap="round">${[0,45,90,135,180,225,270,315].map(a=>{const t=a*Math.PI/180;return `<line x1="${(cx+Math.cos(t)*(r+4)).toFixed(1)}" y1="${(cy+Math.sin(t)*(r+4)).toFixed(1)}" x2="${(cx+Math.cos(t)*(r+8)).toFixed(1)}" y2="${(cy+Math.sin(t)*(r+8)).toFixed(1)}"/>`}).join('')}</g><circle cx="${cx}" cy="${cy}" r="${r}" fill="#facc15"/>`;
   const CLOUD=(dx,dy)=>`<path transform="translate(${dx} ${dy})" d="M14 40h26a10 10 0 0 0 0-20 13 13 0 0 0-25-3A10 10 0 0 0 14 40z" fill="#2c3036" stroke="rgba(204,204,220,.65)" stroke-width="1.6" stroke-linejoin="round"/>`;
   const DROPS=n=>[18,28,38].slice(0,n).map((x,i)=>`<line x1="${x}" y1="${48+(i%2)*2}" x2="${x-3}" y2="${55+(i%2)*2}" stroke="#5794f2" stroke-width="2.4" stroke-linecap="round"/>`).join('');
-  const icon=k=>`<svg viewBox="0 0 56 62" aria-hidden="true">${({sun:SUN(28,28,11),partly:SUN(22,20,8)+CLOUD(4,10),cloud:CLOUD(2,4),showers:SUN(22,18,7)+CLOUD(4,6)+DROPS(2),drizzle:CLOUD(2,4)+DROPS(3),rain:CLOUD(2,2)+DROPS(3),storm:CLOUD(2,2)+'<path d="M30 42l-6 9h6l-4 9 10-12h-6l4-6z" fill="#fade2a"/>'+DROPS(1)})[k]}</svg>`;
+  const icon=k=>`<svg viewBox="0 0 56 62" aria-hidden="true">${({sun:SUN(28,28,11),partly:SUN(22,20,8)+CLOUD(4,10),cloud:CLOUD(2,4),showers:SUN(22,18,7)+CLOUD(4,6)+DROPS(2),drizzle:CLOUD(2,4)+DROPS(3),rain:CLOUD(2,2)+DROPS(3),storm:CLOUD(2,2)+'<path d="M30 42l-6 9h6l-4 9 10-12h-6l4-6z" fill="#facc15"/>'+DROPS(1)})[k]}</svg>`;
   const scoreColor=s=>s>=8?'var(--green)':s>=5?'var(--yellow)':'var(--red)';
-  const spark=hrs=>{const w=150,h=26,step=w/(hrs.length-1);let d=`M0,${h}`;hrs.forEach((v,i)=>d+=` L${(i*step).toFixed(1)},${(h-2-(h-4)*v/1000).toFixed(1)}`);d+=` L${w},${h} Z`;return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" fill="#fade2a" fill-opacity=".25" stroke="#fade2a" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;};
+  const spark=hrs=>{const w=150,h=26,step=w/(hrs.length-1);let d=`M0,${h}`;hrs.forEach((v,i)=>d+=` L${(i*step).toFixed(1)},${(h-2-(h-4)*v/1000).toFixed(1)}`);d+=` L${w},${h} Z`;return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" fill="#facc15" fill-opacity=".25" stroke="#facc15" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;};
   let FORECAST = null;
   const fcKw = ghi => Math.min(9.6, ghi / 1000 * PANEL_KW * 0.75);
   function todayHours(){

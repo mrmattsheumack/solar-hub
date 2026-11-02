@@ -95,6 +95,7 @@
 .htable tr.tot td{font-weight:700;border-top:2px solid var(--border-strong)}
 .hwrap{max-height:360px;overflow:auto;max-width:100%}
 .htable td:first-child{white-space:nowrap}
+.flowcard .split-leg{flex-wrap:wrap;white-space:normal}
 .linkgrid{display:flex;flex-direction:column;gap:8px}
 .linkgrid a{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);text-decoration:none}
 .linkgrid a:hover{border-color:var(--border-strong)}
@@ -159,7 +160,7 @@
   </section>
 
   <section class="card flowcard" aria-labelledby="flow-h">
-    <div class="card-head"><h2 id="flow-h">Live flow</h2><a class="card-link" href="ev.html"><span id="en-mode"></span>EV ›</a></div>
+    <div class="card-head"><h2 id="flow-h"><a class="wx-title" href="ev.html">Live flow</a></h2></div>
     <div id="flow-body" style="display:flex;flex-direction:column;gap:10px;flex:1;min-height:0"><div class="empty">Waiting for solar and charger data…</div></div>
   </section>
 
@@ -197,7 +198,7 @@
 (() => {
   const H = Hub, $ = H.$, { has, f1, esc } = H, R = H.RATE;
   const SUPPLY = 1.10781;   // $ a day (AGL Night Saver EV, Oct 2026 bill)
-  const C = { gen: 'var(--solar)', house: 'var(--home)', car: 'var(--car)', exp: 'var(--gridout)', imp: 'var(--import)', impOff: '#4fa3f7' };   // off-peak grid: blue, well clear of on-peak red
+  const C = { gen: 'var(--solar)', house: 'var(--home)', car: 'var(--car)', exp: 'var(--gridout)', imp: 'var(--import)', impOff: 'var(--offpeak-c)' };   // site palette: solar yellow, house blue, cars green, exported grey, on-peak red, off-peak purple
   const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const pad = n => String(n).padStart(2, '0');
   const todayKey = () => H.mel().key;
