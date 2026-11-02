@@ -294,6 +294,17 @@ New data:
   public feed behind their "Check air and water quality" map
   (epa.vic.gov.au/api/environment/water/sites). Good / Fair / Poor, mostly rain driven.
 
+## Tides on the Weather page (2026-11-02, evening)
+
+- New `tides` function: Open-Meteo Marine API (free, keyless) hourly sea level for the nearest sea
+  cell (mid Port Phillip Bay, about 12 km north of Dromana); highs and lows from the turning points,
+  timed between the hours with a parabola. Cached 3 hours.
+- Weather page: full-width Tides card with the next four highs and lows (time, day, height against
+  mean sea level) and a 36-hour curve with now marked. Labelled approximate, with a link to the BoM
+  tide tables, since it's a global model rather than the Bureau's official predictions.
+- WillyWeather (BoM-based forecasts, official tides) was looked at and parked: it needs a paid API
+  key (about $1-2 a month) in Netlify as WILLYWEATHER_API_KEY.
+
 ## Dismissable notes, taller radar, solar split tile, menus everywhere (2026-11-02, evening)
 
 - Header notes each have a small x. Dismissed notes stay hidden for 2 hours (alerts) or 8 hours
