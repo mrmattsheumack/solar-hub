@@ -540,6 +540,14 @@ Decisions agreed with Matt:
   List (default on phones) views, forecast icon, max temp and rain chance on each day, Google event
   colours, tap an event for details with "Edit in Google Calendar". Read-only for now; adding events
   from the tablet may come later (would need the read/write scope).
+- City-day charging reminder (2026-11-03): Matt is in Melbourne every Tuesday and Thursday ("Matt in
+  Melbourne" all-day series on the Family calendar, which also pings his phone at 6 pm the day before).
+  From 4 pm the day before, the dashboard notes show "Matt's in Melbourne tomorrow: plug the IONIQ 5 in
+  tonight" (red), or a calm note if the IONIQ 5 is already on the charger. Matching is by title
+  (/matt ... melbourne|the city/). Once the IONIQ 5 has a live battery reading (Bluelink, planned),
+  `IONIQ_SOC()` in hub.js returns it and the reminder only shows below 80%.
+- Bin nights: Tuesdays 5-8 pm, green waste and recycling alternate fortnightly (green from 3 Nov 2026),
+  set up to Nov 2028.
 - Work calendar: Matt subscribes to the Family calendar's secret iCal address in Outlook (read-only
   overlay, refreshes slowly). Work meetings are not shown on the dashboard.
 

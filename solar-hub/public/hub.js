@@ -622,6 +622,7 @@ window.Hub = (() => {
     const ex = excessSolar();
     if (ex) add('sun strong', `Excess solar - Suggest Car Charging (${ex.kw.toFixed(1)} kW spare)`);
     calNotes().forEach(x => out.push(x));
+    const cn2 = cityDayNote(); if (cn2) out.push(cn2);
     // Wind: what the station sees now, or the strongest forecast gust in the next 12 hours
     const gust = maxGust12(), windNow = Math.max(w?.windSpeed || 0, w?.windGust || 0);
     if (windNow > WIND_ALERT) add('alert', `Strong wind now: ${Math.round(w.windSpeed || 0)} km/h, gusting ${Math.round(w.windGust || 0)}`);
@@ -758,6 +759,22 @@ window.Hub = (() => {
         .catch(() => {}).finally(() => setTimeout(() => travelBusy.delete(k), 10 * 60e3));
     }
     return hit || null;
+  }
+  // City days: Matt's in Melbourne (a "Matt in Melbourne" event on the Family calendar). From 4 pm
+  // the day before, remind to charge the IONIQ 5 tonight, unless it's already on the charger.
+  // IONIQ_SOC() is the hook for a real battery reading (Bluelink, not wired up yet): once it returns
+  // a %, the reminder only shows when the car is below CITY_SOC.
+  const CITY_DAY = /\bmatt\b.*\b(melbourne|the city)\b/i, CITY_SOC = 80;
+  const IONIQ_SOC = () => { const v = S.ev?.car?.ioniq5?.soc; return has(v) ? v : null; };
+  function cityDayNote() {
+    if (!S.cal || mel().h < 16) return null;
+    const tk = tomorrowKey();
+    const trip = calEvents().find(e => CITY_DAY.test(e.title) && evDays(e).includes(tk));
+    if (!trip) return null;
+    const soc = IONIQ_SOC();
+    if (soc != null && soc >= CITY_SOC) return null;
+    if (carOnCharger() === 'ioniq5') return { cls: 'car', text: `IONIQ 5 is on the charger for Matt's Melbourne day tomorrow${soc != null ? ` · ${Math.round(soc)}%` : ''}` };
+    return { cls: 'alert', text: `Matt's in Melbourne tomorrow: plug the IONIQ 5 in tonight${soc != null ? ` (${Math.round(soc)}%)` : ''}`, href: 'ev.html', local: true };
   }
   // Header "Next up" on the dashboard
   function renderAgenda() {
@@ -1169,5 +1186,5 @@ window.Hub = (() => {
     cardinal, uvLabel, windArrow, WIND_ALERT, UV_ALERT, maxGust12, next12Range,
     energyNow, allocate, todayTotals, excessSolar, donut, legend, warnNotes, paintNotes, CARS, plugState, carOnCharger, chargeSource, hm,
     climateSummary, ZONES, todayOutlook, ADVICE_CLS, solarLeftToday,
-    calEvents, calTime, evStart, evEnd, evDay, evDays, until, dayWord, hubKey, refresh };
+    calEvents, cityDayNote, calTime, evStart, evEnd, evDay, evDays, until, dayWord, hubKey, refresh };
 })();
