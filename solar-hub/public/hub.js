@@ -333,7 +333,7 @@ window.Hub = (() => {
     const node = (k, pos, col, active) => `<g transform="translate(${pos[0]} ${pos[1]})"> <circle r="27" fill="var(--surface-2)" stroke="${active ? col : 'var(--border-strong)'}" stroke-width="2"/><g>${ICON[k]}</g></g>`;
     const txt = (x, y, anchor, big, small, col = 'var(--text)') => `<text x="${x}" y="${y}" text-anchor="${anchor}"><tspan class="num" font-size="21" fill="${col}">${big}</tspan><tspan x="${x}" dy="17" font-size="14" fill="var(--text-muted)">${esc(small)}</tspan></text>`;
     const gridCol = imp >= 50 ? 'var(--import)' : 'var(--gridout)';
-    const carState = !S.ev ? 'Pi not reachable' : c.state === 'charging' ? (L.override ? 'Manual, full rate' : L.window === 'offpeak' ? 'Off-peak charge' : 'Matching solar') : (STATE_TXT[c.state] || 'Not plugged in');
+    const carState = !S.ev ? 'Pi not reachable' : S.ev.car_status ? (S.ev.car_status.key === 'unplugged' ? 'Not plugged in' : S.ev.car_status.text) : c.state === 'charging' ? (L.override ? 'Manual, full rate' : L.window === 'offpeak' ? 'Off-peak charge' : 'Matching solar') : (STATE_TXT[c.state] || 'Not plugged in');
     let s = '';
     s += wire(N.solar, hub, pv, 'var(--solar)', false);
     s += wire(hub, N.house, house, 'var(--home)', false);
@@ -431,8 +431,11 @@ window.Hub = (() => {
   // has no live reading, so while it's on the charger we show the % added since it was plugged in.
   const CARS = { ev5: { name: 'Kia EV5', kwh: 88 }, ioniq5: { name: 'IONIQ 5', kwh: 72.6 } };
   const plugState = c => c && (c.plug === 'plugged' || c.plug === 'plugged_locked');
+  // Which car and what it's doing come from the Pi (car_status), so every page says the same thing
+  const ST_CLS = { solar: 'sun', offpeak: 'off', onpeak: 'grid', manual: 'grid', waiting: 'wait', charged: 'full' };
   function carOnCharger() {
     const d = S.ev || {}, info = d.car || null, c = d.latest?.charger || {};
+    if (d.car_status) return plugState(c) && CARS[d.car_status.car] ? d.car_status.car : null;
     if (!plugState(c)) return null;
     if (info && CARS[info.car]) return info.car;
     const k5 = info && info.ev5;
@@ -442,6 +445,8 @@ window.Hub = (() => {
   function chargeSource() {
     const L = S.ev?.latest || {}, c = L.charger || {}, watts = c.power_w || 0, plug = S.ev?.plugin;
     if (!plugState(c)) return null;
+    const cs = S.ev?.car_status;
+    if (cs && ST_CLS[cs.key]) return { cls: ST_CLS[cs.key], text: cs.text };
     if (c.state === 'complete' || c.state === 'full' || (c.state === 'charging' && watts <= 200 && plug && plug.kwh > 0.5)) return { cls: 'full', text: 'Plugged in, charged' };
     if (!(c.state === 'charging' && watts > 200)) return { cls: 'wait', text: 'Plugged in, waiting' };
     if (L.override) return { cls: 'grid', text: 'Manual, full rate' };

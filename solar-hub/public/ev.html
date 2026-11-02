@@ -408,6 +408,8 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
   let carInfo = null;
   // Which car is on the charger: the Pi's tag, or if a car is plugged in and the EV5 says it isn't, the IONIQ 5
   const carOnCharger = () => {
+    const cs = lastD && lastD.car_status;
+    if (cs) return PI_CAR[cs.car] || null;          // the Pi's answer, shared with the home dashboard
     if (carInfo && PI_CAR[carInfo.car]) return PI_CAR[carInfo.car];
     const c = (lastD && lastD.latest && lastD.latest.charger) || {};
     const plugged = c.plug === 'plugged' || c.plug === 'plugged_locked', k5 = carInfo && carInfo.ev5;
@@ -437,6 +439,8 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const L = d.latest || {}, c = L.charger || {}, watts = c.power_w || 0;
     const plugged = c.plug === 'plugged' || c.plug === 'plugged_locked';
     if (!plugged) return null;
+    const cs = d.car_status, CLS = { solar:'solar', offpeak:'offpeak', onpeak:'onpeak', manual:'onpeak', waiting:'waiting', charged:'full' };
+    if (cs && CLS[cs.key]) return { cls: CLS[cs.key], text: cs.text };
     const k5 = carInfo && carInfo.ev5, atLimit = carOnCharger() === 'ev5' && k5 && k5.soc != null && k5.limit_ac && k5.soc >= k5.limit_ac - 0.5;
     // the charger says 'complete' whenever a session ends (including one we stopped), so only call it charged when we know
     if (atLimit || c.state === 'full' || (c.state === 'charging' && watts <= 200 && lastPlugin && lastPlugin.kwh > 0.5)) return { cls:'full', text:'Plugged in, charged' };

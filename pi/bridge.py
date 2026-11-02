@@ -341,6 +341,46 @@ def _car_keys() -> dict:
     return {f"car_{c}_{k}": 0.0 for c in CARS for k in ("kwh", "solar_kwh", "offpeak_kwh", "grid_day_kwh", "hours")}
 
 
+def _ev_car_status(latest: dict, car: dict, plugin: dict) -> dict:
+    """One answer for every page: which car is on the charger and what it's doing.
+    key: unplugged | waiting | charged | solar | offpeak | onpeak | manual"""
+    latest, car = latest or {}, car or {}
+    c = latest.get("charger") or {}
+    plugged = c.get("plug") in ("plugged", "plugged_locked")
+    if not c:
+        return {"car": None, "key": "offline", "text": "Charger offline"}
+    if not plugged:
+        return {"car": None, "key": "unplugged", "text": "Nothing plugged in"}
+    k5, io = car.get("ev5") or {}, car.get("ioniq") or {}
+    who = car.get("car") if car.get("car") in ("ev5", "ioniq5") else None
+    if not who and (k5.get("plugged") is False or k5.get("at_home") is False):
+        who = "ioniq5"                                   # a car is plugged in and it isn't the EV5
+    watts = float(c.get("power_w") or 0)
+    charging = c.get("state") == "charging" and watts > 200
+    at_limit = who == "ev5" and k5.get("soc") is not None and k5.get("limit_ac") and k5["soc"] >= k5["limit_ac"] - 0.5
+    ioniq_full = who == "ioniq5" and io.get("soc") is not None and io["soc"] >= 99.5
+    stopped_by_car = c.get("state") == "charging" and watts <= 200 and (plugin or {}).get("kwh", 0) > 0.5
+    # the charger says "complete" whenever a session ends, including one we stopped, so that alone isn't "charged"
+    if at_limit or ioniq_full or c.get("state") == "full" or stopped_by_car:
+        key, text = "charged", "Plugged in, charged"
+    elif not charging:
+        key, text = "waiting", "Plugged in, awaiting charge"
+    elif latest.get("override"):
+        key, text = "manual", "Charging, full rate (manual)"
+    elif latest.get("window") == "offpeak":
+        key, text = "offpeak", "Charging from grid, off-peak"
+    else:
+        pv = latest.get("pv_live_w")
+        if pv is None and latest.get("pv_kw") is not None:
+            pv = latest["pv_kw"] * 1000
+        house = latest.get("house_w")
+        if house is None:
+            house = max(0.0, float(latest.get("home_kw") or 0) * 1000 - watts)
+        from_solar = min(watts, max(0.0, float(pv or 0) - float(house)))
+        key, text = ("solar", "Charging from solar") if from_solar >= watts * 0.5 else ("onpeak", "Charging from grid, on-peak")
+    return {"car": who, "key": key, "text": text}
+
+
 @app.get("/api/ev/state")
 def ev_state():
     _require_bearer()
@@ -464,6 +504,7 @@ def ev_state():
         "latest": latest,
         "plugin": plugin,
         "car": car,
+        "car_status": _ev_car_status(latest, car, plugin),
         "mode": _ev_mode(),
         "offpeak": _ev_offpeak(),
         "series": series,
