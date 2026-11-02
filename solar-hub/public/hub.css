@@ -451,3 +451,22 @@ body{font-variant-numeric:tabular-nums}
 .wx-days{padding-top:6px}
 .wx-days svg{width:26px;height:28px}
 .wx-days>div,.wx .wx-hours>div{font-size:11px;gap:1px}
+
+/* ---------- dismissable notes ---------- */
+.note{padding-right:4px}
+.note .nt{color:inherit;text-decoration:none;white-space:nowrap}
+.note .nx{flex:none;display:grid;place-items:center;width:24px;height:24px;margin-left:2px;padding:0;border:0;border-radius:50%;
+  background:transparent;color:var(--text-dim);font-size:17px;line-height:1;cursor:pointer}
+.note .nx:hover,.note .nx:focus-visible{background:var(--surface-3);color:var(--text)}
+/* ---------- "Solar going to" tile (dashboard) ---------- */
+.splitcard{gap:8px}
+.splitcard .split{gap:8px}
+.splitcard .split-bar{height:12px}
+.splitcard{gap:6px;padding-top:12px;padding-bottom:12px}
+.splitcard .split-leg{flex-wrap:wrap;gap:4px 10px;font-size:12px;white-space:nowrap}
+.splitcard .eff-tag{margin-left:auto;font-size:11.5px}
+.splitcard .eff-tag b{font-size:14px}
+/* the car cards a touch tighter so two fit above the split tile */
+.cars{gap:8px}
+.cars .crow{padding-top:7px;padding-bottom:7px;gap:4px}
+.cars .carlink{gap:6px}

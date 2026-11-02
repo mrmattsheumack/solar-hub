@@ -359,7 +359,10 @@ window.Hub = (() => {
       : `<div class="split"><div class="split-leg"><span class="plain">${mel().h >= 5 && mel().h < 21 ? 'Barely generating right now.' : 'No solar overnight.'}${L.window === 'offpeak' ? ' Off-peak window, 8c until 6 am.' : ''}</span>${effTag}</div></div>`;
     const ex = excessSolar();
     const exBox = ex ? `<div class="excess" role="alert"><svg viewBox="-16 -16 32 32" aria-hidden="true">${ICON.sun}</svg><div><b>Excess solar - Suggest Car Charging</b><span>About ${ex.kw.toFixed(1)} kW spare for ${ex.mins >= 60 ? Math.floor(ex.mins / 60) + ' h ' + (ex.mins % 60 ? (ex.mins % 60) + ' min' : '') : ex.mins + ' min'}, going to the grid at 0.5c</span></div></div>` : '';
-    box.innerHTML = `<svg class="flow-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Live energy flow between solar, grid, house and car">${s}</svg>${solarLine}${L.override ? '<span class="chip over">Manual override, full rate until unplugged</span>' : ''}${exBox}`;
+    const splitBox = $('split-body');
+    // Dashboard: the split has its own tile, with solar efficiency up in the tile's heading
+    if (splitBox) { splitBox.innerHTML = solarLine.replace(effTag, ''); if ($('split-eff')) $('split-eff').innerHTML = effTag; }
+    box.innerHTML = `<svg class="flow-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Live energy flow between solar, grid, house and car">${s}</svg>${splitBox ? '' : solarLine}${L.override ? '<span class="chip over">Manual override, full rate until unplugged</span>' : ''}${exBox}`;
     const modeTxt = { auto: 'Auto', full: 'Full rate', off: 'Off' }[e.mode] || null;
     const winTxt = { day: 'solar window', offpeak: 'off-peak', evening: 'evening' }[L.window] || '';
     if ($('en-mode')) $('en-mode').textContent = modeTxt ? `${modeTxt}${winTxt ? ' · ' + winTxt : ''} · ` : '';
@@ -490,8 +493,7 @@ window.Hub = (() => {
       return `<div class="crow${isOn ? ' on' : ''}">
         <div class="ctop"><span class="cname">${car.name}</span>${chip}</div>
         <div class="cbatt"><div class="cbar"><i style="width:${pct != null ? Math.max(2, Math.min(100, pct)) : 0}%;background:${col}"></i></div><b class="cpct">${pctTxt}</b></div>
-        ${live}
-        <div class="cfoot">${socNote ? `<span>${socNote}</span>` : ''}<span>${today}</span></div>
+        ${live || `<div class="cfoot">${socNote ? `<span>${socNote}</span>` : ''}<span>${today}</span></div>`}
       </div>`;
     }).join('');
     if (plugState(c) && !on) box.insertAdjacentHTML('beforeend', '<div class="cnote">A car is plugged in but the Pi hasn\'t identified which. Set it on the EV page.</div>');
@@ -649,10 +651,29 @@ window.Hub = (() => {
     }
     warns.filter(x => x.level === 'info').forEach(x => out.push(x));
     if ((S.ev && at.ev && Date.now() - at.ev > STALE.ev) || (!S.ev && failed.ev)) add('warn', "Can't reach the Pi. The charger controller keeps running on its own.");
-    $('notes').innerHTML = out.slice(0, 7).map(n => n.href
-      ? `<a class="note ${n.cls}" href="${esc(n.href)}"${n.local ? '' : ' target="_blank" rel="noopener"'} title="${esc(n.tip || '')}"><i></i>${esc(n.text)}</a>`
-      : `<span class="note ${n.cls}"><i></i>${esc(n.text)}</span>`).join('');
+    // Dismissed notes stay hidden for a while (2 hours for alerts, 8 for the rest), even as their
+    // numbers change ("gusting 58" -> "gusting 61" is the same note)
+    const keyOf = n => n.cls.split(' ')[0] + ':' + n.text.replace(/[\d.,:]+/g, '#');
+    const nowMs = Date.now();
+    for (const k in DISMISSED) if (DISMISSED[k] < nowMs) delete DISMISSED[k];
+    const shown = out.filter(n => !DISMISSED[keyOf(n)]).slice(0, 7);
+    $('notes').innerHTML = shown.map(n => {
+      const k = keyOf(n), x = `<button class="nx" type="button" data-k="${esc(k)}" data-hrs="${/alert/.test(n.cls) ? 2 : 8}" aria-label="Dismiss: ${esc(n.text)}">&times;</button>`;
+      const body = n.href ? `<a class="nt" href="${esc(n.href)}"${n.local ? '' : ' target="_blank" rel="noopener"'} title="${esc(n.tip || '')}">${esc(n.text)}</a>` : `<span class="nt">${esc(n.text)}</span>`;
+      return `<span class="note ${n.cls}"><i></i>${body}${x}</span>`;
+    }).join('');
+    if (!$('notes').dataset.wired) {
+      $('notes').dataset.wired = '1';
+      $('notes').addEventListener('click', e => {
+        const b = e.target.closest('.nx'); if (!b) return;
+        e.preventDefault(); e.stopPropagation();
+        DISMISSED[b.dataset.k] = Date.now() + (+b.dataset.hrs || 8) * 3600e3;
+        try { localStorage.setItem('notes-dismissed', JSON.stringify(DISMISSED)); } catch (err) {}
+        renderNotes();
+      });
+    }
   }
+  const DISMISSED = (() => { try { return JSON.parse(localStorage.getItem('notes-dismissed') || '{}'); } catch (e) { return {}; } })();
 
   // ---------- family calendar (Google, via the calendar function) ----------
   // Timed events carry an offset (2026-11-03T15:30:00+11:00); all-day events are a date, with an

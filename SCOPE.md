@@ -294,6 +294,22 @@ New data:
   public feed behind their "Check air and water quality" map
   (epa.vic.gov.au/api/environment/water/sites). Good / Fair / Poor, mostly rain driven.
 
+## Dismissable notes, taller radar, solar split tile, menus everywhere (2026-11-02, evening)
+
+- Header notes each have a small x. Dismissed notes stay hidden for 2 hours (alerts) or 8 hours
+  (everything else), per device; numbers changing ("gusting 58" -> "gusting 61") don't bring them back.
+- Dashboard layout: "wx flow car" / "wx radar split" / "wx radar climate", rows 1.32fr / auto / .78fr.
+  The radar now runs down two rows (about a quarter taller on the iPad). The house / car / grid bar
+  and percentages moved out of the flow tile into a "Solar going to" tile on the right, with solar
+  efficiency in its heading. A charging car's card drops its "today" line (it's on the EV page) so
+  both cars fit above it on the iPad (1080 x 740).
+- Menus: ev.html had lost nav.js again (re-added). Climate Control's full-screen room view now starts
+  beside the menu, so its back arrow is visible; Escape and the browser's back button close it, and
+  climate.html#room-<id> opens a room directly (lounge, master, charlie, mila, office, bath). The old
+  "Wall Overview" button in its drawer is now "Dashboard" and goes to /.
+  Every page carries the menu: index, calendar, weather, ev (+ history, decisions), energy (+ upload),
+  climate.
+
 ## Grid figures from the smart meter (2026-11-02, evening)
 
 Found: SEMS's cloud copy of the GoodWe smart meter drops out for hours at a time. While it does,
