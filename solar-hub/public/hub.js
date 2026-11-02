@@ -590,8 +590,7 @@ window.Hub = (() => {
   // Header notes, most important first:
   //   official warnings (emergency / watch) > excess solar > calendar reminders > wind > UV > advice warnings > car > rain >
   //   solar outlook > nearby incidents (planned burns etc.) > Pi offline
-  function warnNotes() {
-    const list = S.warn?.items || [];
+  function warnNotes(list = S.warn?.items || []) {
     const where = i => i.covers ? (i.location ? ` · ${i.location}` : '') : (i.distanceKm != null ? ` · ${i.distanceKm < 1 ? 'under 1' : Math.round(i.distanceKm)} km away` : '');
     return list.map(i => {
       const what = i.level === 'info' || i.level === 'advice' && !/warning|advice/i.test(i.title) ? `${(i.kind || '').split(' · ').pop() || 'Incident'}: ${i.title}` : i.title;
@@ -651,25 +650,31 @@ window.Hub = (() => {
     }
     warns.filter(x => x.level === 'info').forEach(x => out.push(x));
     if ((S.ev && at.ev && Date.now() - at.ev > STALE.ev) || (!S.ev && failed.ev)) add('warn', "Can't reach the Pi. The charger controller keeps running on its own.");
-    // Dismissed notes stay hidden for a while (2 hours for alerts, 8 for the rest), even as their
-    // numbers change ("gusting 58" -> "gusting 61" is the same note)
+    paintNotes($('notes'), out, renderNotes);
+  }
+  // Draw a notes strip (used by the dashboard and the Weather page). Dismissed notes stay hidden for a
+  // while (2 hours for alerts, 8 for the rest), per device and shared across pages, even as their
+  // numbers change ("gusting 58" -> "gusting 61" is the same note). rerender is called after a dismiss.
+  function paintNotes(el, out, rerender, max = 7) {
+    if (!el) return;
     const keyOf = n => n.cls.split(' ')[0] + ':' + n.text.replace(/[\d.,:]+/g, '#');
     const nowMs = Date.now();
     for (const k in DISMISSED) if (DISMISSED[k] < nowMs) delete DISMISSED[k];
-    const shown = out.filter(n => !DISMISSED[keyOf(n)]).slice(0, 7);
-    $('notes').innerHTML = shown.map(n => {
+    const shown = out.filter(n => !DISMISSED[keyOf(n)]).slice(0, max);
+    el.innerHTML = shown.map(n => {
       const k = keyOf(n), x = `<button class="nx" type="button" data-k="${esc(k)}" data-hrs="${/alert/.test(n.cls) ? 2 : 8}" aria-label="Dismiss: ${esc(n.text)}">&times;</button>`;
       const body = n.href ? `<a class="nt" href="${esc(n.href)}"${n.local ? '' : ' target="_blank" rel="noopener"'} title="${esc(n.tip || '')}">${esc(n.text)}</a>` : `<span class="nt">${esc(n.text)}</span>`;
       return `<span class="note ${n.cls}"><i></i>${body}${x}</span>`;
     }).join('');
-    if (!$('notes').dataset.wired) {
-      $('notes').dataset.wired = '1';
-      $('notes').addEventListener('click', e => {
+    el._rerender = rerender;
+    if (!el.dataset.wired) {
+      el.dataset.wired = '1';
+      el.addEventListener('click', e => {
         const b = e.target.closest('.nx'); if (!b) return;
         e.preventDefault(); e.stopPropagation();
         DISMISSED[b.dataset.k] = Date.now() + (+b.dataset.hrs || 8) * 3600e3;
         try { localStorage.setItem('notes-dismissed', JSON.stringify(DISMISSED)); } catch (err) {}
-        renderNotes();
+        el._rerender && el._rerender();
       });
     }
   }
@@ -1157,7 +1162,7 @@ window.Hub = (() => {
     mel, tomorrowKey, clock, ampm, ago, fcHour, has, f0, f1, kw, esc,
     icon, hourKind, dayKind, dayIcon, KIND_TXT, fcDays, solarScore, scoreColor, todayHourly, nextHours, isNight,
     cardinal, uvLabel, windArrow, WIND_ALERT, UV_ALERT, maxGust12, next12Range,
-    energyNow, allocate, todayTotals, excessSolar, donut, legend, warnNotes, CARS, plugState, carOnCharger, chargeSource, hm,
+    energyNow, allocate, todayTotals, excessSolar, donut, legend, warnNotes, paintNotes, CARS, plugState, carOnCharger, chargeSource, hm,
     climateSummary, ZONES, todayOutlook, ADVICE_CLS, solarLeftToday,
     calEvents, calTime, evStart, evEnd, evDay, evDays, until, dayWord, hubKey, refresh };
 })();

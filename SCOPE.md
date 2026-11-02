@@ -239,7 +239,7 @@ Agreed with Matt: the dashboard is the front page, with a left-hand menu across 
 | Page | File | What it is |
 |---|---|---|
 | Dashboard | `index.html` (was home.html; `/home.html` 301s to `/`) | Always-on wall display |
-| Weather | `weather.html` | WS90 in full, radar, today at the station, 48 h outlook, 7-day forecast, warnings, EPA beach water quality |
+| Weather | `weather.html` | One-screen iPad layout: weather notes, WS90 now, radar, 5-day forecast, wind (station + forecast), EPA beach water quality, tides (see "Weather page rebuilt", 2026-11-02) |
 | EV Charging | `ev.html` (+ history.html, decisions.html) | Unchanged, menu added |
 | Energy | `energy.html` (+ upload.html) | Live flow, today vs forecast, today's mix and cost, day-by-day history, links to the classic views |
 | Climate Control | `climate.html` (was index.html, the original app) | AC and zones. Its other tabs still work and can be deep-linked: `climate.html#live`, `#history`, `#battery`, `#forecast`, `#alerts`, `#izone` |
@@ -293,6 +293,43 @@ New data:
 - `beaches`: EPA Victoria beach water quality, nearest sites to home within 8 km, from the
   public feed behind their "Check air and water quality" map
   (epa.vic.gov.au/api/environment/water/sites). Good / Fair / Poor, mostly rain driven.
+
+## Weather page rebuilt (2026-11-02, night)
+
+Matt's brief: same format as the dashboard for a landscape iPad; current weather at the top with the
+radar under it; a 5-day forecast; weather warnings as notifications at the top; beach water quality
+and tides; a wind graph that joins history, now and forecast. Rule agreed: **current and past readings
+come only from the WS90 on the roof; the internet supplies forecasts only** (plus radar, official
+warnings, EPA and tides, which the station can't measure).
+
+- Layout (one screen at about 1080 x 740, no scrolling; stacks and scrolls under 1000 px, single
+  column on phones): header like the dashboard (clock, date, sunrise/sunset), notes strip, then
+  "now fc beach" / "radar wind tide", columns 1.1 : 1.2 : 0.9.
+- Removed: the Warnings and incidents tile, Today at the station charts, Next 48 hours charts, 7-day list.
+- Notes strip (dismissable, same x and timings as the dashboard): weather warnings only, i.e. anything
+  from the Bureau (source AU/BOM) or a warning whose kind/title mentions weather, wind, storm, thunder,
+  flood, heat, rain, hail, fire danger / fire weather / total fire ban, frost, snow, surf, marine,
+  cyclone or dust. Fires, planned burns and other incidents are left out (they stay on the dashboard).
+  Then wind over 50 km/h (average or gust): strong wind now at the station; else over 50 at the station
+  in the last 2 hours; plus forecast over 50 in the next 24 hours (when it starts and the peak). Then
+  UV 6+, and heavy rain / storms / rain coming (same rules as the dashboard).
+- Outside now (WS90 only): temperature, feels like, humidity, inside; wind with gust, rain today and
+  this week, UV, today's high/low with times and today's top gust (from the station's 5-minute
+  readings), pressure with 3-hour trend. Wind or top gust over 50 and UV 6+ go red.
+- 5-day forecast (Open-Meteo): today plus four days, icon, words, rain chance and mm, max gust (red
+  over 50), high/low.
+- Wind chart: station average and gusts for the last 12 hours (solid), the live reading as dots at
+  "now", and the forecast for the next 24 hours (dashed); 50 km/h line with a faint red band above.
+  Heading shows the 12-hour station peak and the forecast peak.
+- Radar: same pinned view as the dashboard (north of Melbourne to Cape Schanck, tap for Victoria).
+- Tides: next four turns in a 2 x 2 grid and a 24-hour curve, marked approximate.
+
+Code changes for it:
+- `ecowitt.js`: `?history=today&hours=N` (1-23) starts at midnight or N hours ago, whichever is
+  earlier, so the last-2-hours check and the 12-hour chart work just after midnight. Range stays
+  under 24 hours. Without `hours` it behaves as before. The Weather page asks for hours=12.
+- `hub.js`: the notes strip drawing and dismiss handling moved into `paintNotes(el, notes, rerender)`
+  (the dashboard uses it unchanged); `warnNotes(list)` accepts a filtered list.
 
 ## Tides on the Weather page (2026-11-02, evening)
 
