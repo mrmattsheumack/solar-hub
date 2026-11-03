@@ -299,7 +299,7 @@ window.Hub = (() => {
   // ---------- render: energy flow diagram ----------
   const ICON = {
     sun: '<circle r="7" fill="var(--solar)"/>' + [0, 45, 90, 135, 180, 225, 270, 315].map(a => { const t = a * Math.PI / 180; return `<line x1="${(Math.cos(t) * 10).toFixed(1)}" y1="${(Math.sin(t) * 10).toFixed(1)}" x2="${(Math.cos(t) * 14).toFixed(1)}" y2="${(Math.sin(t) * 14).toFixed(1)}" stroke="var(--solar)" stroke-width="2.2" stroke-linecap="round"/>`; }).join(''),
-    grid: '<path d="M-6 14L0-13L6 14M-9-6h18M-11 2h22M-3 6l6-6M3 6l-6-6" fill="none" stroke="var(--text)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>',
+    grid: '<path d="M-6 14L0-13L6 14M-9-6h18M-11 2h22M-3 6l6-6M3 6l-6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>',
     house: '<path d="M-12 1L0-11L12 1M-8-2v13h16V-2" fill="none" stroke="var(--home)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/><rect x="-2.5" y="4" width="5" height="7" fill="var(--home)"/>',
     car: '<path d="M-16 4.5v-4c0-1.6 1-2.6 2.6-3.1l3.4-.9 3.8-4.6c.8-1 1.9-1.5 3.1-1.5h5.6c1.3 0 2.5.6 3.3 1.7L9.3-3.5l4.2 1.2c1.5.4 2.5 1.6 2.5 3.1v3.7z" fill="none" stroke="var(--car)" stroke-width="2" stroke-linejoin="round"/><path d="M-7.2-4.1l2.9-3.6c.4-.5.9-.7 1.5-.7h2.1v4.3zM1.3-8.4h2.4c.6 0 1.2.3 1.6.8l2.7 3.5H1.3z" fill="var(--car)" opacity=".55"/><circle cx="-8.5" cy="5" r="3.6" fill="var(--surface-2)" stroke="var(--car)" stroke-width="2"/><circle cx="8.5" cy="5" r="3.6" fill="var(--surface-2)" stroke="var(--car)" stroke-width="2"/>',
   };
@@ -330,9 +330,10 @@ window.Hub = (() => {
       if (p < 50) return `<path class="wire bg" d="${d}" stroke-width="6"/>`;
       return `<path class="wire bg" d="${d}" stroke-width="6"/><path class="wire live${rev ? ' rev' : ''}" d="${d}" stroke="${col}" stroke-width="${width(p)}"/>` + (rev ? arrow(to, from, p, col) : arrow(from, to, p, col));
     };
-    const node = (k, pos, col, active) => `<g transform="translate(${pos[0]} ${pos[1]})"> <circle r="27" fill="var(--surface-2)" stroke="${active ? col : 'var(--border-strong)'}" stroke-width="2"/><g>${ICON[k]}</g></g>`;
+    const node = (k, pos, col, active) => `<g transform="translate(${pos[0]} ${pos[1]})"> <circle r="27" fill="var(--surface-2)" stroke="${active ? col : 'var(--border-strong)'}" stroke-width="2"/><g style="color:${k === 'grid' && active ? col : 'var(--text)'}">${ICON[k]}</g></g>`;
     const txt = (x, y, anchor, big, small, col = 'var(--text)') => `<text x="${x}" y="${y}" text-anchor="${anchor}"><tspan class="num" font-size="21" fill="${col}">${big}</tspan><tspan x="${x}" dy="17" font-size="14" fill="var(--text-muted)">${esc(small)}</tspan></text>`;
-    const gridCol = imp >= 50 ? 'var(--import)' : 'var(--gridout)';
+    // grid: red while we're drawing from it, green while we're sending solar to it, grey when idle
+    const gridCol = imp >= 50 ? 'var(--import)' : exp >= 50 ? 'var(--car)' : 'var(--gridout)';
     const carState = !S.ev ? 'Pi not reachable' : S.ev.car_status ? (S.ev.car_status.key === 'unplugged' ? 'Not plugged in' : S.ev.car_status.text) : c.state === 'charging' ? (L.override ? 'Manual, full rate' : L.window === 'offpeak' ? 'Off-peak charge' : 'Matching solar') : (STATE_TXT[c.state] || 'Not plugged in');
     let s = '';
     s += wire(N.solar, hub, pv, 'var(--solar)', false);
@@ -342,13 +343,13 @@ window.Hub = (() => {
     s += `<circle cx="${hub[0]}" cy="${hub[1]}" r="5" fill="var(--text-muted)"/>`;
     s += node('sun', N.solar, 'var(--solar)', pv >= 50) + node('grid', N.grid, gridCol, imp >= 50 || exp >= 50) + node('house', N.house, 'var(--home)', house >= 50) + node('car', N.car, 'var(--car)', car >= 50);
     s += txt(216, 32, 'start', `${kw(pv)} kW`, `Solar${e.pvSrc ? ' · ' + e.pvSrc : ''}`, 'var(--solar)');
-    s += txt(44, 172, 'middle', `${kw(imp >= 50 ? imp : exp)} kW`, imp >= 50 ? 'Importing' : exp >= 50 ? 'Exporting' : 'Grid idle', imp >= 50 ? 'var(--import)' : 'var(--text)');
+    s += txt(44, 172, 'middle', `${kw(imp >= 50 ? imp : exp)} kW`, imp >= 50 ? 'Importing' : exp >= 50 ? 'Exporting' : 'Grid idle', imp >= 50 || exp >= 50 ? gridCol : 'var(--text)');
     s += txt(316, 172, 'middle', `${kw(house)} kW`, 'House');
     s += txt(216, 212, 'start', `${kw(car)} kW`, carState);
     // % of solar going each way, on the wires
     const badge = (x, y, v, col) => v ? `<text x="${x}" y="${y}" text-anchor="middle" font-size="14" font-weight="600" fill="${col}" class="num">${v}</text>` : '';
     if (pv > 100) {
-      s += badge(248, 114, pct(a.sHouse), 'var(--home)') + badge(200, 174, pct(a.sCar), 'var(--car)') + badge(112, 112, pct(a.exp), 'var(--gridout)');
+      s += badge(248, 114, pct(a.sHouse), 'var(--home)') + badge(200, 174, pct(a.sCar), 'var(--car)') + badge(112, 112, pct(a.exp), gridCol);
     }
     const T0 = S.ev?.totals, solarGen = T0 ? Math.max(T0.solar_kwh || 0, (T0.car_solar_kwh || 0) + (T0.house_solar_kwh || 0) + (T0.export_kwh || 0)) : 0;
     const solarEff = solarGen > 0.05 ? Math.round(100 * ((T0.car_solar_kwh || 0) + (T0.house_solar_kwh || 0)) / solarGen) : null;

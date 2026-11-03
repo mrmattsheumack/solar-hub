@@ -331,6 +331,12 @@ Code changes for it:
 - `hub.js`: the notes strip drawing and dismiss handling moved into `paintNotes(el, notes, rerender)`
   (the dashboard uses it unchanged); `warnNotes(list)` accepts a filtered list.
 
+## Grid colour in the flow diagrams (2026-11-03)
+
+- On every energy flow (dashboard, Energy page live flow, EV page): the grid node, its wire, its label
+  and its % badge are green while exporting, red while importing, grey when idle. (The grey "Grid"
+  share in the solar split bar and the "Exported" grey in charts are unchanged.)
+
 ## Overnight meter check (2026-11-03, 7:15 am)
 
 - The inverter answered Modbus all night (no sleep). The meter was read every 30 s from 9 pm to 1:52 am

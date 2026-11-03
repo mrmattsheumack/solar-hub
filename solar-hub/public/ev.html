@@ -548,7 +548,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
     const hub = [220, 90], R = 22;
     const nodes = {
       solar: { p:[115, 40],  w: pv,     col:'#facc15', name:'Solar', side:'left' },
-      grid:  { p:[115, 140], w: g == null ? null : Math.abs(g), col: exporting ? '#94a3b8' : (g != null && g > 50 ? '#ef4444' : '#94a3b8'), name: exporting ? 'Grid, exporting' : g != null && g > 50 ? 'Grid, importing' : 'Grid', side:'left' },   // site palette: export grey, import red
+      grid:  { p:[115, 140], w: g == null ? null : Math.abs(g), col: exporting ? '#22c55e' : (g != null && g > 50 ? '#ef4444' : '#94a3b8'), name: exporting ? 'Grid, exporting' : g != null && g > 50 ? 'Grid, importing' : 'Grid', side:'left' },   // grid: green exporting, red importing, grey idle
       house: { p:[325, 40],  w: houseW, col:'#4c8dff', name:'House', side:'right' },
       car:   { p:[325, 140], w: watts,  col:'#22c55e', name:'Car',   side:'right' }
     };
