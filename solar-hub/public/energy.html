@@ -71,18 +71,30 @@
 .cleg i.sq{width:10px;height:10px;border-radius:2px;border:0;background:var(--c)}
 
 /* savings (moved from the EV page) */
-.save-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-.save-col{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;font-size:13px}
-.save-col h3{margin:0 0 2px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
-.save-col .r{display:flex;justify-content:space-between;gap:8px}
-.save-col .r span{display:flex;align-items:center;gap:7px;min-width:0}
-.save-col .r i{width:9px;height:9px;border-radius:2px;flex:none}
-.save-col .r b{font-family:var(--mono);font-weight:500;color:var(--ok)}
-.save-col .r b.cost{color:var(--text)}
-.save-col .st{border-top:1px solid var(--border-strong);margin-top:auto;padding-top:6px;font-weight:600}
-.save-col.total{justify-content:center;align-items:center;text-align:center}
-.save-col.total .v{font-family:var(--mono);font-size:clamp(28px,2.6vw,38px);font-weight:600;color:var(--ok);line-height:1.1}
-.save-col.total .s{font-size:12px;color:var(--text-muted)}
+.save-head{gap:12px;flex-wrap:wrap}
+#save-seg button{padding:5px 12px;font-size:12.5px}
+.save-sum{display:grid;grid-template-columns:minmax(220px,.9fr) 2fr;gap:8px 22px;align-items:center;margin-bottom:12px}
+.save-hl .v{font-family:var(--mono);font-size:clamp(30px,2.8vw,40px);font-weight:600;color:var(--ok);line-height:1.05}
+.save-hl .s{font-size:12.5px;color:var(--text-muted);margin-top:2px} .save-hl .s b{color:var(--text);font-weight:600}
+.save-bar{display:flex;height:16px;border-radius:8px;overflow:hidden;background:var(--surface-3);gap:2px}
+.save-bar span{display:block;height:100%;min-width:2px}
+.save-key{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;color:var(--text-muted);margin-top:7px}
+.save-key span{display:flex;align-items:center;gap:6px} .save-key i{width:9px;height:9px;border-radius:2px}
+.save-key .muted{margin-left:auto}
+.save-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.save-tile{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:5px;font-size:13px}
+.save-tile h3{margin:0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
+.save-tile .v{font-family:var(--mono);font-size:24px;font-weight:600;line-height:1.1}
+.save-tile .s{font-size:11.5px;color:var(--text-muted);margin-bottom:4px}
+.save-tile.spent .v{color:var(--text)} .save-tile.without .v{color:var(--text-muted)}
+.save-tile.solar .v{color:var(--solar)} .save-tile.off .v{color:var(--offpeak-c)}
+.save-tile .r{display:flex;justify-content:space-between;gap:8px}
+.save-tile .r span{display:flex;align-items:center;gap:7px;min-width:0;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.save-tile .r em{font-style:normal;font-size:11.5px;opacity:.8}
+.save-tile .r i{width:9px;height:9px;border-radius:2px;flex:none}
+.save-tile .r b{font-family:var(--mono);font-weight:500;color:var(--ok)}
+.save-tile .r b.cost{color:var(--text)} .save-tile .r b.muted{color:var(--text-muted);font-weight:400}
+@media (max-width:760px){ .save-sum{grid-template-columns:1fr} .save-key .muted{margin-left:0} }
 .facts-note{font-size:12px;color:var(--text-dim)}
 
 /* table */
@@ -104,17 +116,17 @@
 /* three columns down to landscape iPads (1024-1180 px less the menu); two columns only on portrait screens */
 @media (max-width:900px){
   .screen{grid-template-columns:1fr 1fr;grid-template-areas:"head head" "flow flow" "chart chart" "gen use" "who who" "save save" "table table" "links links" "bill bill"}
-  .save-grid{grid-template-columns:1fr 1fr}
+  .save-tiles{grid-template-columns:1fr 1fr}
 }
 @media (max-width:1180px) and (min-width:901px){
   .side{padding:8px} .side b{font-size:16px} .side .tag,.side .br{font-size:11px} .ring{gap:6px}
-  .save-col{padding:10px 12px;font-size:12.5px}
+  .save-tile{padding:10px 12px;font-size:12.5px} .save-tile .v{font-size:21px}
 }
 @media (max-width:760px){
   .screen{grid-template-columns:1fr;grid-template-areas:"head" "flow" "chart" "gen" "use" "who" "save" "table" "links" "bill"}
   .sumgrid{grid-template-columns:1fr 1fr}
   .stat:nth-child(odd){border-left:0;padding-left:4px}
-  .save-grid{grid-template-columns:1fr}
+  .save-tiles{grid-template-columns:1fr} #save-seg{width:100%} #save-seg button{flex:1;padding:6px 4px}
   .chart{height:240px}
   .head-right{flex:1 1 100%;min-width:0;width:100%} .head-right .dots{display:none}
   .picker{width:100%;flex-wrap:nowrap} .seg button{padding:6px 10px} .stepper{flex:1;min-width:0;justify-content:space-between} .stepper span{min-width:0}
@@ -128,7 +140,7 @@
     <div class="head-left"><div><h1>Energy</h1><div class="sub">GoodWe 10 kW inverter · 13.2 kW of panels · AGL Night Saver EV</div></div></div>
     <div class="head-right">
       <div class="picker">
-        <div class="seg" role="group" aria-label="Period"><button data-mode="day" aria-pressed="true">Day</button><button data-mode="week" aria-pressed="false">Week</button><button data-mode="month" aria-pressed="false">Month</button><button data-mode="year" aria-pressed="false">Year</button></div>
+        <div class="seg" id="period-seg" role="group" aria-label="Period"><button data-mode="day" aria-pressed="true">Day</button><button data-mode="week" aria-pressed="false">Week</button><button data-mode="month" aria-pressed="false">Month</button><button data-mode="year" aria-pressed="false">Year</button></div>
         <div class="stepper"><button id="prev" aria-label="Previous">‹</button><span id="plabel">Today</span><button id="next" aria-label="Next">›</button></div>
       </div>
       <div class="dots" title="Data sources">
@@ -165,8 +177,9 @@
   </section>
 
   <section class="card savecard" aria-labelledby="save-h">
-    <div class="card-head"><h2 id="save-h">Savings</h2><span class="meta">AGL rates, incl. GST</span></div>
-    <div class="save-grid" id="save"><div class="empty">Adding up…</div></div>
+    <div class="card-head save-head"><h2 id="save-h">Savings</h2>
+      <div class="seg" id="save-seg" role="group" aria-label="Savings period"><button data-s="day" aria-pressed="false">Today</button><button data-s="week" aria-pressed="false">Week</button><button data-s="month" aria-pressed="true">Month</button><button data-s="year" aria-pressed="false">Year</button><button data-s="all" aria-pressed="false">All time</button></div></div>
+    <div id="save"><div class="empty">Adding up…</div></div>
     <div class="facts-note" id="save-note"></div>
   </section>
 
@@ -234,7 +247,7 @@
     return new Date(y, m - 1, d, 12).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: y === parts(todayKey())[0] ? undefined : 'numeric' });
   }
   const periodName = () => mode === 'day' ? (anchor === todayKey() ? 'today' : `on ${label()}`) : mode === 'week' ? (label() === 'This week' ? 'this week' : `in the week ${label()}`) : `in ${label()}`;
-  document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#period-seg button').forEach(b => b.addEventListener('click', () => {
     mode = b.dataset.mode; try { localStorage.setItem('energy-view', mode); } catch (e) {}
     render();
   }));
@@ -332,7 +345,7 @@
 
   // ---------- render ----------
   function render() {
-    document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
+    document.querySelectorAll('#period-seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
     $('plabel').textContent = label();
     const tk = todayKey();
     $('next').disabled = mode === 'day' ? anchor >= tk : mode === 'week' ? addDays(weekStart(anchor), 7) > tk : mode === 'month' ? anchor.slice(0, 7) >= tk.slice(0, 7) : anchor.slice(0, 4) >= tk.slice(0, 4);
@@ -350,7 +363,7 @@
     else B.forEach(b => { if (b.v) add(T, b.v); });
     renderRings(T);
     renderChart(B);
-    renderSavings(T);
+    renderSavings();
     renderTable(B);
     renderBill(T, B, pi);
   }
@@ -461,36 +474,116 @@
     wrap.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Today's solar, house and car against the solar forecast">${s}</svg>`;
   }
 
-  // ---------- savings (was on the EV page) ----------
-  function renderSavings(T) {
-    const name = periodName();
-    $('save-h').textContent = 'Savings ' + name;
+  // ---------- savings: its own tabs (today, this week, month, year, all time), always up to now ----------
+  // Four figures, all at the AGL rates in Hub.RATE and excluding the daily supply charge (paid either way):
+  //   Spent on the grid  = on-peak kWh x general + off-peak kWh x off-peak - exported kWh x feed-in
+  //   Without solar      = the same use with no panels: the solar you used bought at the general rate,
+  //                        no feed-in credit, off-peak kept as it was
+  //   Saved by solar     = without solar - spent = solar used x general + exported x feed-in
+  //   Saved by off-peak  = off-peak kWh x (general - off-peak), against paying the general rate for it
+  // So spent + solar + off-peak = everything used x the general rate, which is what the bar shows.
+  const SOLAR_START = '2024-12-19';   // first day SEMS shows solar (the meter starts a little earlier)
+  const PI_START = '2026-10-28', METER_START = '2026-11-02';
+  let saveTab = 'month';
+  try { const t = localStorage.getItem('energy-save-tab'); if (['day', 'week', 'month', 'year', 'all'].includes(t)) saveTab = t; } catch (e) {}
+  document.querySelectorAll('#save-seg button').forEach(b => b.addEventListener('click', () => {
+    saveTab = b.dataset.s; try { localStorage.setItem('energy-save-tab', saveTab); } catch (e) {}
+    renderSavings();
+  }));
+  const meterMonth = (mk, pi) => Object.keys(pi).some(k => k.startsWith(mk) && (pi[k].meter_share || 0) > 0);
+  // SEMS windows a month needs: the month itself, or each of its days when it has smart-meter days
+  function monthIds(mk, pi, tk) {
+    if (!meterMonth(mk, pi)) return ['month:' + mk];
+    const [y, m] = parts(mk + '-01'), out = [];
+    for (let d = 1; d <= daysIn(y, m); d++) { const k = `${mk}-${pad(d)}`; if (k <= tk) out.push('day:' + k); }
+    return out;
+  }
+  function yearMonths(y, tk) { const out = []; for (let i = 1; i <= 12; i++) { const mk = `${y}-${pad(i)}`; if (mk <= tk.slice(0, 7)) out.push(mk); } return out; }
+  function daysFrom(a, b) { const out = []; for (let k = a; k <= b; k = addDays(k, 1)) out.push(k); return out; }
+  // The tab's totals, the SEMS windows they need, and the first day they cover
+  function savePeriod(pi) {
+    const tk = todayKey(), [ty] = parts(tk), T = ZERO(), ids = [];
+    const addV = v => { if (v) add(T, v); };
+    let from = tk;
+    if (saveTab === 'day') { ids.push('day:' + tk); addV(dayVal(tk, pi)); }
+    if (saveTab === 'week') { from = weekStart(tk); daysFrom(from, tk).forEach(k => { ids.push('day:' + k); addV(dayVal(k, pi)); }); }
+    if (saveTab === 'month') { const mk = tk.slice(0, 7); from = mk + '-01'; ids.push(...monthIds(mk, pi, tk)); addV(monthVal(mk, pi)); }
+    if (saveTab === 'year' || saveTab === 'all') {
+      from = `${ty}-01-01`;
+      yearMonths(ty, tk).forEach(mk => { ids.push(...monthIds(mk, pi, tk)); addV(monthVal(mk, pi)); });
+    }
+    if (saveTab === 'all') {
+      from = SOLAR_START;
+      const [sy] = parts(SOLAR_START);
+      // the first (part) year day by day from when the solar went in, then whole years
+      daysFrom(SOLAR_START, `${sy}-12-31`).forEach(k => { ids.push('day:' + k); addV(dayVal(k, pi)); });
+      for (let y = sy + 1; y < ty; y++) { ids.push('year:' + y); addV(merge(null, SP['year:' + y], (y % 4 ? 365 : 366))); }
+    }
+    if (from < SOLAR_START) from = SOLAR_START;
+    return { T, ids, from, to: tk };
+  }
+
+  function renderSavings() {
+    document.querySelectorAll('#save-seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.s === saveTab));
+    const pi = piRows(), { T, ids, from, to } = savePeriod(pi);
+    ids.forEach(need); pump();
+    const waiting = ids.filter(id => !SP[id]).length;
     const g = R.general, o = R.offpeak, f = R.feedin, c = v => (v * 100).toFixed(1).replace(/\.0$/, '') + 'c';
-    const groups = [
-      ['Solar', 'Solar savings', [
-        ['Solar into the cars', T.carSolar, g - f, `instead of the grid on-peak at ${c(g)}, less the ${c(f)} feed-in given up`, C.car],
-        ['Solar used in the house', T.houseSolar, g - f, `instead of the grid at ${c(g)}, less the ${c(f)} feed-in given up`, C.house],
-        ['Solar exported', T.exp, f, `feed-in credit at ${c(f)}`, C.exp]
-      ]],
-      ['Off-peak', 'Off-peak savings', [
-        ['Cars charged off-peak', T.carOff, g - o, `at ${c(o)} instead of the ${c(g)} general rate`, C.impOff]
-      ]]
-    ];
-    let total = 0, body = '';
-    groups.forEach(([head, subName, list]) => {
-      let sub = 0, lines = '';
-      list.forEach(([n, k, rate, how, col]) => { const v = k * rate; sub += v;
-        lines += `<div class="r" title="${esc(f1(k) + ' kWh, ' + how)}"><span><i style="background:${col}"></i>${n}</span><b>${money(v)}</b></div>`; });
-      body += `<div class="save-col"><h3>${head}</h3>${lines}<div class="r st"><span>${subName}</span><b>${money(sub)}</b></div></div>`;
-      total += sub;
-    });
-    const carCost = T.carOff * o + T.carGrid * g;
-    body += `<div class="save-col"><h3>Cars from the grid</h3><div class="r"><span><i style="background:${C.impOff}"></i>Off-peak, ${f1(T.carOff)} kWh</span><b class="cost">${money(T.carOff * o)}</b></div>` +
-      `<div class="r"><span><i style="background:var(--import)"></i>On-peak, ${f1(T.carGrid)} kWh</span><b class="cost">${money(T.carGrid * g)}</b></div>` +
-      `<div class="r st"><span>Car charging cost</span><b class="cost">${money(carCost)}</b></div></div>`;
-    $('save').innerHTML = body +
-      `<div class="save-col total"><h3>Total saved ${name}</h3><div class="v">${money(total)}</div><div class="s">${T.days > 1 ? `about ${money(total / T.days)} a day over ${T.days} days` : ''}</div></div>`;
-    $('save-note').textContent = 'Compared with buying the same energy from the grid at your AGL rates, excluding the daily supply charge.';
+    const money = v => (v < -0.004 ? '-$' : '$') + Math.abs(v).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const kw = v => v >= 1000 ? (v / 1000).toFixed(1) + ' MWh' : n1(v) + ' kWh';
+    const name = { day: 'today', week: 'this week', month: 'this month', year: 'this year', all: 'since the solar went in' }[saveTab];
+    $('save-h').textContent = 'Savings ' + ({ day: 'today', week: 'this week', month: 'this month', year: 'this year', all: 'all time' }[saveTab]);
+    if (!T.days) { $('save').innerHTML = `<div class="empty">${waiting ? 'Adding up…' : 'No figures for this period yet.'}</div>`; $('save-note').textContent = ''; return; }
+
+    const offK = Math.max(0, T.impOff), peakK = Math.max(0, T.impPeak), solarUsed = Math.max(0, T.houseSolar + T.carSolar);
+    const peak$ = peakK * g, off$ = offK * o, feed$ = T.exp * f;
+    const spent = peak$ + off$ - feed$;
+    const solarHouse = T.houseSolar * g, solarCars = T.carSolar * g, solarSave = solarHouse + solarCars + feed$;
+    const without = spent + solarSave;
+    const carOffK = Math.min(offK, Math.max(0, T.carOff)), houseOffK = Math.max(0, offK - carOffK);
+    const offCars = carOffK * (g - o), offHouse = houseOffK * (g - o), offSave = offCars + offHouse;
+    const allGeneral = spent + solarSave + offSave, saved = solarSave + offSave;
+    const supply = SUPPLY * T.days;
+    const share = allGeneral > 0 ? Math.min(100, Math.round(100 * saved / allGeneral)) : 0;
+    const perDay = T.days > 1 ? ` · about ${money(saved / T.days)} a day over ${T.days.toLocaleString('en-AU')} days` : '';
+
+    // Bar: what it would all cost at the general rate, split into what you paid and what you didn't
+    const seg = (v, col, lbl) => v > 0 && allGeneral > 0 ? `<span style="width:${(100 * v / allGeneral).toFixed(2)}%;background:${col}" title="${esc(lbl + ' ' + money(v))}"></span>` : '';
+    const bar = `<div><div class="save-bar" role="img" aria-label="${esc(`Of ${money(allGeneral)} at the general rate: ${money(Math.max(0, spent))} spent, ${money(solarSave)} saved by solar, ${money(offSave)} saved by off-peak`)}">` +
+      seg(Math.max(0, spent), 'var(--import)', 'Spent on the grid') + seg(solarSave, C.gen, 'Saved by solar') + seg(offSave, C.impOff, 'Saved by off-peak') + `</div>` +
+      `<div class="save-key"><span><i style="background:var(--import)"></i>Spent ${money(spent)}</span><span><i style="background:${C.gen}"></i>Solar ${money(solarSave)}</span><span><i style="background:${C.impOff}"></i>Off-peak ${money(offSave)}</span><span class="muted">All at ${c(g)}: ${money(allGeneral)}</span></div></div>`;
+
+    const row = (lbl, val, cls = '', col = '', tip = '') => `<div class="r"${tip ? ` title="${esc(tip)}"` : ''}><span>${col ? `<i style="background:${col}"></i>` : ''}${lbl}</span><b class="${cls}">${val}</b></div>`;
+    const tile = (cls, h, v, sub, rows) => `<div class="save-tile ${cls}"><h3>${h}</h3><div class="v">${v}</div><div class="s">${sub}</div>${rows}</div>`;
+    const tiles =
+      tile('spent', 'Spent on the grid', money(spent), spent < 0 ? 'a credit: feed-in beat purchases' : 'energy, less feed-in',
+        row(`On-peak <em>${kw(peakK)}</em>`, money(peak$), 'cost', 'var(--import)', `at ${c(g)}`) +
+        row(`Off-peak <em>${kw(offK)}</em>`, money(off$), 'cost', C.impOff, `at ${c(o)}`) +
+        row(`Feed-in <em>${kw(T.exp)}</em>`, '-' + money(feed$), 'cost', C.exp, `credited at ${c(f)}`) +
+        row(`Supply, ${T.days.toLocaleString('en-AU')} day${T.days === 1 ? '' : 's'}`, money(supply), 'cost muted', '', `${money(SUPPLY)} a day, paid with or without solar`)) +
+      tile('without', 'Without solar', money(without), `the same use, no panels`,
+        row('Grid as it was', money(spent + feed$), 'cost', '', 'on-peak plus off-peak, before the feed-in credit') +
+        row(`Solar <em>${kw(solarUsed)}</em>`, '+' + money(solarHouse + solarCars), 'cost', C.gen, `bought from the grid at ${c(g)} instead`) +
+        row('No feed-in credit', '+' + money(feed$), 'cost', C.exp) +
+        row('Plus supply either way', money(supply), 'cost muted')) +
+      tile('solar', 'Saved by solar', money(solarSave), `${without > 0 ? Math.min(100, Math.round(100 * solarSave / without)) : 0}% off the no-solar cost`,
+        row(`House <em>${kw(T.houseSolar)}</em>`, money(solarHouse), '', C.house, `solar used in the house instead of the grid at ${c(g)}`) +
+        row(`Cars <em>${kw(T.carSolar)}</em>`, money(solarCars), '', C.car, `solar into the cars instead of the grid at ${c(g)}`) +
+        row(`Exported <em>${kw(T.exp)}</em>`, money(feed$), '', C.exp, `feed-in credit at ${c(f)}`)) +
+      tile('off', 'Saved by off-peak', money(offSave), `${c(o)} instead of ${c(g)}`,
+        row(`Cars <em>${kw(carOffK)}</em>`, money(offCars), '', C.car, 'car charging in the off-peak window') +
+        row(`House <em>${kw(houseOffK)}</em>`, money(offHouse), '', C.house, 'the rest of the house overnight') +
+        (from < PI_START ? row('Before 28 Oct 2026', 'not known', 'muted', '', 'no record of when grid power was used before the Pi started logging') : ''));
+
+    $('save').innerHTML =
+      `<div class="save-sum"><div class="save-hl"><div class="v">${money(saved)}</div><div class="s">saved ${name}: <b>${share}%</b> off buying it all from the grid at the general rate${perDay}</div></div>${bar}</div>` +
+      `<div class="save-tiles">${tiles}</div>`;
+
+    const notes = ['AGL rates incl. GST, as on the Oct 2026 bill; supply charge shown but not counted as a saving.'];
+    if (from < PI_START) notes.push('Before the Pi\'s log (28 Oct 2026) there is no time-of-use split, so grid power is costed at the general rate and off-peak savings are not counted; earlier rates may also have differed.');
+    if (from < METER_START) notes.push('Before 2 Nov 2026 grid figures come from SEMS, which loses the meter at times (most evenings since about July 2026), so grid use and spend are understated for those months.');
+    if (waiting) notes.push(`Still fetching ${waiting} period${waiting === 1 ? '' : 's'} from SEMS…`);
+    $('save-note').textContent = notes.join(' ');
   }
 
   // ---------- table: the period's days (day and month views) or months (year view) ----------

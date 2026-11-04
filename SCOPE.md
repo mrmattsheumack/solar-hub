@@ -331,6 +331,29 @@ Code changes for it:
 - `hub.js`: the notes strip drawing and dismiss handling moved into `paintNotes(el, notes, rerender)`
   (the dashboard uses it unchanged); `warnNotes(list)` accepts a filtered list.
 
+## Energy page savings rebuilt (2026-11-04)
+
+- The Savings card has its own tabs: Today, Week (Monday to now), Month, Year and All time (since the
+  solar went in, 19 Dec 2024 per SEMS; the meter shows grid use from early Dec 2024). The tabs always
+  run up to now and are separate from the page's Day/Week/Month/Year picker. The last tab is remembered.
+- Four figures, at the AGL rates in Hub.RATE (general 27.6c, off-peak 8c, feed-in 0.5c):
+  - Spent on the grid = on-peak kWh x general + off-peak kWh x off-peak - exported kWh x feed-in.
+    The supply charge ($1.11 a day) is listed under it but never counted as a saving (paid either way).
+  - Without solar = the same use with no panels: solar used bought at the general rate, no feed-in
+    credit, off-peak use unchanged.
+  - Saved by solar = without solar - spent = (house + car solar) x general + exported x feed-in.
+    (The old card netted the feed-in given up off self-use; that's now counted once, as feed-in.)
+  - Saved by off-peak = off-peak kWh x (general - off-peak), split cars / rest of the house.
+  - Headline: total saved and the % off buying everything at the general rate (spent + solar +
+    off-peak = all use x general), shown as a bar, with a per-day average.
+- Data: Today/Week from day windows, Month/Year as the page already adds them up (day by day in
+  months with smart-meter days), All time = 19-31 Dec 2024 by day, then whole years from the SEMS year
+  window, then this year by month. SEMS lifetime check: 2024 139 kWh solar, 2025 13,716 kWh solar,
+  12,964 kWh bought, 7,685 kWh exported.
+- Caveats shown on the card when they apply: before 28 Oct 2026 there's no time-of-use split (grid
+  costed at the general rate, off-peak savings not counted, today's rates used for old periods); before
+  2 Nov 2026 SEMS grid figures are understated (meter drop-outs).
+
 ## Grid colour in the flow diagrams (2026-11-03)
 
 - On every energy flow (dashboard, Energy page live flow, EV page): the grid node, its wire, its label
