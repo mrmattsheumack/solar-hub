@@ -377,7 +377,9 @@ each room's airflow dial. The iZone accepts `{"ZoneMaxAir":{"Index":i,"MaxAir":0
 Where it runs: Netlify scheduled function `climate-control.mjs` every 5 minutes (not the Pi, so it
 could be deployed and tested from a cloud session). Logic and rules: `netlify/climate-core.mjs`.
 Dashboard link: `climate.mjs` (GET status/settings/log; POST settings, airflow by hand, run now).
-Storage: Netlify Blobs store `climate` (keys settings, state, status, log), `@netlify/blobs` 8.2.0.
+Storage: Netlify Blobs store `climate` (keys settings, state, status, log). The client is `@netlify/blobs` 8.2.0
+bundled into `netlify/vendor/netlify-blobs-8.2.0.mjs`, because the site does not npm install at build time
+(adding it as a dependency failed the build on 5 Nov).
 The Supabase project was found paused (free tier) on 5 Nov, so it isn't used for this.
 
 Rules (climate-core.mjs):

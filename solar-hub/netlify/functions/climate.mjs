@@ -5,7 +5,7 @@
 //                                               the controller sees it as a manual change and leaves the room for 2 h.
 //   POST { action: "run" }               -> run a check now
 // Controller logic and safety rules: ../climate-core.mjs.
-import { getStore } from "@netlify/blobs";
+import { getStore } from "../vendor/netlify-blobs-8.2.0.mjs";
 import { runController, realIO, mergeSettings, applySettingsChange, ROOMS } from "../climate-core.mjs";
 
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });

@@ -1,6 +1,6 @@
 // netlify/functions/climate-control.mjs: runs the room airflow controller every 5 minutes.
 // Logic and safety rules are in ../climate-core.mjs. Settings/state/log live in the "climate" blob store.
-import { getStore } from "@netlify/blobs";
+import { getStore } from "../vendor/netlify-blobs-8.2.0.mjs";
 import { runController, realIO } from "../climate-core.mjs";
 
 export default async (req, context) => {
