@@ -3074,6 +3074,7 @@ function sensorNote(r) {
     return 'Sensor offline' + (Number.isFinite(t) ? ' · ' + new Date(t).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' }) : '');
   }
   const hum = typeof r.humidity === 'number' ? r.humidity.toFixed(0) + '% humidity' : 'Sensor';
+  if (r.sensorSource === 'gateway') return hum + ' · gateway';   // the Ecowitt gateway's own sensor (it sits in the Lounge)
   return r.batteryLow ? hum + ' · battery low' : hum;
 }
 
@@ -4339,6 +4340,7 @@ function applySensorData(sensorData) {
       r.sensorLastUpdate = s.last_update_iso || new Date().toISOString();
       r.batteryLow = s.batteryLow ?? null;
       r.sensorChannel = s.channel ?? null;
+      r.sensorSource = s.source || null;
       const t = Date.parse(r.sensorLastUpdate) || Date.now();
       const h = sensorHistory[roomId] = (sensorHistory[roomId] || []);
       if (!h.length || h[h.length - 1].t !== t) h.push({ t, temp: s.temp });

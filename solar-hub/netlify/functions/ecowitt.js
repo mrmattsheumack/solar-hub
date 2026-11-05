@@ -162,6 +162,12 @@ exports.handler = async (event) => {
       channels.push(reading);
       if (room) rooms[room] = { temp, humidity: reading.humidity, last_update_iso: updated, batteryLow, channel: ch, source: "ecowitt" };
     }
+    // The Ecowitt gateway sits in the Lounge (Matt, 5 Nov), so its built-in indoor sensor is the
+    // Lounge reading whenever no WN31 is on channel 1. A channel 1 sensor always wins.
+    if (!rooms.lounge && payload.indoorTemp != null) {
+      rooms.lounge = { temp: payload.indoorTemp, humidity: payload.indoorHumidity, last_update_iso: payload.stationTime,
+        batteryLow: null, channel: null, source: "gateway" };
+    }
     payload.channels = channels;
     payload.rooms = rooms;
 

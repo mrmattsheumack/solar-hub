@@ -378,6 +378,12 @@ the Ecowitt cloud the site already reads. Trade-offs accepted: ±1 °C, ~61 s up
 Control card). Lounge 1, Master 2, Charlie's 3, Mila's 4, Office 5, Bathroom 6. Channels 7-8 are
 read but not mapped to a room. The map is `CHANNEL_ROOMS` in `netlify/functions/ecowitt.js`.
 
+**The Ecowitt gateway is in the Lounge** (Matt, 5 Nov). Its built-in indoor sensor is used as the
+Lounge reading (`source: "gateway"`, card says "· gateway") whenever no WN31 is on channel 1, so the
+Lounge may not need a WN31 at all. Side by side on 5 Nov the new WN31 read ~2 °C above the gateway
+(24.3 vs 22.2, humidity identical); recheck once the sensor has settled before trusting either.
+Pilot WN31 goes to Mila's room (channel 4).
+
 Data path: WN31 → gateway → Ecowitt cloud → `ecowitt` function. Its real-time reply now carries
 `rooms` (keyed by room id: temp, humidity, last_update_iso, batteryLow, channel) and `channels`
 (every channel seen). Fields per the v3 API: `temp_and_humidity_chN`, battery
