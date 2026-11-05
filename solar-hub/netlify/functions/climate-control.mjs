@@ -4,8 +4,8 @@ import { getStore } from "../vendor/netlify-blobs-8.2.0.mjs";
 import { runController, realIO } from "../climate-core.mjs";
 
 export default async (req, context) => {
-  const store = getStore("climate");
-  const { io, ...rw } = realIO(store, context?.site?.url);
+  const store = getStore({ name: "climate", consistency: "strong" });
+  const { io, ...rw } = realIO(store, context?.site?.url, getStore("climate"));
   try {
     const { status } = await runController({ io, ...rw, trigger: "schedule" });
     console.log("climate-control", JSON.stringify(status));

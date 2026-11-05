@@ -214,11 +214,17 @@ async function bridgePost(path, body, ms) {
   try { return JSON.parse(text); } catch { return { raw: text }; }
 }
 
-export function realIO(store, siteUrl) {
+// store: the "climate" blob store with strong consistency (reads see the last write straight away, which
+// the "changed by someone else" check relies on); fallback: an eventual-consistency store, used only if
+// strong reads aren't available in this environment.
+export function realIO(store, siteUrl, fallback) {
   const base = siteUrl || env("URL") || "https://solarhubdromana.netlify.app";
   return {
     io: {
-      get: k => store.get(k, { type: "json" }),
+      get: async k => {
+        try { return await store.get(k, { type: "json" }); }
+        catch (e) { if (fallback && /consisten/i.test(String(e?.name) + e?.message)) return fallback.get(k, { type: "json" }); throw e; }
+      },
       set: (k, v) => store.setJSON(k, v),
     },
     readSystem: async () => {

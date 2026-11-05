@@ -11,8 +11,8 @@ import { runController, realIO, mergeSettings, applySettingsChange, ROOMS } from
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 
 export default async (req, context) => {
-  const store = getStore("climate");
-  const { io, ...rw } = realIO(store, context?.site?.url);
+  const store = getStore({ name: "climate", consistency: "strong" });
+  const { io, ...rw } = realIO(store, context?.site?.url, getStore("climate"));
   const snapshot = async (extra = {}) => json({
     settings: mergeSettings(await io.get("settings")),
     status: await io.get("status"),
