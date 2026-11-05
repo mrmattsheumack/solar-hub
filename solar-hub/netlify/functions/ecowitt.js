@@ -6,6 +6,11 @@ const APPLICATION_KEY = "7C78EE38078394C154BD80B2D874DBD3";
 const MAC = "8C:4F:00:4F:FC:E2";
 // WN31 room sensor channel -> Climate Control room id. Channel = iZone zone number.
 const CHANNEL_ROOMS = { 1: "lounge", 2: "master", 3: "charlie", 4: "mila", 5: "office", 6: "bath" };
+// Channels with a WN31 actually installed. Only these become room readings. The gateway keeps
+// repeating the last value it heard on any channel (e.g. one a sensor passed through while its
+// switches were being changed), and the cloud stamps those with the current time, so a ghost
+// channel looks live. Add a channel here when a sensor is installed on it.
+const INSTALLED_CHANNELS = [4];   // 5 Nov 2026: pilot sensor in Mila's room
 
 exports.handler = async (event) => {
   const headers = {
@@ -157,7 +162,7 @@ exports.handler = async (event) => {
       const updated = Number.isFinite(t) && t > 0 ? new Date(t * 1000).toISOString() : null;
       const b = parseFloat(battery[`temp_humidity_sensor_ch${ch}`]?.value);
       const batteryLow = !Number.isFinite(b) ? null : (b > 1.5 ? b < 1.2 : b >= 1);
-      const room = CHANNEL_ROOMS[ch] || null;
+      const room = INSTALLED_CHANNELS.includes(ch) ? (CHANNEL_ROOMS[ch] || null) : null;
       const reading = { channel: ch, room, temp, humidity: num(th.humidity), updated, batteryLow };
       channels.push(reading);
       if (room) rooms[room] = { temp, humidity: reading.humidity, last_update_iso: updated, batteryLow, channel: ch, source: "ecowitt" };

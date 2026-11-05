@@ -377,6 +377,10 @@ the Ecowitt cloud the site already reads. Trade-offs accepted: ±1 °C, ~61 s up
 **Channel rule: the sensor's channel = the room's iZone zone number** (the "Zone N" on each Climate
 Control card). Lounge 1, Master 2, Charlie's 3, Mila's 4, Office 5, Bathroom 6. Channels 7-8 are
 read but not mapped to a room. The map is `CHANNEL_ROOMS` in `netlify/functions/ecowitt.js`.
+Only channels listed in `INSTALLED_CHANNELS` (same file) become room readings: the gateway repeats
+the last value it heard on any channel and the cloud re-stamps it every upload, so a channel a
+sensor passed through while its switches were changed shows up as a live-looking ghost (seen 5 Nov:
+ghosts on 1 and 2). Add the channel there when a sensor is installed. Now: [4] (Mila's).
 
 **The Ecowitt gateway is in the Lounge** (Matt, 5 Nov). Its built-in indoor sensor is used as the
 Lounge reading (`source: "gateway"`, card says "· gateway") whenever no WN31 is on channel 1, so the
