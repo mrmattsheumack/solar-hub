@@ -68,6 +68,11 @@ When Solar Hub is ready for sensors:
 
 ## Pending decisions (as of 2026-04-27)
 
+> **Superseded 2026-11-05.** The ESP32 + AHT20 plan below stalled in May (the Fermion AHT20s need
+> soldering, which Matt ruled out, and the no-solder STEMMA QT cable was out of stock everywhere).
+> The room sensor is now the **Ecowitt WN31** on the existing Ecowitt gateway. See
+> "Room sensors: Ecowitt WN31" further down. The ESP32 boards and AHT20s are spare parts.
+
 - [x] Specific sensor product: ESP32-C3 Super Mini + AHT20 (temp + humidity). Pilot 2 units before scaling to 6.
 - [x] Hub/dongle on the Pi: ESPHome service + Mosquitto MQTT broker on existing eaglecam Pi. WiFi-based — no Zigbee/BLE dongle needed.
 - [x] Order sequence: Pilot Master + Office first (~$55 from Core Electronics), validate end-to-end, then bulk order remaining 4.
@@ -359,6 +364,49 @@ Code changes for it:
 - On every energy flow (dashboard, Energy page live flow, EV page): the grid node, its wire, its label
   and its % badge are green while exporting, red while importing, grey when idle. (The grey "Grid"
   share in the solar split bar and the "Exported" grey in charts are unchanged.)
+
+## Room sensors: Ecowitt WN31 (2026-11-05)
+
+Agreed with Matt (2 Nov, options review): room temperature comes from **Ecowitt WN31**
+multi-channel temp/humidity sensors on the Ecowitt gateway that already serves the WS90.
+One WN31 bought as a pilot (Pacific Sensor Technologies, 433 MHz Oceania, ~$33 inc GST);
+scale to all 6 rooms if it holds up for a week. Why: no new hub, nothing new on the Pi, 433 MHz
+reaches through walls (the Pi on the veranda doesn't matter), LCD on each sensor, readings land in
+the Ecowitt cloud the site already reads. Trade-offs accepted: ±1 °C, ~61 s updates, 2 × AA.
+
+**Channel rule: the sensor's channel = the room's iZone zone number** (the "Zone N" on each Climate
+Control card). Lounge 1, Master 2, Charlie's 3, Mila's 4, Office 5, Bathroom 6. Channels 7-8 are
+read but not mapped to a room. The map is `CHANNEL_ROOMS` in `netlify/functions/ecowitt.js`.
+
+Data path: WN31 → gateway → Ecowitt cloud → `ecowitt` function. Its real-time reply now carries
+`rooms` (keyed by room id: temp, humidity, last_update_iso, batteryLow, channel) and `channels`
+(every channel seen). Fields per the v3 API: `temp_and_humidity_chN`, battery
+`battery.temp_humidity_sensor_chN` (0 OK, 1 low). The Pi bridge's `/api/sensors/temps` is still
+merged in for any Pi-side sensors; Ecowitt wins for the same room.
+
+Climate Control page (`climate.html`) cleaned up at the same time:
+- Mock room data removed (`generateMockRooms` made up temps, humidity and airflow on every render).
+  Rooms now hold only real data: zone open/closed, damper position, Min Air / Max Air from the iZone;
+  temp/humidity/battery from sensors; targets from this device.
+- A reading older than 15 minutes shows "Sensor offline" and is ignored by the logic.
+- Room state: with a fresh reading, HEATING/COOLING only when away from target (IDLE at target);
+  without one, an open zone simply shows what the AC is doing.
+- Bug fixed: the iZone sync copied each zone's Setpoint (2300 on every zone, which this hardware
+  can't act on) into the room target, resetting every room to 23° every 30 s.
+- Airflow bar shows the iZone's real damper % (was a random number, hence the "-15%"), plus a
+  "cap N%" marker where Max Air is set below 100. The bar is no longer clickable (it only ever
+  changed the screen). The room view's "Airflow limits" now shows the iZone's Min/Max Air read-only.
+- Suggestions only use rooms with a fresh real reading, and Apply now sends the zone open/close to
+  the iZone (it used to change the screen only).
+- Footer line under the cards says which sensors are reporting.
+
+Dashboard (`hub.js`): the Climate tile shows room temps from Ecowitt on the zone chips; the notes
+strip warns when a room sensor's battery is low or it hasn't reported for 30 minutes.
+
+Found while checking (2 Nov): the iZone caps most zones' Max Air: Lounge 100, Bathroom 25,
+Master 20, Mila's 15, Office 10, Charlie's 5. Dampers sit on the cap, so the Lounge takes most of the
+air. Likely a big part of the uneven heating. Matt to review in the iZone app (installer PIN may
+be needed). Not changed from the site.
 
 ## Overnight meter check (2026-11-03, 7:15 am)
 

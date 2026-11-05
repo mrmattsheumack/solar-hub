@@ -1341,8 +1341,13 @@ img { display: block; max-width: 100%; }
   background: var(--surface-3);
   border-radius: 3px;
   overflow: visible;
-  cursor: pointer;
 }
+/* where the iZone's Max Air cap sits on the airflow bar */
+.damper-cap {
+  position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px;
+  background: var(--text-muted); border-radius: 1px; opacity: .8;
+}
+.damper-cap-label { font-size: 10px; font-weight: 500; color: var(--text-dim); margin-left: 4px; }
 .damper-fill {
   height: 100%;
   width: 0%;
@@ -2157,8 +2162,8 @@ html.has-rail .room-detail{left:var(--rail-w)}
         </div>
       </details>
 
-      <div class="text-dim" style="text-align: center; font-size: 11px; margin-top: 16px; font-family: 'JetBrains Mono', monospace;">
-        📡 Mock sensor data · Real sensors coming
+      <div class="text-dim" id="sensor-status" style="text-align: center; font-size: 11px; margin-top: 16px; font-family: 'JetBrains Mono', monospace;">
+        Checking room sensors…
       </div>
     </section>
 
@@ -2201,7 +2206,7 @@ html.has-rail .room-detail{left:var(--rail-w)}
           <div class="rd-section-head">
             <div>
               <div class="rd-section-title">Airflow limits</div>
-              <div class="rd-section-sub">Prevent this zone going below min or above max. Useful for keeping rooms quiet at night.</div>
+              <div class="rd-section-sub" id="rd-range-sub">Waiting for the iZone…</div>
             </div>
           </div>
           <div class="rd-range">
@@ -3019,26 +3024,57 @@ function renderLog() {
   host.innerHTML = climate.log.map(l => `<div><span class="mono text-dim" style="font-size: 11px;">${l.time}</span> &nbsp; ${l.text}</div>`).join('');
 }
 
-function generateMockRooms() {
-  const outdoor = state.ecowitt?.temperature ?? 14;
-  const now = Date.now();
-  const offsets = { master: -1.2, lounge: +1.8, charlie: -2.5, mila: -0.8, office: -0.5, bath: +0.3 };
-  CLIMATE_ROOMS.forEach(r => {
-    const target = climate.targets[r.id] || 21;
-    const seed = (now / 120000 + r.id.charCodeAt(0)) % (Math.PI * 2);
-    const noise = Math.sin(seed) * 0.4;
-    const temp = target + (offsets[r.id] || 0) + noise;
-    const prev = climate.rooms[r.id]?.temp ?? temp;
-    climate.rooms[r.id] = {
-      temp: +temp.toFixed(1),
-      humidity: Math.round(45 + Math.sin(seed * 1.3) * 8),
-      damper: Math.round(30 + Math.sin(seed * 0.7) * 50),
-      isOpen: false,  // overwritten on first iZone sync; default off avoids startup flicker
-      trend: +(temp - prev).toFixed(2),
-      target,
-      hasSensor: true,
-    };
+/* Room state is built from real data only (no mock values):
+     isOpen, damper, maxAir, minAir  <- iZone zones (syncRoomsFromIzone)
+     sensorTemp, sensorHumidity...   <- room sensors (applySensorData; Ecowitt WN31, channel = zone number)
+     target                          <- this device's per-room targets (iZone has no per-zone setpoint)
+   r.temp / r.humidity are the sensor values while the reading is fresh, otherwise null. */
+const SENSOR_STALE_MS = 15 * 60 * 1000;   // a reading older than this counts as "sensor offline"
+function sensorAgeMs(r) {
+  if (!r || typeof r.sensorTemp !== 'number') return null;
+  const t = Date.parse(r.sensorLastUpdate || '');
+  return Number.isFinite(t) ? Date.now() - t : 0;
+}
+function sensorFresh(r) {
+  const age = sensorAgeMs(r);
+  return age != null && age < SENSOR_STALE_MS;
+}
+function ensureRooms() {
+  CLIMATE_ROOMS.forEach(cfg => {
+    let r = climate.rooms[cfg.id];
+    if (!r) {
+      r = climate.rooms[cfg.id] = {
+        isOpen: false,          // set on first iZone sync
+        damper: null, maxAir: null, minAir: null,
+        sensorTemp: null, sensorHumidity: null, sensorLastUpdate: null, batteryLow: null,
+        trend: 0,
+      };
+    }
+    r.target = climate.targets[cfg.id] ?? 21;
+    const fresh = sensorFresh(r);
+    r.temp = fresh ? r.sensorTemp : null;
+    r.humidity = fresh && typeof r.sensorHumidity === 'number' ? r.sensorHumidity : null;
   });
+}
+// What a room is doing. Without a sensor we only know the zone is open and what the AC is doing.
+function roomState(r) {
+  if (!r.isOpen || !climate.acOn) return 'off';
+  if (climate.acMode === 'vent' || climate.acMode === 'dry') return climate.acMode;
+  if (typeof r.temp !== 'number') return climate.acMode === 'cool' ? 'cool' : climate.acMode === 'heat' ? 'heat' : 'idle';
+  const diff = r.temp - r.target;
+  if (climate.acMode === 'cool') return diff > 0.3 ? 'cool' : 'idle';     // only "cooling" if above target
+  if (climate.acMode === 'heat') return diff < -0.3 ? 'heat' : 'idle';    // only "heating" if below target
+  if (climate.acMode === 'auto') return Math.abs(diff) < 0.5 ? 'idle' : diff > 0 ? 'cool' : 'heat';
+  return 'idle';
+}
+function sensorNote(r) {
+  if (typeof r.sensorTemp !== 'number') return 'No sensor';
+  if (!sensorFresh(r)) {
+    const t = Date.parse(r.sensorLastUpdate || '');
+    return 'Sensor offline' + (Number.isFinite(t) ? ' · ' + new Date(t).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' }) : '');
+  }
+  const hum = typeof r.humidity === 'number' ? r.humidity.toFixed(0) + '% humidity' : 'Sensor';
+  return r.batteryLow ? hum + ' · battery low' : hum;
 }
 
 function setClimateMode(mode) {
@@ -3064,7 +3100,7 @@ function setSystemMode(mode) {
 function renderHomeTab() {
   // Each step wrapped so a single failure doesn't block others — especially
   // critical that renderThermostats runs even if renderMasterAC fails
-  try { generateMockRooms(); } catch(e) { console.warn('generateMockRooms:', e.message); }
+  try { ensureRooms(); } catch(e) { console.warn('ensureRooms:', e.message); }
 
   try {
     document.querySelectorAll('#mode-segmented .segmented-item').forEach(b => {
@@ -3340,28 +3376,8 @@ function renderRoomDetail() {
   const r = climate.rooms[id];
   if (!cfg || !r) return;
 
-  // Determine state (same logic as card)
-  const diff = r.temp - r.target;
-  let state;
-  if (!r.isOpen) {
-    state = 'off';
-  } else if (!climate.acOn) {
-    state = 'off';
-  } else if (climate.acMode === 'vent') {
-    state = 'vent';
-  } else if (climate.acMode === 'dry') {
-    state = 'dry';
-  } else if (climate.acMode === 'cool') {
-    state = (diff > 0.3) ? 'cool' : 'idle';   // only "cooling" if zone is above target
-  } else if (climate.acMode === 'heat') {
-    state = (diff < -0.3) ? 'heat' : 'idle';  // only "heating" if zone is below target
-  } else if (climate.acMode === 'auto') {
-    if (Math.abs(diff) < 0.5) state = 'idle';
-    else if (diff > 0)        state = 'cool';
-    else                      state = 'heat';
-  } else {
-    state = 'idle';
-  }
+  ensureRooms();
+  const state = roomState(r);   // same logic as the card
   $('room-detail').dataset.state = state;
 
   // Header
@@ -3376,7 +3392,8 @@ function renderRoomDetail() {
   const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
   const arcLength = CIRCUMFERENCE * 0.75;
   const minTemp = 16, maxTemp = 28;
-  const tempPct = Math.max(0, Math.min(1, (r.temp - minTemp) / (maxTemp - minTemp)));
+  const dialT = typeof r.temp === 'number' ? r.temp : r.target;
+  const tempPct = Math.max(0, Math.min(1, (dialT - minTemp) / (maxTemp - minTemp)));
   const dashOffset = arcLength - (arcLength * tempPct);
   const trackSvg = $('rd-dial-track-svg');
   const fillSvg  = $('rd-dial-fill-svg');
@@ -3386,16 +3403,11 @@ function renderRoomDetail() {
     fillSvg.setAttribute('stroke-dashoffset', dashOffset);
   }
 
-  setText('rd-hero-temp', typeof r.sensorTemp === 'number' ? r.sensorTemp.toFixed(1) : '—');
-  setText('rd-hero-humidity', r.humidity + '% humidity');
+  setText('rd-hero-temp', typeof r.temp === 'number' ? r.temp.toFixed(1) : '—');
+  setText('rd-hero-humidity', sensorNote(r));
   setText('rd-target-val', r.target.toFixed(1) + '°');
 
-  // Airflow limits
-  const lim = climate.airflowLimits[id] || { min: 0, max: 100 };
-  const minSlider = $('rd-range-min');
-  const maxSlider = $('rd-range-max');
-  if (minSlider) minSlider.value = lim.min;
-  if (maxSlider) maxSlider.value = lim.max;
+  // Airflow limits: the iZone's own Min Air / Max Air for this zone (read-only here)
   updateAirflowRange();
 
   // Schedules list
@@ -3417,42 +3429,32 @@ function toggleRoomPowerFromDetail() {
 }
 
 /* ── Airflow limits ──────────────────────────────────────────── */
+/* Shows the zone's Min Air / Max Air as set in the iZone, and where the damper sits now.
+   Read-only: these are changed in the iZone app (Max Air per zone), not here. The old
+   sliders only saved a number on this device and never reached the iZone. */
 function updateAirflowRange() {
   const id = roomDetailState.roomId;
   if (!id) return;
+  const r = climate.rooms[id] || {};
   const minSlider = $('rd-range-min');
   const maxSlider = $('rd-range-max');
-  if (!minSlider || !maxSlider) return;
-
-  let minV = parseInt(minSlider.value) || 0;
-  let maxV = parseInt(maxSlider.value) || 100;
-
-  // Prevent crossover
-  if (minV > maxV - 5) {
-    if (document.activeElement === minSlider) { minV = maxV - 5; minSlider.value = minV; }
-    else { maxV = minV + 5; maxSlider.value = maxV; }
-  }
-
-  setText('rd-range-min-val', minV + '%');
-  setText('rd-range-max-val', maxV + '%');
-  setText('rd-range-cur-val', (climate.rooms[id]?.damper ?? 0) + '%');
-
-  // Visual active range
+  const known = typeof r.maxAir === 'number';
+  const minV = typeof r.minAir === 'number' ? r.minAir : 0;
+  const maxV = known ? r.maxAir : 100;
+  if (minSlider) { minSlider.value = minV; minSlider.disabled = true; }
+  if (maxSlider) { maxSlider.value = maxV; maxSlider.disabled = true; }
+  setText('rd-range-min-val', known ? minV + '%' : '—');
+  setText('rd-range-max-val', known ? maxV + '%' : '—');
+  setText('rd-range-cur-val', typeof r.damper === 'number' ? r.damper + '%' : '—');
   const active = $('rd-range-active');
   if (active) {
     active.style.left  = minV + '%';
     active.style.width = (maxV - minV) + '%';
   }
-
-  // Persist and enforce on current damper
-  climate.airflowLimits[id] = { min: minV, max: maxV };
-  const r = climate.rooms[id];
-  if (r) {
-    if (r.damper < minV) r.damper = minV;
-    if (r.damper > maxV) r.damper = maxV;
-  }
-  saveClimate();
-  renderThermostats();
+  const sub = $('rd-range-sub');
+  if (sub) sub.textContent = !known ? 'Waiting for the iZone…'
+    : maxV < 100 ? `The iZone caps this zone at ${maxV}%, so it can't get more air than that. Change Max Air for this zone in the iZone app.`
+    : 'No cap set in the iZone. Min Air and Max Air are changed in the iZone app.';
 }
 
 /* ── Schedules ──────────────────────────────────────────────── */
@@ -3570,41 +3572,43 @@ setInterval(() => {
 function renderThermostats() {
   const host = $('thermostats');
   if (!host) return;
+  ensureRooms();
   host.innerHTML = CLIMATE_ROOMS.map(cfg => buildThermoCard(cfg)).join('');
+  renderSensorStatus();
+}
+
+/* One line under the room cards saying what the room sensors are doing */
+function renderSensorStatus() {
+  const el = $('sensor-status');
+  if (!el) return;
+  const withSensor = CLIMATE_ROOMS.filter(c => typeof climate.rooms[c.id]?.sensorTemp === 'number');
+  if (!withSensor.length) {
+    el.textContent = sensorFetchState.ok === false
+      ? 'Room sensors: couldn\'t reach Ecowitt or the Pi just now'
+      : 'No room sensors yet · set a WN31 sensor\'s channel to the room\'s zone number';
+    return;
+  }
+  const parts = withSensor.map(c => {
+    const r = climate.rooms[c.id];
+    if (!sensorFresh(r)) return `${c.name} offline`;
+    return `${c.name} ${r.sensorTemp.toFixed(1)}°${r.batteryLow ? ' (battery low)' : ''}`;
+  });
+  const latest = Math.max(...withSensor.map(c => Date.parse(climate.rooms[c.id].sensorLastUpdate || '') || 0));
+  const when = latest ? ' · read ' + new Date(latest).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' }) : '';
+  el.textContent = `Room sensors (${withSensor.length} of ${CLIMATE_ROOMS.length}): ${parts.join(' · ')}${when}`;
 }
 
 function buildThermoCard(cfg) {
   const r = climate.rooms[cfg.id];
   if (!r) return '';
-
-  const diff = r.temp - r.target;
-  let state;
-  if (!r.isOpen) {
-    state = 'off';
-  } else if (!climate.acOn) {
-    state = 'off';
-  } else if (climate.acMode === 'vent') {
-    state = 'vent';
-  } else if (climate.acMode === 'dry') {
-    state = 'dry';
-  } else if (climate.acMode === 'cool') {
-    state = (diff > 0.3) ? 'cool' : 'idle';   // only "cooling" if zone is above target
-  } else if (climate.acMode === 'heat') {
-    state = (diff < -0.3) ? 'heat' : 'idle';  // only "heating" if zone is below target
-  } else if (climate.acMode === 'auto') {
-    if (Math.abs(diff) < 0.5) state = 'idle';
-    else if (diff > 0)        state = 'cool';
-    else                      state = 'heat';
-  } else {
-    state = 'idle';
-  }
+  const state = roomState(r);
 
   const RADIUS = 90;
   const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
   const arcLength = CIRCUMFERENCE * 0.75;
   const minTemp = 16, maxTemp = 28;
-  // Dial fill follows sensor reading when available; otherwise sits at the user's target.
-  const dialTemp = (typeof r.sensorTemp === 'number') ? r.sensorTemp : r.target;
+  // Dial fill follows a fresh sensor reading when there is one; otherwise sits at the user's target.
+  const dialTemp = (typeof r.temp === 'number') ? r.temp : r.target;
   const tempPct = Math.max(0, Math.min(1, (dialTemp - minTemp) / (maxTemp - minTemp)));
   const dashOffset = arcLength - (arcLength * tempPct);
 
@@ -3641,10 +3645,10 @@ function buildThermoCard(cfg) {
       <div class="dial-trend ${trendCls}">${trendIcon}</div>
       <div class="dial-center">
         <div class="dial-temp-wrap">
-          <span class="dial-temp">${typeof r.sensorTemp === 'number' ? r.sensorTemp.toFixed(1) : '—'}</span>
+          <span class="dial-temp">${typeof r.temp === 'number' ? r.temp.toFixed(1) : '—'}</span>
           <span class="dial-temp-deg">°</span>
         </div>
-        <div class="dial-humidity">${typeof r.sensorHumidity === 'number' ? r.sensorHumidity.toFixed(0) + '% humidity' : 'No sensor'}</div>
+        <div class="dial-humidity">${sensorNote(r)}</div>
       </div>
       <button class="power-btn" onclick="event.stopPropagation(); toggleRoomPower('${cfg.id}')" aria-label="Toggle zone"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></button>
     </div>
@@ -3656,13 +3660,14 @@ function buildThermoCard(cfg) {
       <button class="target-btn" onclick="event.stopPropagation(); adjustRoomTarget('${cfg.id}', 0.5)">+</button>
     </div>
 
-    <div class="damper-row">
+    <div class="damper-row" title="Damper position reported by the iZone${typeof r.maxAir === 'number' && r.maxAir < 100 ? '. Max Air is set to ' + r.maxAir + '% in the iZone' : ''}">
       <div class="damper-row-head">
         <span class="damper-label">Airflow</span>
-        <span class="damper-value">${r.damper}%</span>
+        <span class="damper-value">${typeof r.damper === 'number' ? r.damper + '%' : '—'}${typeof r.maxAir === 'number' && r.maxAir < 100 ? ` <span class="damper-cap-label">cap ${r.maxAir}%</span>` : ''}</span>
       </div>
-      <div class="damper-bar" onclick="event.stopPropagation(); setDamperFromClick(event, '${cfg.id}')">
-        <div class="damper-fill" style="width: ${r.damper}%"></div>
+      <div class="damper-bar">
+        <div class="damper-fill" style="width: ${typeof r.damper === 'number' ? r.damper : 0}%"></div>
+        ${typeof r.maxAir === 'number' && r.maxAir < 100 ? `<div class="damper-cap" style="left: ${r.maxAir}%"></div>` : ''}
       </div>
     </div>
   </div>`;
@@ -3692,18 +3697,8 @@ function adjustRoomTarget(id, delta) {
   logClimate(`${CLIMATE_ROOMS.find(x=>x.id===id).name} target → ${newT}°`);
 }
 
-function setDamperFromClick(e, id) {
-  const bar = e.currentTarget;
-  const rect = bar.getBoundingClientRect();
-  const pct = Math.round(((e.clientX - rect.left) / rect.width) * 100);
-  const clamped = Math.max(0, Math.min(100, pct));
-  if (climate.rooms[id]) {
-    climate.rooms[id].damper = clamped;
-    climate.rooms[id].isOpen = clamped > 0;
-    renderThermostats();
-    logClimate(`${CLIMATE_ROOMS.find(x=>x.id===id).name} airflow → ${clamped}%`);
-  }
-}
+/* (setDamperFromClick removed 2026-11-05: it changed the bar on screen only and never reached
+   the iZone. The airflow bar now shows the iZone's real damper position. See TODO.md.) */
 
 /* Legacy compat for banner apply callbacks */
 function focusRoom(id) { climate.focusedRoomId = id; saveClimate(); }
@@ -3722,11 +3717,23 @@ function toggleFocusZone(open) {
 }
 function toggleAcPower() { /* placeholder — AC master power is per-zone in this UI */ }
 
+// Opens or closes a zone on the iZone (only if it's not already that way) and logs it
+function setZoneOpen(cfg, open) {
+  const r = climate.rooms[cfg.id];
+  if (!r || r.isOpen === open) return false;
+  r.isOpen = open;
+  izToggleZone(cfg.zone - 1, open);
+  return true;
+}
+
 function buildClimateSuggestion() {
+  // Only rooms with a fresh real sensor reading take part. Rooms without one are never guessed at.
+  ensureRooms();
   const rooms = CLIMATE_ROOMS.map(cfg => {
     const r = climate.rooms[cfg.id];
-    return r ? { cfg, r, diff: r.temp - r.target } : null;
+    return r && typeof r.temp === 'number' ? { cfg, r, diff: r.temp - r.target } : null;
   }).filter(Boolean);
+  if (!rooms.length) return null;
 
   const hot = rooms.filter(x => x.diff > 1.5 && x.r.isOpen).sort((a,b)=>b.diff-a.diff)[0];
   const cold = rooms.filter(x => x.diff < -1.5).sort((a,b)=>a.diff-b.diff)[0];
@@ -3736,12 +3743,12 @@ function buildClimateSuggestion() {
       key: 'rebalance-' + hot.cfg.id + '-' + cold.cfg.id,
       kind: 'info',
       title: 'Rebalance zones',
-      body: `${hot.cfg.name} is <strong>${hot.r.temp.toFixed(1)}°</strong> (target ${hot.r.target}°) while ${cold.cfg.name} is <strong>${cold.r.temp.toFixed(1)}°</strong>. Close ${hot.cfg.name}, open ${cold.cfg.name} at max airflow.`,
+      body: `${hot.cfg.name} is <strong>${hot.r.temp.toFixed(1)}°</strong> (target ${hot.r.target}°) while ${cold.cfg.name} is <strong>${cold.r.temp.toFixed(1)}°</strong>. Close ${hot.cfg.name} and make sure ${cold.cfg.name} is open.`,
       apply() {
-        climate.rooms[hot.cfg.id].isOpen = false;
-        climate.rooms[cold.cfg.id].isOpen = true;
-        climate.rooms[cold.cfg.id].damper = 100;
-        logClimate(`Closed ${hot.cfg.name}, opened ${cold.cfg.name} @ 100%`);
+        setZoneOpen(hot.cfg, false);
+        setZoneOpen(cold.cfg, true);
+        saveClimate();
+        logClimate(`Closed ${hot.cfg.name}, opened ${cold.cfg.name}`);
       }
     };
   }
@@ -3758,8 +3765,9 @@ function buildClimateSuggestion() {
         title: 'Free solar available',
         body: `You have <strong>${fmtW(state.sems.exportPower)}</strong> of surplus. Run AC to ${action} these rooms at no cost: <strong>${targets}</strong>.`,
         apply() {
-          (action === 'heat' ? heat : cool).forEach(x => { climate.rooms[x.cfg.id].isOpen = true; });
-          logClimate(`Activated solar ${action} for ${targets}`);
+          (action === 'heat' ? heat : cool).forEach(x => setZoneOpen(x.cfg, true));
+          saveClimate();
+          logClimate(`Opened zones for solar ${action}: ${targets}`);
         }
       };
     }
@@ -4292,44 +4300,63 @@ async function izBulkZones() {
   }
 }
 
-/* Fetch current room sensor readings via the bridge.
-   Today returns rooms = {} (no sensors connected). When sensors come online,
-   each entry has { temp: float, humidity: float, last_update_iso: str }.
-   Returns { rooms: {...}, expectedRooms: [...] }. */
+/* Room sensor readings from two places, merged by room id:
+   - Ecowitt WN31 sensors on the weather station gateway (ecowitt function `rooms`;
+     the sensor's channel = the room's iZone zone number)
+   - the Pi bridge's /api/sensors/temps (kept for any Pi-side sensors later)
+   Each entry is { temp, humidity, last_update_iso, batteryLow?, channel?, source }.
+   The Ecowitt reading is reused for 50 s, since the gateway only uploads about once a minute. */
+var sensorFetchState = { ecoAt: 0, ok: null, at: 0 };
 async function fetchSensors() {
-  try {
-    const r = await fetch(BRIDGE_URL + '/api/sensors/temps', {
-      method: 'GET',
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!r.ok) throw new Error('Sensors HTTP ' + r.status);
-    return await r.json();
-  } catch(e) {
-    console.warn('Sensor fetch failed:', e.message);
-    return { rooms: {}, expectedRooms: [] };
-  }
+  const bridgeP = fetch(BRIDGE_URL + '/api/sensors/temps', { method: 'GET', signal: AbortSignal.timeout(5000) })
+    .then(r => { if (!r.ok) throw new Error('Sensors HTTP ' + r.status); return r.json(); })
+    .catch(e => { console.warn('Bridge sensor fetch failed:', e.message); return null; });
+  const ecoP = (state.ecowitt && Date.now() - sensorFetchState.ecoAt < 50000)
+    ? Promise.resolve(state.ecowitt)
+    : fetchEcowitt().then(d => { state.ecowitt = d; sensorFetchState.ecoAt = Date.now(); return d; })
+        .catch(e => { console.warn('Ecowitt sensor fetch failed:', e.message); return null; });
+  const [bridge, eco] = await Promise.all([bridgeP, ecoP]);
+  sensorFetchState.ok = !!(bridge || eco);
+  sensorFetchState.at = Date.now();
+  return { rooms: { ...(bridge?.rooms || {}), ...(eco?.rooms || {}) }, ok: sensorFetchState.ok };
 }
 
-/* Merge sensor data into climate.rooms[roomId].sensorTemp / sensorHumidity.
-   Rooms not in sensorData.rooms are marked sensorTemp = null so the UI
-   can show "no sensor" indicators. */
+/* Merge sensor data into climate.rooms[roomId].sensorTemp / sensorHumidity / batteryLow.
+   If neither source answered, keep the last readings (they age out to "Sensor offline").
+   Trend = change over the last ~15 minutes of real readings. */
+const sensorHistory = {};   // roomId -> [{ t, temp }]
 function applySensorData(sensorData) {
   if (!sensorData || !climate.rooms) return;
+  ensureRooms();
+  if (sensorData.ok === false) { renderThermostats(); return; }
   const rooms = sensorData.rooms || {};
   Object.keys(climate.rooms).forEach(roomId => {
     const r = climate.rooms[roomId];
     const s = rooms[roomId];
     if (s && typeof s.temp === 'number') {
       r.sensorTemp = s.temp;
-      r.sensorHumidity = s.humidity;
-      r.sensorLastUpdate = s.last_update_iso;
+      r.sensorHumidity = typeof s.humidity === 'number' ? s.humidity : null;
+      r.sensorLastUpdate = s.last_update_iso || new Date().toISOString();
+      r.batteryLow = s.batteryLow ?? null;
+      r.sensorChannel = s.channel ?? null;
+      const t = Date.parse(r.sensorLastUpdate) || Date.now();
+      const h = sensorHistory[roomId] = (sensorHistory[roomId] || []);
+      if (!h.length || h[h.length - 1].t !== t) h.push({ t, temp: s.temp });
+      while (h.length > 1 && t - h[0].t > 30 * 60 * 1000) h.shift();
+      const old = h.find(p => t - p.t >= 10 * 60 * 1000) ? h.filter(p => t - p.t >= 10 * 60 * 1000).pop() : null;
+      r.trend = old ? +(s.temp - old.temp).toFixed(2) : 0;
     } else {
       r.sensorTemp = null;
       r.sensorHumidity = null;
       r.sensorLastUpdate = null;
+      r.batteryLow = null;
+      r.trend = 0;
     }
   });
+  ensureRooms();
   renderThermostats();
+  if (roomDetailState.roomId && $('room-detail')?.classList.contains('open')) renderRoomDetail();
+  try { renderClimateBanner(); } catch(e) {}
 }
 
 /* Bridge health check — fires every 60s independent of iZone polling.
@@ -4398,8 +4425,13 @@ function syncRoomsFromIzone(zones) {
     // Mode 1 = zone enabled (open by setpoint); Mode 2 = user turned it off.
     // DmpPos fluctuates regardless and is misleading for "is zone on".
     room.isOpen = (z.Mode === 1);
-    // Setpoint comes through as integer × 100 (e.g. 2300 = 23.00°C)
-    if (z.Setpoint > 0) room.target = z.Setpoint / 100;
+    // Real damper position and the zone's Min Air / Max Air limits, clamped to 0-100
+    const pct = v => (typeof v === 'number' && Number.isFinite(v)) ? Math.max(0, Math.min(100, Math.round(v))) : null;
+    room.damper = pct(z.DmpPos);
+    room.maxAir = pct(z.MaxAir);
+    room.minAir = pct(z.MinAir);
+    // Targets are NOT taken from the iZone. Its per-zone Setpoint is a default (2300 on every
+    // zone) that this hardware can't act on; copying it here reset every room to 23° each poll.
     // Temp NOT synced — iZone returns 0 for all zones (no physical sensors)
   });
   if (missing.length) console.warn('iZone sync: missing zones', missing.join(', '));

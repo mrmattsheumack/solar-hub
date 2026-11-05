@@ -6,7 +6,7 @@ This file tracks pending fixes and improvements that have been identified but no
 
 ### Damper slider on dashboard cards (no need to drill in)
 **Reported:** 2026-04-27
-**Status:** Open
+**Status:** Open. Note 2026-11-05: the card's airflow bar is now read-only and shows the iZone's real damper % and Max Air cap. A control still needs the iZone command for Max Air confirmed on this hardware first.
 
 Currently the damper position slider only appears in the focused room detail overlay. Goal: surface the same slider directly on each room card on the home dashboard so the user can adjust airflow per room without clicking into individual room views.
 
@@ -15,9 +15,18 @@ Touchpoint: `buildThermoCard` in `solar-hub/public/index.html`. The detail overl
 - The control needs to write to climate.rooms[id].damper AND send the corresponding command to iZone (likely a SysSetpoint-style command on the zone — verify this is supported on Matt's hardware before wiring; iZone Genius accepts MaxAir per zone via ZoneMode override but may not accept per-zone setpoint adjustments — same constraint as setpoint)
 - Quick gotcha: if iZone returns {ERROR} on the command (per the per-zone setpoint constraint we already documented), then this becomes "local only" — store in localStorage but don't send to iZone, until a real test confirms. Verify on the Pi before wiring up.
 
+### Room sensor pilot (Ecowitt WN31)
+**Reported:** 2026-11-05
+**Status:** Open. Pilot sensor arrived 5 Nov; site ready (see SCOPE.md "Room sensors: Ecowitt WN31").
+- [ ] Matt: batteries in, channel = room's zone number, check it appears in the Ecowitt app
+- [ ] Confirm the reading shows on Climate Control and the dashboard tile; compare with the iZone return air
+- [ ] Run a week; if good, order 5 more and set channels 1-6
+- [ ] Review the iZone Max Air caps (most zones 5-25%) in the iZone app
+- [ ] Later: zone open/close automation from real temps (Suggest mode first)
+
 ### Negative airflow value displayed on room cards
 **Reported:** 2026-04-28
-**Status:** Open
+**Status:** Done 2026-11-05. The value was made up by mock data; cards now show the iZone's real damper % clamped 0-100.
 
 Lounge zone card was observed showing "AIRFLOW -15%". Negative airflow values shouldn't be possible — airflow percentage should be clamped to 0-100. Likely a calculation or rendering bug where a delta or signed value is being shown instead of the absolute airflow percentage.
 

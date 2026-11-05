@@ -4,6 +4,8 @@
 const ECOWITT_BASE = "https://api.ecowitt.net/api/v3";
 const APPLICATION_KEY = "7C78EE38078394C154BD80B2D874DBD3";
 const MAC = "8C:4F:00:4F:FC:E2";
+// WN31 room sensor channel -> Climate Control room id. Channel = iZone zone number.
+const CHANNEL_ROOMS = { 1: "lounge", 2: "master", 3: "charlie", 4: "mila", 5: "office", 6: "bath" };
 
 exports.handler = async (event) => {
   const headers = {
@@ -137,6 +139,31 @@ exports.handler = async (event) => {
       stationTime: d.outdoor?.temperature?.time ? new Date(Number(d.outdoor.temperature.time) * 1000).toISOString() : null,
       timestamp: new Date().toISOString(),
     };
+
+    // Room sensors (Ecowitt WN31, channels 1-8). The v3 API reports each as
+    // temp_and_humidity_chN { temperature, humidity } and its battery as
+    // battery.temp_humidity_sensor_chN (0 = OK, 1 = low; a few sensors send volts).
+    // Rule agreed with Matt: the sensor's channel = the room's iZone zone number,
+    // so the channel to set is the "Zone N" shown on each Climate Control card.
+    const battery = d.battery || {};
+    const channels = [];
+    const rooms = {};
+    for (let ch = 1; ch <= 8; ch++) {
+      const th = d[`temp_and_humidity_ch${ch}`];
+      if (!th || !th.temperature) continue;
+      const temp = num(th.temperature);
+      if (temp == null) continue;
+      const t = Number(th.temperature.time);
+      const updated = Number.isFinite(t) && t > 0 ? new Date(t * 1000).toISOString() : null;
+      const b = parseFloat(battery[`temp_humidity_sensor_ch${ch}`]?.value);
+      const batteryLow = !Number.isFinite(b) ? null : (b > 1.5 ? b < 1.2 : b >= 1);
+      const room = CHANNEL_ROOMS[ch] || null;
+      const reading = { channel: ch, room, temp, humidity: num(th.humidity), updated, batteryLow };
+      channels.push(reading);
+      if (room) rooms[room] = { temp, humidity: reading.humidity, last_update_iso: updated, batteryLow, channel: ch, source: "ecowitt" };
+    }
+    payload.channels = channels;
+    payload.rooms = rooms;
 
     return { statusCode: 200, headers, body: JSON.stringify(payload) };
   } catch (err) {

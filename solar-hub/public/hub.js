@@ -563,11 +563,22 @@ window.Hub = (() => {
     } catch (e) { failed.climate = true; console.warn('climate', e.message); }
     renderDots();
   }
+  // Room sensors: Ecowitt WN31s arrive with the weather feed (S.wx.rooms; channel = zone number),
+  // Pi-side sensors (if any) with the bridge. Keyed by room id. A reading over 15 minutes old is stale.
+  const ROOM_NAMES = { lounge: 'Lounge', master: 'Master', charlie: "Charlie's", mila: "Mila's", office: 'Office', bath: 'Bathroom' };
+  function roomSensors() {
+    const all = { ...(S.climate?.sensors || {}), ...(S.wx?.rooms || {}) };
+    return Object.entries(all).filter(([, v]) => v && has(v.temp)).map(([id, v]) => {
+      const t = Date.parse(v.last_update_iso || '');
+      const age = Number.isFinite(t) ? Date.now() - t : 0;
+      return [id, { ...v, name: ROOM_NAMES[id] || id, seen: Number.isFinite(t) ? t : null, fresh: age < 15 * 60e3, age }];
+    });
+  }
   function climateSummary() {
     const c = S.climate; if (!c || !c.sys) return null;
     const sys = c.sys, on = sys.SysOn === 1;
     const open = (c.zones || []).filter(z => z.Mode === 1).map(z => ZONES[z.Index + 1] || `Zone ${z.Index + 1}`);
-    const sensors = Object.entries(c.sensors || {}).filter(([, v]) => v && has(v.temp));
+    const sensors = roomSensors().filter(([, v]) => v.fresh);
     const ret = has(sys.Temp) && sys.Temp > 0 ? sys.Temp / 100 : null, supply = has(sys.Supply) && sys.Supply > 0 ? sys.Supply / 100 : null;
     return { on, mode: AC_MODE[sys.SysMode] || '?', fan: AC_FAN[sys.SysFan] || '', setpoint: has(sys.Setpoint) ? sys.Setpoint / 100 : null,
       ret, supply, open, zonesKnown: Array.isArray(c.zones), sensors };
@@ -656,6 +667,11 @@ window.Hub = (() => {
       }
     }
     warns.filter(x => x.level === 'info').forEach(x => out.push(x));
+    // Room sensors: a flat battery, or one that has stopped reporting for over 30 minutes
+    roomSensors().forEach(([, v]) => {
+      if (v.batteryLow && v.fresh) add('warn', `${v.name} room sensor battery is low. Swap in 2 fresh AA batteries.`);
+      else if (v.age > 30 * 60e3 && v.seen) add('warn', `${v.name} room sensor hasn't reported since ${clock(new Date(v.seen))}. Check its batteries.`);
+    });
     if ((S.ev && at.ev && Date.now() - at.ev > STALE.ev) || (!S.ev && failed.ev)) add('warn', "Can't reach the Pi. The charger controller keeps running on its own.");
     paintNotes($('notes'), out, renderNotes);
   }
