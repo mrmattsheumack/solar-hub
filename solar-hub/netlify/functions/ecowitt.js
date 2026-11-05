@@ -35,6 +35,24 @@ exports.handler = async (event) => {
   // &hours=N (1-23) also reaches back at least N hours, so just after midnight there is still a recent
   // stretch to show (the range never exceeds 24 hours). Callers filter to midnight for "today" figures.
   const q = event.queryStringParameters || {};
+  // ?devices=1 -> the Ecowitt devices on the account (name, model, MAC) and which one this site reads.
+  // Read-only; used to check which unit the "indoor" reading comes from.
+  if (q.devices) {
+    try {
+      const lp = new URLSearchParams({ application_key: APPLICATION_KEY, api_key: apiKey, page: "1", limit: "20" });
+      const r = await fetch(`${ECOWITT_BASE}/device/list?${lp}`);
+      const j = await r.json();
+      if (j.code !== 0) throw new Error(`Ecowitt device list error: ${j.msg}`);
+      const list = (j.data && (j.data.list || j.data)) || [];
+      const devices = (Array.isArray(list) ? list : []).map(d => ({
+        name: d.name, mac: d.mac, model: d.stationtype || d.type, type: d.type, createdAt: d.createtime || d.date_zone_id || null,
+        readBySite: String(d.mac || "").toUpperCase() === MAC,
+      }));
+      return { statusCode: 200, headers: { ...headers, "Cache-Control": "no-store" }, body: JSON.stringify({ siteMac: MAC, devices }) };
+    } catch (err) {
+      return { statusCode: 502, headers, body: JSON.stringify({ error: err.message }) };
+    }
+  }
   if (q.history === "today") {
     try {
       const melFmt = new Intl.DateTimeFormat("sv-SE", { timeZone: "Australia/Melbourne", hour12: false,
