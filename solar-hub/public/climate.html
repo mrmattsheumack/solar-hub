@@ -1348,6 +1348,29 @@ img { display: block; max-width: 100%; }
   background: var(--text-muted); border-radius: 1px; opacity: .8;
 }
 .damper-cap-label { font-size: 10px; font-weight: 500; color: var(--text-dim); margin-left: 4px; }
+
+/* Room airflow controller */
+.ctl-strip {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md);
+  padding: 12px 16px; margin-bottom: 14px;
+}
+.ctl-main { min-width: 0; flex: 1 1 260px; }
+.ctl-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
+.ctl-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-dim); flex: none; }
+.ctl-strip[data-on="true"] .ctl-dot { background: var(--export); box-shadow: 0 0 0 3px color-mix(in srgb, var(--export) 22%, transparent); }
+.ctl-strip[data-err="true"] .ctl-dot { background: var(--import); }
+.ctl-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; line-height: 1.45; }
+.ctl-btns { display: flex; gap: 8px; flex: none; }
+.thermo-auto {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 4px 7px; border-radius: 999px; margin-left: 6px;
+  color: var(--export); border: 1px solid color-mix(in srgb, var(--export) 45%, transparent);
+}
+.thermo-chips { display: flex; align-items: center; }
+.ctl-room-status { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.air-step { display: flex; align-items: center; gap: 10px; flex: none; }
+.air-step-val { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 600; min-width: 44px; text-align: center; }
 .damper-fill {
   height: 100%;
   width: 0%;
@@ -2117,11 +2140,15 @@ html.has-rail .room-detail{left:var(--rail-w)}
       </div>
 
       <!-- Mode switcher -->
-      <div class="home-mode-row">
-        <div class="segmented" id="mode-segmented">
-          <button class="segmented-item active" data-mode="auto" onclick="setClimateMode('auto')">AUTO</button>
-          <button class="segmented-item" data-mode="suggest" onclick="setClimateMode('suggest')">SUGGEST</button>
-          <button class="segmented-item" data-mode="manual" onclick="setClimateMode('manual')">MANUAL</button>
+      <!-- Room airflow controller (netlify/functions/climate-control.mjs, every 5 minutes) -->
+      <div class="ctl-strip" id="ctl-strip">
+        <div class="ctl-main">
+          <div class="ctl-title"><i class="ctl-dot" id="ctl-dot"></i><span id="ctl-title">Room control</span></div>
+          <div class="ctl-sub" id="ctl-sub">Checking…</div>
+        </div>
+        <div class="ctl-btns">
+          <button class="btn btn-sm" id="ctl-run" onclick="ctlRunNow()">Check now</button>
+          <button class="btn btn-sm" id="ctl-toggle" onclick="ctlToggleEnabled()">…</button>
         </div>
       </div>
 
@@ -2198,6 +2225,33 @@ html.has-rail .room-detail{left:var(--rail-w)}
             <button class="rd-target-btn" onclick="adjustRoomDetailTarget(-0.5)">−</button>
             <span class="rd-target-value" id="rd-target-val">—°</span>
             <button class="rd-target-btn" onclick="adjustRoomDetailTarget(0.5)">+</button>
+          </div>
+        </div>
+
+        <!-- Automatic airflow (room controller) -->
+        <div class="rd-section" id="rd-auto-section">
+          <div class="rd-section-head" style="margin-bottom: 8px;">
+            <div>
+              <div class="rd-section-title">Automatic airflow</div>
+              <div class="rd-section-sub" id="rd-auto-sub">The dashboard adjusts this room's airflow to hold its target.</div>
+            </div>
+            <label class="toggle"><input type="checkbox" id="rd-auto-toggle" onchange="ctlSetRoomControl(this.checked)"/><span class="toggle-slider"></span></label>
+          </div>
+          <div class="ctl-room-status" id="rd-auto-status"></div>
+        </div>
+
+        <!-- Airflow by hand (iZone Max Air) -->
+        <div class="rd-section">
+          <div class="rd-section-head" style="margin-bottom: 8px;">
+            <div>
+              <div class="rd-section-title">Airflow</div>
+              <div class="rd-section-sub" id="rd-air-sub">How far this zone's vent may open, set on the iZone.</div>
+            </div>
+            <div class="air-step">
+              <button class="target-btn" onclick="ctlStepAirflow(-5)" aria-label="Less airflow">−</button>
+              <span class="air-step-val" id="rd-air-val">—</span>
+              <button class="target-btn" onclick="ctlStepAirflow(5)" aria-label="More airflow">+</button>
+            </div>
           </div>
         </div>
 
@@ -2963,7 +3017,7 @@ const CLIMATE_ROOMS = [
 const DEFAULT_TARGETS = { master: 20, lounge: 22, charlie: 21, mila: 21, office: 22, bath: 22 };
 
 const climate = {
-  mode: localStorage.getItem('climateMode') || 'manual',   // manual / suggest / auto (auto is deprecated, retained for old saves)
+  mode: 'manual',   // the old suggestion banner (suggest/auto) is replaced by the room controller strip (5 Nov 2026)
   systemMode: localStorage.getItem('systemMode') || 'off', // off / cool / heat / fan
   focusedRoomId: localStorage.getItem('focusedRoom') || 'lounge',
   // Master AC state
@@ -3012,16 +3066,22 @@ function logClimate(text) {
   saveClimate();
   renderLog();
 }
+// Activity: the room controller's log (shared, from the server) when there is one, otherwise this device's log
 function renderLog() {
   const host = $('log-entries');
   const count = $('log-count');
   if (!host) return;
-  count.textContent = climate.log.length + ' entries';
-  if (!climate.log.length) {
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const server = (typeof ctl !== 'undefined' && ctl.data && Array.isArray(ctl.data.log)) ? ctl.data.log : null;
+  const rows = server && server.length
+    ? server.slice(0, 40).map(l => ({ time: new Date(l.ts).toLocaleString('en-AU', { timeZone: 'Australia/Melbourne', weekday: 'short', hour: 'numeric', minute: '2-digit' }), text: `<b>${esc(l.name || l.room)}</b> · ${esc(l.text)}` }))
+    : climate.log.map(l => ({ time: l.time, text: esc(l.text) }));
+  count.textContent = rows.length + ' entries';
+  if (!rows.length) {
     host.innerHTML = '<div class="text-dim" style="font-style: italic;">No activity yet</div>';
     return;
   }
-  host.innerHTML = climate.log.map(l => `<div><span class="mono text-dim" style="font-size: 11px;">${l.time}</span> &nbsp; ${l.text}</div>`).join('');
+  host.innerHTML = rows.map(l => `<div><span class="mono text-dim" style="font-size: 11px;">${l.time}</span> &nbsp; ${l.text}</div>`).join('');
 }
 
 /* Room state is built from real data only (no mock values):
@@ -3410,6 +3470,7 @@ function renderRoomDetail() {
 
   // Airflow limits: the iZone's own Min Air / Max Air for this zone (read-only here)
   updateAirflowRange();
+  renderRoomControl(id);
 
   // Schedules list
   renderScheduleList();
@@ -3578,6 +3639,137 @@ function renderThermostats() {
   renderSensorStatus();
 }
 
+/* ── Room airflow controller (client) ─────────────────────────────
+   The controller itself runs on Netlify every 5 minutes (netlify/functions/climate-control.mjs,
+   logic in netlify/climate-core.mjs). It only changes Max Air on rooms switched to automatic that
+   have a fresh room sensor reading; every other room stays as set in the iZone. This page shows its
+   status, switches it and rooms on/off, shares the room targets, and sets airflow by hand. */
+const CTL_URL = '/.netlify/functions/climate';
+var ctl = { data: null, err: null, busy: false };
+function ctlRoom(id) { return ctl.data?.settings?.rooms?.[id] || null; }
+function ctlControlled(id) { return !!(ctl.data?.settings?.enabled && ctlRoom(id)?.control); }
+function ctlApply(d) {
+  if (!d || !d.settings) return;
+  ctl.data = d; ctl.err = null;
+  // the server's targets are the shared ones
+  CLIMATE_ROOMS.forEach(c => {
+    const t = d.settings.rooms?.[c.id]?.target;
+    if (typeof t === 'number' && !targetSaveTimers[c.id]) climate.targets[c.id] = t;
+    const a = d.status?.rooms?.[c.id]?.airflow;           // the controller's latest airflow, until the next iZone poll
+    if (typeof a === 'number' && climate.rooms[c.id]) climate.rooms[c.id].maxAir = a;
+  });
+  saveClimate();
+  renderThermostats();
+  renderCtl();
+  renderLog();
+  if (roomDetailState.roomId && $('room-detail')?.classList.contains('open')) renderRoomDetail();
+}
+async function ctlLoad() {
+  try {
+    const r = await fetch(CTL_URL, { cache: 'no-store', signal: AbortSignal.timeout(12000) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'HTTP ' + r.status);
+    ctlApply(d);
+  } catch (e) { ctl.err = e.message; renderCtl(); }
+}
+async function ctlPost(body) {
+  ctl.busy = true; renderCtl();
+  try {
+    const r = await fetch(CTL_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(25000) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'HTTP ' + r.status);
+    ctlApply(d);
+    return d;
+  } finally {
+    ctl.busy = false; renderCtl();
+    if (body.room) delete targetSaveTimers[body.room];
+    setTimeout(() => fetchIzone().catch(() => {}), 1500);   // show the iZone's new state
+  }
+}
+const ctlTime = iso => iso ? new Date(iso).toLocaleTimeString('en-AU', { timeZone: 'Australia/Melbourne', hour: 'numeric', minute: '2-digit' }) : '';
+function ctlRoomLine(id) {
+  const cfg = CLIMATE_ROOMS.find(c => c.id === id);
+  const s = ctl.data?.status?.rooms?.[id];
+  if (!s) return `${cfg.name}: waiting for the first check`;
+  const air = typeof s.airflow === 'number' ? `airflow ${s.airflow}%` : 'airflow ?';
+  if (s.action === 'up' || s.action === 'down') return `${cfg.name}: ${s.reason}, ${air} (${s.action === 'up' ? 'opened up' : 'eased back'})`;
+  if (s.action === 'wait') return `${cfg.name}: ${air}, ${s.reason}`;
+  return `${cfg.name}: ${air}, ${s.reason || 'holding'}`;
+}
+function renderCtl() {
+  const strip = $('ctl-strip');
+  if (!strip) return;
+  const d = ctl.data;
+  const btn = $('ctl-toggle'), run = $('ctl-run');
+  if (!d) {
+    setText('ctl-title', 'Room control');
+    setText('ctl-sub', ctl.err ? 'Can\'t reach the room controller: ' + ctl.err : 'Checking…');
+    strip.dataset.on = 'false'; strip.dataset.err = String(!!ctl.err);
+    if (btn) btn.disabled = true;
+    return;
+  }
+  const on = !!d.settings.enabled;
+  const controlled = CLIMATE_ROOMS.filter(c => d.settings.rooms?.[c.id]?.control);
+  strip.dataset.on = String(on && controlled.length > 0);
+  strip.dataset.err = String(!!(d.status?.errors?.length));
+  setText('ctl-title', on ? (controlled.length ? `Room control on · ${controlled.map(c => c.name).join(', ')}` : 'Room control on · no rooms on automatic') : 'Room control off');
+  let sub;
+  if (!on) sub = 'The dashboard isn\'t changing any airflow. Every room stays as set in the iZone.';
+  else if (!controlled.length) sub = 'Open a room with a sensor and switch on Automatic airflow.';
+  else sub = controlled.map(c => ctlRoomLine(c.id)).join(' · ') + '. Other rooms stay as set in the iZone.';
+  if (d.status?.at) sub += ` Checked ${ctlTime(d.status.at)}.`;
+  if (d.status?.errors?.length) sub += ' Problem: ' + d.status.errors.join('; ');
+  setText('ctl-sub', sub);
+  if (btn) { btn.disabled = ctl.busy; btn.textContent = on ? 'Turn off' : 'Turn on'; }
+  if (run) { run.disabled = ctl.busy; run.textContent = ctl.busy ? 'Working…' : 'Check now'; }
+}
+function ctlToggleEnabled() {
+  if (!ctl.data) return;
+  const on = !ctl.data.settings.enabled;
+  ctlPost({ action: 'settings', enabled: on })
+    .then(() => showToast(on ? 'Room control on' : 'Room control off. Rooms it was adjusting go back to how they were.', 'success'))
+    .catch(e => showToast('Couldn\'t change room control: ' + e.message, 'error'));
+}
+function ctlRunNow() { ctlPost({ action: 'run' }).catch(e => showToast('Check failed: ' + e.message, 'error')); }
+function ctlSetRoomControl(on) {
+  const id = roomDetailState.roomId;
+  if (!id) return;
+  const name = CLIMATE_ROOMS.find(c => c.id === id).name;
+  ctlPost({ action: 'settings', room: id, control: on })
+    .then(() => showToast(on ? `${name}: automatic airflow on` : `${name}: automatic airflow off`, 'success'))
+    .catch(e => { showToast('Couldn\'t change it: ' + e.message, 'error'); renderRoomDetail(); });
+}
+function ctlStepAirflow(delta) {
+  const id = roomDetailState.roomId;
+  const r = id && climate.rooms[id];
+  if (!r || typeof r.maxAir !== 'number') { showToast('Waiting for the iZone…'); return; }
+  const next = Math.max(0, Math.min(100, Math.round((r.maxAir + delta) / 5) * 5));
+  if (next === r.maxAir) return;
+  const name = CLIMATE_ROOMS.find(c => c.id === id).name;
+  r.maxAir = next; renderRoomDetail();
+  ctlPost({ action: 'airflow', room: id, maxAir: next })
+    .then(() => showToast(`${name} airflow set to ${next}%${ctlControlled(id) ? '. Automatic control waits 2 hours.' : ''}`, 'success'))
+    .catch(e => { showToast('The iZone didn\'t take it: ' + e.message, 'error'); fetchIzone().catch(() => {}); });
+}
+function renderRoomControl(id) {
+  const r = climate.rooms[id] || {};
+  const room = ctlRoom(id);
+  const tog = $('rd-auto-toggle');
+  const hasSensor = typeof r.sensorTemp === 'number';
+  if (tog) { tog.checked = !!room?.control; tog.disabled = !ctl.data || ctl.busy || (!hasSensor && !room?.control); }
+  let txt;
+  if (!ctl.data) txt = ctl.err ? 'Can\'t reach the room controller right now.' : 'Loading…';
+  else if (!hasSensor && !room?.control) txt = 'Needs a room sensor in this room first. Until then its airflow stays as set in the iZone.';
+  else if (!room?.control) txt = 'Off. Airflow stays as set in the iZone.';
+  else if (!ctl.data.settings.enabled) txt = 'Room control is switched off at the top of the page, so nothing is being changed.';
+  else txt = ctlRoomLine(id) + `. Keeps airflow between ${room.minAir}% and ${room.maxAir}%, one change every 10 minutes at most.`;
+  setText('rd-auto-status', txt);
+  setText('rd-air-val', typeof r.maxAir === 'number' ? r.maxAir + '%' : '—');
+  setText('rd-air-sub', ctlControlled(id)
+    ? 'Set automatically now. Changing it here pauses automatic control for this room for 2 hours.'
+    : 'How far this zone\'s vent may open (Max Air on the iZone).');
+}
+
 /* One line under the room cards saying what the room sensors are doing */
 function renderSensorStatus() {
   const el = $('sensor-status');
@@ -3630,7 +3822,7 @@ function buildThermoCard(cfg) {
         <div class="thermo-name">${cfg.name}</div>
         <div class="thermo-zone">Zone ${cfg.zone}</div>
       </div>
-      <div class="thermo-mode-chip">${stateLabel}</div>
+      <div class="thermo-chips"><div class="thermo-mode-chip">${stateLabel}</div>${ctlControlled(cfg.id) ? '<span class="thermo-auto" title="The dashboard is adjusting this room\'s airflow">Auto</span>' : ''}</div>
     </div>
 
     <div class="dial">
@@ -3663,7 +3855,7 @@ function buildThermoCard(cfg) {
 
     <div class="damper-row" title="Damper position reported by the iZone${typeof r.maxAir === 'number' && r.maxAir < 100 ? '. Max Air is set to ' + r.maxAir + '% in the iZone' : ''}">
       <div class="damper-row-head">
-        <span class="damper-label">Airflow</span>
+        <span class="damper-label">Airflow${ctlControlled(cfg.id) ? ' · auto' : ''}</span>
         <span class="damper-value">${typeof r.damper === 'number' ? r.damper + '%' : '—'}${typeof r.maxAir === 'number' && r.maxAir < 100 ? ` <span class="damper-cap-label">cap ${r.maxAir}%</span>` : ''}</span>
       </div>
       <div class="damper-bar">
@@ -3687,6 +3879,9 @@ function toggleRoomPower(id) {
   logClimate(`${cfg.name} ${r.isOpen ? 'powered on' : 'powered off'}`);
 }
 
+// Targets are shared with the room controller (saved on the server, so every device and the controller agree).
+// Sent 1.5 s after the last tap so a few taps make one save.
+const targetSaveTimers = {};
 function adjustRoomTarget(id, delta) {
   const cur = climate.targets[id] || 21;
   const newT = Math.max(16, Math.min(28, Math.round((cur + delta) * 2) / 2));
@@ -3695,7 +3890,12 @@ function adjustRoomTarget(id, delta) {
   saveClimate();
   renderThermostats();
   renderClimateBanner();
-  logClimate(`${CLIMATE_ROOMS.find(x=>x.id===id).name} target → ${newT}°`);
+  clearTimeout(targetSaveTimers[id]);
+  targetSaveTimers[id] = setTimeout(() => {
+    ctlPost({ action: 'settings', room: id, target: newT })
+      .then(() => logClimate(`${CLIMATE_ROOMS.find(x=>x.id===id).name} target → ${newT}°`))
+      .catch(e => showToast('Couldn\'t save the target: ' + e.message, 'error'));
+  }, 1500);
 }
 
 /* (setDamperFromClick removed 2026-11-05: it changed the bar on screen only and never reached
@@ -4439,6 +4639,7 @@ function syncRoomsFromIzone(zones) {
   if (missing.length) console.warn('iZone sync: missing zones', missing.join(', '));
   saveClimate();
   if (typeof renderThermostats === 'function') renderThermostats();
+  if (roomDetailState.roomId && $('room-detail')?.classList.contains('open')) renderRoomDetail();
 }
 
 /* Fast system-only refresh used after a master AC command.
@@ -4632,6 +4833,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // so Home/iZone tabs show fresh data immediately on tab switch
   fetchIzone().catch(()=>{});
   setInterval(() => fetchIzone().catch(()=>{}), 30 * 1000);
+
+  // Room airflow controller status: now and every minute
+  ctlLoad();
+  setInterval(() => { if (!ctl.busy) ctlLoad(); }, 60 * 1000);
 
   // Swipe-to-close nav on mobile
   let touchStartX = 0;

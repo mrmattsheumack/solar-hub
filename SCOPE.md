@@ -365,6 +365,40 @@ Code changes for it:
   and its % badge are green while exporting, red while importing, grey when idle. (The grey "Grid"
   share in the solar split bar and the "Exported" grey in charts are unchanged.)
 
+## Room airflow controller (2026-11-05, night)
+
+Agreed with Matt: "build as much as you can, working, but only controlling the rooms with sensors and
+keeping the others as they are". Live from 5 Nov.
+
+How it controls: an open iZone zone with no iZone sensor sits its damper at its **Max Air**, so Max Air is
+each room's airflow dial. The iZone accepts `{"ZoneMaxAir":{"Index":i,"MaxAir":0-100 step 5}}` (tested
+5 Nov on Bathroom 30->30, reply `{OK}`), unlike the per-zone setpoint which replies `{ERROR}`.
+
+Where it runs: Netlify scheduled function `climate-control.mjs` every 5 minutes (not the Pi, so it
+could be deployed and tested from a cloud session). Logic and rules: `netlify/climate-core.mjs`.
+Dashboard link: `climate.mjs` (GET status/settings/log; POST settings, airflow by hand, run now).
+Storage: Netlify Blobs store `climate` (keys settings, state, status, log), `@netlify/blobs` 8.2.0.
+The Supabase project was found paused (free tier) on 5 Nov, so it isn't used for this.
+
+Rules (climate-core.mjs):
+- Acts only on rooms with control on AND a room sensor reading under 15 min old, AC on in Heat or Cool,
+  zone open. Otherwise holds. Never touches zone open/close, AC power, mode, fan or setpoint.
+- Heating: below target -> more air, above -> less (cooling the other way). Within 0.3 deg: hold.
+  1 deg or more away: 10 % step, else 5 %. One change per room per 10 min. Room limits 10-80 % default.
+- Anyone else changing that room's Max Air (iZone app, wall panel, dashboard buttons) pauses it for 2 h,
+  and their value becomes the one restored later.
+- Control off for a room (or the whole controller off) puts Max Air back to the starting/manual value,
+  unless someone has changed it since.
+- Settings: whole controller on/off; per room control, target, minAir, maxAir. Targets are now shared
+  (server) rather than per device.
+- Start state: controller on, Mila's on automatic (target 21). Lounge watch-only: its reading is the
+  Ecowitt console's own sensor (1-2 deg off its screen, sitting by the return air). Others: no sensor.
+
+Climate Control page: a "Room control" strip replaces the old Auto/Suggest/Manual buttons (the old
+suggestion banner is retired), "Auto" badge on controlled rooms, room view has an "Automatic airflow"
+switch (needs a sensor) and Airflow -/+ buttons that set Max Air by hand on any room, and Today's
+activity shows the controller's log.
+
 ## Room sensors: Ecowitt WN31 (2026-11-05)
 
 Agreed with Matt (2 Nov, options review): room temperature comes from **Ecowitt WN31**

@@ -22,7 +22,10 @@ Touchpoint: `buildThermoCard` in `solar-hub/public/index.html`. The detail overl
 - [ ] Confirm the reading shows on Climate Control and the dashboard tile; compare with the iZone return air
 - [ ] Run a week; if good, order 5 more and set channels 1-6
 - [ ] Review the iZone Max Air caps (most zones 5-25%) in the iZone app
-- [ ] Later: zone open/close automation from real temps (Suggest mode first)
+- [x] Room airflow controller live 5 Nov (Max Air on rooms with a sensor; see SCOPE.md)
+- [ ] Watch the first few nights of Mila's decisions in Today's activity; tune steps/limits if it hunts
+- [ ] Fix or explain the Ecowitt console's indoor offset (screen ~23, cloud ~21.9) before putting the Lounge on automatic
+- [ ] Later: nudge the main setpoint when sensed rooms are cold but the return air is satisfied
 
 ### Negative airflow value displayed on room cards
 **Reported:** 2026-04-28
