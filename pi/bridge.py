@@ -303,6 +303,14 @@ def _ev_mode() -> str:
         return "auto"
 
 
+def _ev_mode_set_at():
+    try:
+        with open(EV_MODE) as f:
+            return json.load(f).get("set_at")
+    except (FileNotFoundError, ValueError):
+        return None
+
+
 def _ev_offpeak() -> bool:
     try:
         with open(EV_MODE) as f:
@@ -507,6 +515,7 @@ def ev_state():
         "car_status": _ev_car_status(latest, car, plugin),
         "mode": _ev_mode(),
         "offpeak": _ev_offpeak(),
+        "mode_set_at": _ev_mode_set_at(),
         "series": series,
         "decisions": decisions[-600:],
         "totals": {k: round(v, 2) for k, v in totals.items()},

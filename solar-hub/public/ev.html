@@ -210,7 +210,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
         <button aria-pressed="false" data-mode="off" title="Never start a charge (the charger button still works)">Off</button>
       </div>
       <button class="toggle" id="offpeak-btn" aria-pressed="true" title="Charge at full rate 12–6 am at the 8c rate. Turn off ahead of sunny days to charge on solar instead.">
-        <span class="sw" aria-hidden="true"></span><span>Off-peak 12–6 am</span>
+        <span class="sw" aria-hidden="true"></span><span>Off-peak 12–6 am <b id="offpeak-state">ON</b></span>
       </button>
       <span class="note num" id="clock">–</span>
       <span class="pill muted" id="status-pill"><span class="dot"></span><span id="status-text">Connecting…</span></span>
@@ -345,17 +345,36 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
   }));
 
   // ---------- off-peak on/off ----------
-  function showOffpeak(on){
+  let offpeakSetAt = null;
+  function showOffpeak(on, setAt){
     offpeakOn = on;
-    $('offpeak-btn').setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (setAt !== undefined) offpeakSetAt = setAt;
+    const b = $('offpeak-btn');
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    $('offpeak-state').textContent = on ? 'ON' : 'OFF';
+    const when = offpeakSetAt ? new Date(offpeakSetAt.replace(/([+-]\d{2})(\d{2})$/, '$1:$2')) : null;
+    b.title = `Off-peak charging is ${on ? 'ON' : 'OFF'}` + (when && !isNaN(when) ? `, set ${when.toLocaleString('en-AU', { weekday:'short', hour:'numeric', minute:'2-digit' }).toLowerCase()}` : '') +
+      '. Full rate 12–6 am at the 8c rate when on; turn it off ahead of sunny days to charge on solar instead.';
   }
   $('offpeak-btn').addEventListener('click', async () => {
+    offpeakBusy = true; $('offpeak-btn').disabled = true; $('mode-msg').textContent = 'Checking…';
+    try {
+      // The tap is meant to flip what's on screen. If the screen was out of date (e.g. the iPad just woke up),
+      // the Pi's real setting is different: show that and ask again, rather than flipping the wrong way.
+      const cur = await fetch(EV_API, { signal: AbortSignal.timeout(10000) }).then(r => r.ok ? r.json() : null).catch(() => null);
+      if (cur && typeof cur.offpeak === 'boolean' && cur.offpeak !== offpeakOn) {
+        showOffpeak(cur.offpeak, cur.mode_set_at);
+        $('mode-msg').textContent = `The screen was out of date: off-peak charging is already ${cur.offpeak ? 'ON' : 'OFF'}. Tap again if you want it ${cur.offpeak ? 'off' : 'on'}.`;
+        setTimeout(() => { $('mode-msg').textContent = ''; }, 10000);
+        return;
+      }
+    } finally { offpeakBusy = false; $('offpeak-btn').disabled = false; }
     const want = !offpeakOn; offpeakBusy = true; $('offpeak-btn').disabled = true; $('mode-msg').textContent = 'Saving…';
     try {
       const r = await fetch(EV_API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({offpeak: want}), signal: AbortSignal.timeout(10000) });
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      showOffpeak(want);
-      $('mode-msg').textContent = want ? 'Off-peak charging on: full rate 12–6 am.' : 'Off-peak charging off: the car will only charge on solar (or when you press the charger button).';
+      showOffpeak(want, new Date().toISOString());
+      $('mode-msg').textContent = want ? 'Off-peak charging ON: full rate 12–6 am at 8c.' : 'Off-peak charging OFF: the car will only charge on solar (or when you press the charger button).';
       setTimeout(() => { $('mode-msg').textContent = ''; }, 8000);
       if (lastD) renderNow(lastD);
     } catch (e) { $('mode-msg').textContent = "Couldn't save. Check the Pi is online and try again."; }
@@ -869,7 +888,7 @@ table.save tr.total td{border-bottom:0;border-top:2px solid var(--border-strong)
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json(); failures = 0; $('banner').hidden = true;
       carInfo = d.car || null; lastPlugin = d.plugin || null;
-      if (!offpeakBusy && typeof d.offpeak === 'boolean') showOffpeak(d.offpeak);
+      if (!offpeakBusy && typeof d.offpeak === 'boolean') showOffpeak(d.offpeak, d.mode_set_at);
       renderTotals(d.totals || {});
       renderNow(d); renderChart(d.series);
     } catch (e) {
