@@ -475,13 +475,16 @@
   }
 
   // ---------- savings: its own tabs (today, this week, month, year, all time), always up to now ----------
-  // Four figures, all at the AGL rates in Hub.RATE and excluding the daily supply charge (paid either way):
+  // Four figures, all at the AGL rates in Hub.RATE and excluding the daily supply charge (paid either way).
+  // Car charging is measured against charging off-peak (Matt's default: cars would charge 12-6 am at 8c
+  // anyway), the house against the general rate:
   //   Spent on the grid  = on-peak kWh x general + off-peak kWh x off-peak - exported kWh x feed-in
-  //   Without solar      = the same use with no panels: the solar you used bought at the general rate,
-  //                        no feed-in credit, off-peak kept as it was
-  //   Saved by solar     = without solar - spent = solar used x general + exported x feed-in
-  //   Saved by off-peak  = off-peak kWh x (general - off-peak), against paying the general rate for it
-  // So spent + solar + off-peak = everything used x the general rate, which is what the bar shows.
+  //   Without solar      = the same use with no panels: solar used in the house bought at the general
+  //                        rate, solar into the cars bought off-peak, no feed-in credit
+  //   Saved by solar     = without solar - spent = house solar x general + car solar x off-peak + exported x feed-in
+  //   Saved by off-peak  = house off-peak kWh x (general - off-peak), less what on-peak car charging cost
+  //                        over the off-peak rate. Off-peak car charging is the baseline, so it saves nothing.
+  // So spent + solar + off-peak = house use x general + car use x off-peak, which is what the bar shows.
   const SOLAR_START = '2024-12-19';   // first day SEMS shows solar (the meter starts a little earlier)
   const PI_START = '2026-10-28', METER_START = '2026-11-02';
   let saveTab = 'month';
@@ -538,20 +541,22 @@
     const offK = Math.max(0, T.impOff), peakK = Math.max(0, T.impPeak), solarUsed = Math.max(0, T.houseSolar + T.carSolar);
     const peak$ = peakK * g, off$ = offK * o, feed$ = T.exp * f;
     const spent = peak$ + off$ - feed$;
-    const solarHouse = T.houseSolar * g, solarCars = T.carSolar * g, solarSave = solarHouse + solarCars + feed$;
+    const solarHouse = T.houseSolar * g, solarCars = T.carSolar * o, solarSave = solarHouse + solarCars + feed$;
     const without = spent + solarSave;
     const carOffK = Math.min(offK, Math.max(0, T.carOff)), houseOffK = Math.max(0, offK - carOffK);
-    const offCars = carOffK * (g - o), offHouse = houseOffK * (g - o), offSave = offCars + offHouse;
+    const carPeakK = Math.min(peakK, Math.max(0, T.carGrid));
+    const offHouse = houseOffK * (g - o), carPeakExtra = carPeakK * (g - o), offSave = offHouse - carPeakExtra;
     const allGeneral = spent + solarSave + offSave, saved = solarSave + offSave;
     const supply = SUPPLY * T.days;
     const share = allGeneral > 0 ? Math.min(100, Math.round(100 * saved / allGeneral)) : 0;
     const perDay = T.days > 1 ? ` · about ${money(saved / T.days)} a day over ${T.days.toLocaleString('en-AU')} days` : '';
 
     // Bar: what it would all cost at the general rate, split into what you paid and what you didn't
-    const seg = (v, col, lbl) => v > 0 && allGeneral > 0 ? `<span style="width:${(100 * v / allGeneral).toFixed(2)}%;background:${col}" title="${esc(lbl + ' ' + money(v))}"></span>` : '';
-    const bar = `<div><div class="save-bar" role="img" aria-label="${esc(`Of ${money(allGeneral)} at the general rate: ${money(Math.max(0, spent))} spent, ${money(solarSave)} saved by solar, ${money(offSave)} saved by off-peak`)}">` +
-      seg(Math.max(0, spent), 'var(--import)', 'Spent on the grid') + seg(solarSave, C.gen, 'Saved by solar') + seg(offSave, C.impOff, 'Saved by off-peak') + `</div>` +
-      `<div class="save-key"><span><i style="background:var(--import)"></i>Spent ${money(spent)}</span><span><i style="background:${C.gen}"></i>Solar ${money(solarSave)}</span><span><i style="background:${C.impOff}"></i>Off-peak ${money(offSave)}</span><span class="muted">All at ${c(g)}: ${money(allGeneral)}</span></div></div>`;
+    const barTot = Math.max(0, spent) + solarSave + Math.max(0, offSave);
+    const seg = (v, col, lbl) => v > 0 && barTot > 0 ? `<span style="width:${(100 * v / barTot).toFixed(2)}%;background:${col}" title="${esc(lbl + ' ' + money(v))}"></span>` : '';
+    const bar = `<div><div class="save-bar" role="img" aria-label="${esc(`Of a full price of ${money(allGeneral)}: ${money(Math.max(0, spent))} spent, ${money(solarSave)} saved by solar, ${money(offSave)} saved by off-peak`)}">` +
+      seg(Math.max(0, spent), 'var(--import)', 'Spent on the grid') + seg(solarSave, C.gen, 'Saved by solar') + seg(Math.max(0, offSave), C.impOff, 'Saved by off-peak') + `</div>` +
+      `<div class="save-key"><span><i style="background:var(--import)"></i>Spent ${money(spent)}</span><span><i style="background:${C.gen}"></i>Solar ${money(solarSave)}</span><span><i style="background:${C.impOff}"></i>Off-peak ${money(offSave)}</span><span class="muted" title="${esc(`house at ${c(g)}, cars at ${c(o)} off-peak`)}">Full price: ${money(allGeneral)}</span></div></div>`;
 
     const row = (lbl, val, cls = '', col = '', tip = '') => `<div class="r"${tip ? ` title="${esc(tip)}"` : ''}><span>${col ? `<i style="background:${col}"></i>` : ''}${lbl}</span><b class="${cls}">${val}</b></div>`;
     const tile = (cls, h, v, sub, rows) => `<div class="save-tile ${cls}"><h3>${h}</h3><div class="v">${v}</div><div class="s">${sub}</div>${rows}</div>`;
@@ -563,23 +568,25 @@
         row(`Supply, ${T.days.toLocaleString('en-AU')} day${T.days === 1 ? '' : 's'}`, money(supply), 'cost muted', '', `${money(SUPPLY)} a day, paid with or without solar`)) +
       tile('without', 'Without solar', money(without), `the same use, no panels`,
         row('Grid as it was', money(spent + feed$), 'cost', '', 'on-peak plus off-peak, before the feed-in credit') +
-        row(`Solar <em>${kw(solarUsed)}</em>`, '+' + money(solarHouse + solarCars), 'cost', C.gen, `bought from the grid at ${c(g)} instead`) +
+        row(`House solar <em>${kw(T.houseSolar)}</em>`, '+' + money(solarHouse), 'cost', C.house, `bought from the grid at ${c(g)} instead`) +
+        row(`Car solar <em>${kw(T.carSolar)}</em>`, '+' + money(solarCars), 'cost', C.car, `charged off-peak at ${c(o)} instead`) +
         row('No feed-in credit', '+' + money(feed$), 'cost', C.exp) +
         row('Plus supply either way', money(supply), 'cost muted')) +
       tile('solar', 'Saved by solar', money(solarSave), `${without > 0 ? Math.min(100, Math.round(100 * solarSave / without)) : 0}% off the no-solar cost`,
         row(`House <em>${kw(T.houseSolar)}</em>`, money(solarHouse), '', C.house, `solar used in the house instead of the grid at ${c(g)}`) +
-        row(`Cars <em>${kw(T.carSolar)}</em>`, money(solarCars), '', C.car, `solar into the cars instead of the grid at ${c(g)}`) +
+        row(`Cars <em>${kw(T.carSolar)}</em>`, money(solarCars), '', C.car, `solar into the cars instead of charging off-peak at ${c(o)}`) +
         row(`Exported <em>${kw(T.exp)}</em>`, money(feed$), '', C.exp, `feed-in credit at ${c(f)}`)) +
-      tile('off', 'Saved by off-peak', money(offSave), `${c(o)} instead of ${c(g)}`,
-        row(`Cars <em>${kw(carOffK)}</em>`, money(offCars), '', C.car, 'car charging in the off-peak window') +
+      tile('off', 'Saved by off-peak', money(offSave), `house at ${c(o)} instead of ${c(g)}`,
         row(`House <em>${kw(houseOffK)}</em>`, money(offHouse), '', C.house, 'the rest of the house overnight') +
+        row(`Cars off-peak <em>${kw(carOffK)}</em>`, money(0), 'muted', C.impOff, `the baseline: car charging is costed against ${c(o)} off-peak`) +
+        (carPeakK > 0.05 ? row(`Cars on-peak <em>${kw(carPeakK)}</em>`, '-' + money(carPeakExtra), 'cost', 'var(--import)', `charged at ${c(g)}: ${c(g - o)} a kWh more than off-peak`) : '') +
         (from < PI_START ? row('Before 28 Oct 2026', 'not known', 'muted', '', 'no record of when grid power was used before the Pi started logging') : ''));
 
     $('save').innerHTML =
-      `<div class="save-sum"><div class="save-hl"><div class="v">${money(saved)}</div><div class="s">saved ${name}: <b>${share}%</b> off buying it all from the grid at the general rate${perDay}</div></div>${bar}</div>` +
+      `<div class="save-sum"><div class="save-hl"><div class="v">${money(saved)}</div><div class="s">saved ${name}: <b>${share}%</b> off the full price (no solar, house at ${c(g)}, cars at ${c(o)} off-peak)${perDay}</div></div>${bar}</div>` +
       `<div class="save-tiles">${tiles}</div>`;
 
-    const notes = ['AGL rates incl. GST, as on the Oct 2026 bill; supply charge shown but not counted as a saving.'];
+    const notes = ['AGL rates incl. GST, as on the Oct 2026 bill; supply charge shown but not counted as a saving. Car charging savings are measured against charging off-peak at ' + c(o) + '.'];
     if (from < PI_START) notes.push('Before the Pi\'s log (28 Oct 2026) there is no time-of-use split, so grid power is costed at the general rate and off-peak savings are not counted; earlier rates may also have differed.');
     if (from < METER_START) notes.push('Before 2 Nov 2026 grid figures come from SEMS, which loses the meter at times (most evenings since about July 2026), so grid use and spend are understated for those months.');
     if (waiting) notes.push(`Still fetching ${waiting} period${waiting === 1 ? '' : 's'} from SEMS…`);

@@ -355,6 +355,11 @@ Code changes for it:
   months with smart-meter days), All time = 19-31 Dec 2024 by day, then whole years from the SEMS year
   window, then this year by month. SEMS lifetime check: 2024 139 kWh solar, 2025 13,716 kWh solar,
   12,964 kWh bought, 7,685 kWh exported.
+- Change (2026-11-06, Matt): car charging savings are measured against charging off-peak (8c), not the
+  general rate. Solar into the cars saves car solar x 8c; off-peak car charging saves nothing (it's the
+  baseline); on-peak car charging shows as a cost against off-peak (x 19.6c) in the off-peak tile.
+  House use is still measured against the general rate. The bar's "Full price" = house use x 27.6c +
+  car use x 8c. (The car charging efficiency pie on the dashboard and EV page is unchanged.)
 - Caveats shown on the card when they apply: before 28 Oct 2026 there's no time-of-use split (grid
   costed at the general rate, off-peak savings not counted, today's rates used for old periods); before
   2 Nov 2026 SEMS grid figures are understated (meter drop-outs).
