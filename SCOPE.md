@@ -336,6 +336,26 @@ Code changes for it:
 - `hub.js`: the notes strip drawing and dismiss handling moved into `paintNotes(el, notes, rerender)`
   (the dashboard uses it unchanged); `warnNotes(list)` accepts a filtered list.
 
+## Moved off Netlify: the dashboard runs on the Pi (2026-11-07)
+
+- Netlify paused the site on 7 Nov (about 7 pm): "reached its usage limits". The free plan has 300
+  credits a month, hard limit. Rough use: function compute about 35-45 credits a day (about 10,000
+  function calls a day at 1-2 s each, billed by wall time at 1 GB), 2 credits per 10,000 requests, and
+  15 credits per production deploy (about 40 pushes since 30 Oct). That's well over 1,000 a month, so
+  even the US$9 Personal plan (1,000) wouldn't hold. Matt chose to host it on the Pi.
+- New address: https://eaglecam.taile03fa1.ts.net:10000 (Tailscale Funnel port 10000; 443 stays the
+  iZone bridge, 8443 the bird call audio server).
+- `pi/site-server/server.mjs` serves `solar-hub/public` and runs the same function files at the same
+  `/.netlify/functions/` paths, with a CDN-like cache (public max-age) and shared in-flight requests.
+  Scheduled `climate-control` runs every 5 minutes. Details and commands: `pi/site-server/README.md`.
+- `netlify/blobs.mjs`: the climate functions' store is files in `~/solar-hub-site-data` on the Pi
+  (Netlify Blobs when run on Netlify). The climate settings started fresh from the defaults (Mila's
+  room on, 21 degrees); the old Netlify copy wasn't reachable while the site was paused.
+- Deploys: push to main as before; the Pi pulls every 2 minutes (`home-dashboard-update.timer`).
+- Keys: `~/solar-hub-site.env` on the Pi, filled by Matt with `fill-env.sh`. Same names as Netlify.
+- Netlify: the site is left as it is (paused). Other projects on the same Netlify team share the 300
+  credits, so stopping this site's auto-deploys there would stop pushes eating their credits.
+
 ## Energy page savings rebuilt (2026-11-04)
 
 - The Savings card has its own tabs: Today, Week (Monday to now), Month, Year and All time (since the

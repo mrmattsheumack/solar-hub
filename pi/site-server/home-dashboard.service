@@ -1,0 +1,17 @@
+[Unit]
+Description=Home Dashboard web server (site + functions, was on Netlify)
+After=network-online.target izone-bridge.service
+Wants=network-online.target
+
+[Service]
+User=matt
+WorkingDirectory=/home/matt/solar-hub-site
+EnvironmentFile=/home/matt/solar-hub-site.env
+ExecStart=/usr/bin/node /home/matt/solar-hub-site/pi/site-server/server.mjs
+Restart=always
+RestartSec=5
+Nice=5
+MemoryMax=400M
+
+[Install]
+WantedBy=multi-user.target
